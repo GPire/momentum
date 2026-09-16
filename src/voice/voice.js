@@ -1,7 +1,7 @@
 import { monthKey } from '../core/constants.js';
 import { logETL } from '../core/utils.js';
 import { AudioSynth } from '../core/audio.js';
-import { VaultDAO } from '../core/vault.js';
+import { VaultDAO, getCatsByType } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { segmentIntents, FUZZY_AMOUNTS } from './intent-segmenter.js';
@@ -13,7 +13,15 @@ import { t as tVoice } from '../i18n/ui-strings.js';
 // Locale pieno che il Web Speech API richiede (BCP-47), a partire dal codice
 // corto già usato ovunque nell'app per il QA testuale — un'unica mappa,
 // niente formati diversi in posti diversi.
-export const SPEECH_LOCALE = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT' };
+export const SPEECH_LOCALE = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', pt: 'pt-PT', nl: 'nl-NL' };
+
+export function spokenCategory(description, type, categories) {
+  const normalize = value => String(value || '').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const text = normalize(description);
+  if (!text) return null;
+  const matches = categories.filter(c => c.type === type && normalize(c.displayName || c.name) === text);
+  return matches.length === 1 ? matches[0].id : null;
+}
 
 // BUG REALE trovato facendo ricerca sui problemi di chi usa la voce in
 // italiano E in inglese (2026-08-17): il riconoscimento vocale era fissato
@@ -42,6 +50,7 @@ const VoiceCore = {
   recognition: null,
   isListening: false,
   init(container) {
+    const session = this._session = (this._session || 0) + 1;
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
       // BROWSER SENZA DETTATURA (Firefox desktop, diversi browser Android
@@ -70,6 +79,7 @@ const VoiceCore = {
     // impossibile per costruzione, non solo probabile.
     if (this.recognition) { try { this.recognition.abort(); } catch (_) {} }
     this.isListening = false;
+    this._starting = false;
     this.recognition = new SpeechRec();
     // Bug reale segnalato dall'utente: con continuous=false il microfono
     // catturava UN SOLO comando e si fermava, ignorando tutto quello detto
@@ -79,8 +89,12 @@ const VoiceCore = {
     this.recognition.interimResults = false;
     this._lingua = linguaVoceAttiva();
     this.recognition.lang = SPEECH_LOCALE[this._lingua] || 'it-IT';
+    const processedResults = new Set();
     
     this.recognition.onstart = () => {
+      if (session !== this._session) return;
+      processedResults.clear();
+      this._starting = false;
       this.isListening = true;
       const btn = container.querySelector('#voice-rec-btn');
       if (btn) btn.classList.add('mic-listening');
@@ -88,6 +102,8 @@ const VoiceCore = {
     };
     
     this.recognition.onend = () => {
+      if (session !== this._session) return;
+      this._starting = false;
       this.isListening = false;
       const btn = container.querySelector('#voice-rec-btn');
       if (btn) btn.classList.remove('mic-listening');
@@ -114,6 +130,8 @@ const VoiceCore = {
     // Ogni codice d'errore del Web Speech API ha qui la sua frase, mai un
     // generico "errore" che non aiuta a risolvere.
     this.recognition.onerror = (e) => {
+      if (session !== this._session) return;
+      this._starting = false;
       this.isListening = false;
       const btn = container.querySelector('#voice-rec-btn');
       if (btn) btn.classList.remove('mic-listening');
@@ -130,13 +148,7 @@ const VoiceCore = {
       if (msg) { AudioSynth.play('friction'); showToast(msg, 'error'); }
     };
 
-    this.recognition.onresult = (e) => {
-      // Con continuous=true, e.results accumula TUTTE le frasi pronunciate
-      // nella sessione — va processata solo l'ultima appena finalizzata,
-      // non sempre la prima (bug che avrebbe ripetuto in loop il primo comando).
-      const lastIdx = e.results.length - 1;
-      if (!e.results[lastIdx].isFinal) return;
-      const text = e.results[lastIdx][0].transcript;
+    const processTranscript = (text) => {
       logETL(`Dettatura Vocale: "${text}"`);
 
       // Domanda vocale → motore Q&A (src/ai/qa-engine.js): risposta
@@ -183,18 +195,20 @@ const VoiceCore = {
       const results = VoiceParser.parse(text);
       if (results && results.length) {
         const recordDirect = (parsed) => {
-          momentumOrchestrator?.recordTransaction({
+          window.momentumOrchestrator?.recordTransaction({
             description: parsed.description, catId: parsed.category,
             amount: parsed.amount, date: new Date(), type: parsed.type,
           }) || VaultDAO.addTransaction(monthKey(new Date()), {
             id: Date.now() + Math.random(), amount: parsed.amount, type: parsed.type,
             category: parsed.category, description: parsed.description, date: new Date().toISOString(),
           });
+          window.renderDashboard?.();
+          if (VaultDAO.state.currentView === 'analysis') window.renderAnalysis?.({ skipHeavyForecast: true });
         };
 
         // Eventi calendario (promemoria/appuntamenti) sempre esportati in .ics.
         results.filter(r => r.intent === 'reminder' || r.intent === 'appointment').forEach(parsed => {
-          CalendarBridge.createEvent(parsed);
+          window.createVoiceCalendarEvent(parsed);
           // Esporta subito il singolo evento in .ics: è il modo reale (unico
           // possibile da una webapp) per farlo arrivare nel Calendario di
           // sistema — l'utente tocca il file per confermare l'aggiunta,
@@ -203,7 +217,7 @@ const VoiceCore = {
           if (lastEvent) window.exportSingleEventToICS(lastEvent);
         });
         if (results.some(r => r.intent === 'reminder' || r.intent === 'appointment')) {
-          renderCalendarEvents();
+          window.renderCalendarEvents();
         }
 
         // STIMA PREDITTIVA degli importi mancanti: una spesa detta senza cifra
@@ -232,7 +246,7 @@ const VoiceCore = {
         // e ogni voce registrata lo addestra ancora (recordTransaction→learn).
         if (window.momentumOrchestrator) {
           txs.forEach(t => {
-            if (t.type === 'uscita') {
+            if (t.type === 'uscita' && !t.categoryExplicit) {
               try {
                 const c = window.momentumOrchestrator.classify(t.description, t.amount, new Date());
                 if (c && c.cat) t.category = c.cat;
@@ -306,11 +320,32 @@ const VoiceCore = {
         showToast(tVoice('voiceParseError', this._lingua), "error");
       }
     };
+    this.recognition.onresult = (event) => {
+      if (session !== this._session) return;
+      // A browser may finalize several phrases together, followed by an
+      // interim phrase. Track result indices, not text: repeated purchases
+      // with the same words are legitimate separate utterances.
+      for (let index = event.resultIndex ?? 0; index < event.results.length; index++) {
+        const result = event.results[index];
+        if (!result.isFinal || processedResults.has(index)) continue;
+        processedResults.add(index);
+        const text = result[0]?.transcript?.trim();
+        if (text) processTranscript(text);
+      }
+    };
   },
   toggle() {
     if (this.recognition) {
+      if (this._starting) return;
       if (this.isListening) this.recognition.stop();
-      else this.recognition.start();
+      else {
+        this._starting = true;
+        try { this.recognition.start(); }
+        catch (error) {
+          this._starting = false;
+          this.recognition.onerror?.({ error: error.name === 'NotAllowedError' ? 'not-allowed' : 'audio-capture' });
+        }
+      }
     } else {
       showToast(tVoice('voiceMicNotSupported', this._lingua), "error");
     }
@@ -556,7 +591,7 @@ const VoiceParser = {
       desc = desc.replace(reg, '');
     });
 
-    desc = rimuoviElisioni(desc).replace(/[^a-zA-Z0-9\sàèéìòùÀÈÉÌÒÙ]/g, '').replace(/\s+/g, ' ').trim();
+    desc = rimuoviElisioni(desc).replace(/[^\p{L}\p{M}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim();
     // Un connettivo isolato a fine descrizione ("Magliette e") è sempre un
     // residuo del taglio fra due clausole (es. "ho comprato magliette e ho
     // speso…", assorbito da _resolveAmountlessPurchase sopra), mai una
@@ -594,6 +629,8 @@ const VoiceParser = {
     } else {
       catId = NeuralNexus.predict(desc, amount).cat;
     }
+    const namedCategory = spokenCategory(desc, type, getCatsByType(type));
+    if (namedCategory) catId = namedCategory;
     // Rete di sicurezza oltre allo strip esplicito sopra: se resta comunque
     // un residuo troppo corto (es. 1-2 lettere di una parola tagliata a
     // metà) per essere una descrizione leggibile, meglio il fallback
@@ -604,6 +641,7 @@ const VoiceParser = {
       amount,
       type,
       category: catId,
+      ...(namedCategory ? { categoryExplicit: true } : {}),
       description: descIsMeaningful ? desc : (type === 'entrata' ? "Entrata Vocale" : type === 'invest' ? "Investimento Vocale" : "Spesa Vocale"),
       ...(amountMissing ? { amountMissing: true } : {}),
       // Serve a _resolveAmountlessPurchase sotto: distingue "non aveva

@@ -5,6 +5,7 @@ import { simpleHash } from './utils.js';
 import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
+import { reviseTripExpense, revisionDigest } from '../trips/expense-revisions.js';
 import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
 
@@ -631,20 +632,35 @@ const VaultDAO = {
     return { id, prima, dopo: newCategory };
   },
 
+  reviseTripTransaction(id, tripId, changes, revisionId, expectedDigest) {
+    const entries = Object.entries(this.state.transactions || {});
+    const location = entries.find(([, rows]) => rows.some(tx => String(tx.id) === String(id) && tx.businessTripId === tripId));
+    if (!location || String(id) in (this.state.deletedTx || {})) return null;
+    const [month, rows] = location;
+    const index = rows.findIndex(tx => String(tx.id) === String(id));
+    if (revisionDigest(rows[index]) !== expectedDigest) return null;
+    const next = reviseTripExpense(rows[index], changes, revisionId);
+    const target = next.date.slice(0, 7);
+    rows.splice(index, 1);
+    (this.state.transactions[target] ||= []).push(next);
+    this.save();
+    return next;
+  },
+
   // Applica un merge di sync differenziale (src/mesh/sync.js): unisce le
   // transazioni ricevute da un device fidato senza toccare quelle esistenti
   // (hash chain intatta) e riallinea la testa della catena. Ritorna quante
   // ne sono state aggiunte. Usato dalla mesh al pairing e per il recupero.
   applySyncMerge(incomingByMonth) {
-    const { merged, added, tombstones, removed } = mergeTransactions(this.state.transactions, incomingByMonth, this.state.deletedTx || {});
+    const { merged, added, tombstones, removed, updated } = mergeTransactions(this.state.transactions, incomingByMonth, this.state.deletedTx || {});
     this.state.transactions = merged;
     this.state.deletedTx = tombstones;
     this.state.lastHash = reconcileHead(merged);
     // Si salva anche quando arrivano solo CANCELLAZIONI (removed > 0): prima il
     // salvataggio dipendeva dalle sole aggiunte, quindi una cancellazione
     // ricevuta dall'altro dispositivo si perdeva al riavvio.
-    if (added > 0 || removed > 0) this.save();
-    return added;
+    if (added > 0 || removed > 0 || updated > 0) this.save();
+    return added + updated;
   },
 
   // Calcola SOLO cosa manca rispetto a tx_log — non scrive nulla (pura

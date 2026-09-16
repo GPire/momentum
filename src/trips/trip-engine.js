@@ -58,8 +58,17 @@ export const MEAL_SUBTYPES = ['colazione', 'pranzo', 'cena'];
 // classico va-e-vieni "nota spese rimandata indietro" lamentato ovunque
 // nelle recensioni dei prodotti concorrenti.
 const SOGLIA_GIUSTIFICATIVO = 25;
-export function needsReceipt(expense) {
-  return expense.amount >= SOGLIA_GIUSTIFICATIVO && !expense.receiptImage;
+export function parseTripAmount(value) {
+  const text = String(value ?? '').trim();
+  if (!/^\d+(?:[.,]\d{1,2})?$/.test(text)) return null;
+  const amount = Number(text.replace(',', '.'));
+  return Number.isSafeInteger(Math.round(amount * 100)) ? amount : null;
+}
+
+export function needsReceipt(expense, policy) {
+  const threshold = typeof policy?.receiptThreshold === 'number' && Number.isFinite(policy.receiptThreshold) && policy.receiptThreshold >= 0
+    ? policy.receiptThreshold : SOGLIA_GIUSTIFICATIVO;
+  return expense.amount >= threshold && !expense.receiptImage;
 }
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
@@ -149,7 +158,7 @@ export function mergeTrips(a, b) {
   // rispondere due volte (prima "serve una modifica", poi "approvata") e
   // l'ultima parola è quella che conta.
   const apA = a.approval, apB = b.approval;
-  const tsAp = (x) => (x ? (+x.reviewedAt || +x.sentAt || 0) : -1);
+  const tsAp = (x) => (x ? Math.max(+x.reviewedAt || 0, +x.sentAt || 0, +x.invalidatedAt || 0) : -1);
   const approval = tsAp(apB) > tsAp(apA) ? apB : apA;
   return {
     ...recente,
@@ -284,7 +293,8 @@ export function exportTripData(trip, allTransactions) {
       descrizione: t.description || '',
       importo: t.amount,
       scontrino: t.receiptImage || null,
-      giustificativoMancante: needsReceipt(t),
+      giustificativoMancante: needsReceipt(t, trip.receiptPolicy),
+      ...(t.tripRevisionConflict ? { revisionConflict: true } : {}),
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
@@ -297,5 +307,5 @@ export function exportTripData(trip, allTransactions) {
   // (CSV e stampa) lo rende visibile SUBITO a chi approva, prima di scorrere
   // l'intero elenco — mai un blocco, solo un avviso di sintesi.
   const numeroGiustificativiMancanti = expenses.filter(e => e.giustificativoMancante).length;
-  return { tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
+  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
 }

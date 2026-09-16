@@ -6,10 +6,8 @@
 // Expense, o altri) e Momentum non può sostituirlo — ma può togliere la
 // doppia battitura, che è il vero attrito segnalato.
 //
-// ONESTÀ verificata con ricerca reale, non assunta: un'integrazione API vera
-// con SAP Concur richiede diventare partner certificato del loro App Center
-// (accordo commerciale a pagamento + certificazione tecnica) — non
-// raggiungibile scrivendo solo codice, e qui non si finge il contrario.
+// Gli adapter API richiedono accessi e autorizzazioni specifici del cliente.
+// Questo modulo prepara l'inoltro manuale, non è un adapter API.
 //
 // Il ponte che ESISTE davvero, verificato per ciascuna voce sotto: questi
 // strumenti offrono ai propri utenti un indirizzo email a cui inoltrare uno
@@ -74,4 +72,10 @@ export function scontriniDaInviare(expenses = []) {
 
 export function scontriniGiaInviati(expenses = []) {
   return expenses.filter(t => t?.receiptImage && t.bridgeSentAt);
+}
+
+// Web Share and mailto cannot attest delivery to a company system.
+export function prepareReceiptDelivery(expense, channel, now = new Date().toISOString()) {
+  if (!['share', 'email'].includes(channel)) throw new TypeError('Invalid delivery channel');
+  return { ...expense, bridgePreparedAt: now, bridgePreparationChannel: channel };
 }

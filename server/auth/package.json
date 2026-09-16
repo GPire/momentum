@@ -1,0 +1,1 @@
+{"name":"momentum-auth","private":true,"type":"module","scripts":{"test":"node --test --test-isolation=none *.test.js"},"dependencies":{"@better-auth/passkey":"1.7.4","better-auth":"1.7.4"}}

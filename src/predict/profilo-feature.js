@@ -81,7 +81,7 @@ export function featureVisibili(state = {}) {
 
   return {
     // ── Analisi Tensor (sezione intera) ──
-    analisiTensor: investe,
+    analisiTensor: investe || (!minorenne && state.uiComplexitySetByUser === true && resolveClarity(state) === 'completo'),
     tesseraInvestito: investe,
     criptovalute: investe,
 

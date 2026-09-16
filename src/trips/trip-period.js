@@ -24,6 +24,11 @@
 //
 // Funzioni pure: nessun DOM, nessuna rete.
 'use strict';
+import { giornoLocale } from '../core/date-utils.js';
+
+// Date-only declarations are civil dates; timestamps use the same local
+// calendar day as the transaction list. Never reinterpret UTC as a date.
+const expenseDay = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '')) ? value : value ? giornoLocale(value) : null;
 
 // Percentuali di riduzione della diaria quando il pasto è offerto da altri.
 // Sono le proporzioni usate in Germania e riprese da gran parte dei
@@ -83,14 +88,14 @@ export function giorniDelPeriodo(trip) {
 export function speseFuoriPeriodo(trip, expenses = []) {
   const giorni = new Set(giorniDelPeriodo(trip));
   if (!giorni.size) return [];
-  return expenses.filter(e => e?.date && !giorni.has(String(e.date).slice(0, 10)));
+  return expenses.filter(e => e?.date && !giorni.has(expenseDay(e.date)));
 }
 
 // Giorni del periodo SENZA nessuna spesa registrata. È l'informazione che
 // manca ovunque: una giornata dimenticata la scopre chi approva, e la nota
 // spese torna indietro.
 export function giorniScoperti(trip, expenses = []) {
-  const conSpesa = new Set(expenses.map(e => String(e?.date || '').slice(0, 10)));
+  const conSpesa = new Set(expenses.map(e => expenseDay(e?.date)));
   return giorniDelPeriodo(trip).filter(g => !conSpesa.has(g));
 }
 

@@ -536,6 +536,36 @@ RELEASES.push({
   ],
 });
 
+RELEASES.push({
+  "versione": "2026-09-13",
+  "voci": [
+    {
+      "colore": "primary",
+      "icona": "<rect x=\"4\" y=\"5\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M8 5V3h8v2M8 12l3 3 5-5\"/>",
+      "titolo": "Trasferte, senza ricominciare",
+      "testo": "Modifica le spese già inserite, apri gli allegati e conserva le revisioni. Le spese restano visibili anche quando imposti le date del viaggio dopo averle registrate.",
+      "titoloKey": "wn0913_0",
+      "testoKey": "wn0913_1"
+    },
+    {
+      "colore": "green",
+      "icona": "<rect x=\"4\" y=\"5\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M8 5V3h8v2M8 12l3 3 5-5\"/>",
+      "titolo": "Un resoconto da verificare",
+      "testo": "Condividi il riepilogo o esporta il file completo con gli allegati. Chi lo riceve può aprirlo in Momentum e salvare lo storico sul proprio dispositivo.",
+      "titoloKey": "wn0913_2",
+      "testoKey": "wn0913_3"
+    },
+    {
+      "colore": "gold",
+      "icona": "<rect x=\"4\" y=\"5\" width=\"16\" height=\"16\" rx=\"3\"/><path d=\"M8 5V3h8v2M8 12l3 3 5-5\"/>",
+      "titolo": "Approvazioni legate ai dati",
+      "testo": "Se cambi dati o allegati, serve una nuova revisione. Le versioni in conflitto bloccano l’approvazione. I costi offerti dall’azienda restano separati dal rimborso.",
+      "titoloKey": "wn0913_4",
+      "testoKey": "wn0913_5"
+    }
+  ]
+});
+
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

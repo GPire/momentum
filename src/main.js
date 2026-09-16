@@ -1,4 +1,31 @@
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
+import './ui/trip-workspace.css';
+import { tripStatusCopy } from './i18n/trip-status.js';
+import { tripApprovalCopy } from './i18n/trip-approval.js';
+import { reviewHistoryCopy } from './i18n/review-history.js';
+import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
+import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
+import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
+import { tripAttachmentCopy } from './i18n/trip-attachment.js';
+import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
+import { tripExportCopy } from './i18n/trip-export.js';
+import { receiptDeliveryCopy } from './i18n/receipt-delivery.js';
+import { prepareReceiptDelivery } from './trips/expense-bridge.js';
+import { tripEditCopy, tripReviewStaleCopy } from './i18n/trip-edit.js';
+import { tripReviewSnapshot, fingerprintTripSnapshot } from './trips/review-fingerprint.js';
+import { readReviewArchive, isReviewAttachment, MAX_REVIEW_ARCHIVE_BYTES } from './trips/review-archive.js';
+import { reviewImportCopy } from './i18n/review-import.js';
+import { revisionDigest, revisionHeads } from './trips/expense-revisions.js';
+import { tripPolicyCopy } from './i18n/trip-policy.js';
+import { expensePolicyCopy } from './i18n/expense-policy.js';
+import { policyDetailsCopy } from './i18n/policy-details.js';
+import { tripPolicyFromTemplate } from './trips/policy-template.js';
+import { companyTripCopy } from './i18n/company-trip.js';
+import { companyStatusCopy } from './i18n/company-status.js';
+import { companySubmitCopy, companySubmitError } from './i18n/company-submit.js';
+import { shareTripReceipts } from './trips/receipt-sharing.js';
+import { parseTripAmount } from './trips/trip-engine.js';
 import { fitAmountInput, fitVisibleAmounts } from './ui/amount-input.js';
 import { normalizeHex, hexToHsl, hslToHex, categoryInk } from './ui/category-color.js';
 window.addEventListener('resize', fitVisibleAmounts);
@@ -30,7 +57,7 @@ import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } 
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
-import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo } from './trips/trip-period.js';
+import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
@@ -283,7 +310,8 @@ import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js
 import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
 import { extractTransactionsFromItems } from './import/pdf-parser.js';
 import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips } from './trips/trip-engine.js';
-import { encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
+import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
+import { reviewConflictCopy } from './i18n/review-conflict.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
 import { parseNotificationText } from './import/notification-parser.js';
 import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './import/source-registry.js';
@@ -338,6 +366,7 @@ const CalendarBridge = {
     VaultDAO.save();
   }
 };
+window.createVoiceCalendarEvent = ev => CalendarBridge.createEvent(ev);
 
 // Comprensione semantica locale opt-in (src/ai/semantic-embed.js — modello
 // scelto dal profilo hardware fra quelli in src/ai/embed-models.js: di norma
@@ -11211,6 +11240,7 @@ function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month:
 }
 
 window.openBusinessTrips = () => {
+  const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   // Mai le trasferte cancellate: restano nel vault come lapidi (servono a non
@@ -11251,13 +11281,34 @@ window.openBusinessTrips = () => {
       ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${esc(tCh('tripEmpty', __uiLang))}</p>`}
       <label class="task-field"><span>${tCh('tripNameLabel', __uiLang)}</span><input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNameShortExample', __uiLang))}" name="trip-newname" /></label>
       <button id="trip-new" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('tripNewBtn', __uiLang))}</button>
+      ${requestedCompany ? `<p id="trip-company-status" role="status">${esc(companyTripCopy(__uiLang, 0))}</p>` : ''}
+      <button id="trip-review-history" class="btn-action w-full py-3 rounded-xl">${esc(reviewHistoryCopy(__uiLang, 0))}</button>
     </div>`);
 
   document.querySelectorAll('[data-trip]').forEach(b => b.addEventListener('click', () => window.openBusinessTrip(b.dataset.trip)));
-  $('#trip-new')?.addEventListener('click', () => {
+  $('#trip-review-history')?.addEventListener('click', () => window.openTripReviewHistory());
+  $('#trip-new')?.addEventListener('click', async () => {
     const name = $('#trip-newname')?.value?.trim();
     if (!name) { showToast(tCh('tripNameRequired', __uiLang), 'error'); return; }
-    const t = createTrip({ name });
+    const button = $('#trip-new');
+    let t = createTrip({ name });
+    if (requestedCompany) {
+      button.disabled = true;
+      const status = $('#trip-company-status');
+      status.textContent = companyTripCopy(__uiLang, 1);
+      try {
+        const { loadCompanyPolicy, applyCompanyPolicy } = await import('./trips/company-policy.js');
+        const policy = await loadCompanyPolicy(requestedCompany);
+        if (!button.isConnected) return;
+        t = applyCompanyPolicy(t, policy);
+      } catch {
+        if (button.isConnected) { status.textContent = companyTripCopy(__uiLang, 2); button.disabled = false; }
+        return;
+      }
+    } else {
+      const defaults = tripPolicyFromTemplate(VaultDAO.state.tripPolicyTemplate);
+      if (defaults) t.receiptPolicy = defaults;
+    }
     persist([...trips(), t]);
     window.openBusinessTrip(t.id);
   });
@@ -11291,11 +11342,13 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
+    const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
+    const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
@@ -11309,10 +11362,12 @@ window.openBusinessTrip = (tripId) => {
 
     const rigaSpesa = (t) => `
       <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
-        ${t.receiptImage ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
+        ${isReviewAttachment(t.receiptImage) ? (String(t.receiptImage).startsWith('data:application/pdf') ? `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--red)] font-black text-[8px]">PDF</span>` : `<img src="${t.receiptImage}" class="w-9 h-9 rounded-lg object-cover shrink-0" alt="" />`) : `<span class="w-9 h-9 rounded-lg bg-[var(--surface-elevated)] shrink-0 inline-flex items-center justify-center text-[var(--on-surface-secondary)]"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3v18M3 9h18"/></svg></span>`}
         <span class="flex-1 min-w-0">
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripReceiptMissingHint', __uiLang))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          <button type="button" data-trip-edit="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px]">${esc(tripEditCopy(__uiLang, t.tripRevisionConflict ? 3 : 0))}</button>
+          ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
         </span>
         <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
@@ -11376,6 +11431,7 @@ window.openBusinessTrip = (tripId) => {
     // oggi scopre solo chi approva) e diaria a ore quando le tariffe sono note.
     const periodoInfoHtml = (() => {
       const p = periodoTrasferta(trip);
+      if (trip.startDate && trip.endDate && !p) return `<p role="alert" class="text-sm text-[var(--red)]">${esc(tripStatusCopy(__uiLang, 0))}</p>`;
       if (!p) return `<p class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodEmptyHint', __uiLang))}</p>`;
       const buchi = giorniScoperti(trip, expenses);
       const righeBuchi = buchi.length ? `<div class="flex items-start gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 px-2.5 py-2 mt-1.5">
@@ -11390,15 +11446,32 @@ window.openBusinessTrip = (tripId) => {
       const rigaDiaria = dia?.calcolabile
         ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${eur(dia.totale)}</span></div>`
         : '';
-      return `<div class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodHours', __uiLang, p.ore))}</div>${righeBuchi}${rigaDiaria}`;
+      const outside = speseFuoriPeriodo(trip, expenses);
+      return `<div class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodHours', __uiLang, p.ore))}</div>${righeBuchi}
+        ${buchi.length ? `<p class="text-sm text-[var(--on-surface-secondary)] mt-2">${esc(tripStatusCopy(__uiLang, 1))}</p>` : ''}
+        ${outside.length ? `<p class="text-sm text-[var(--on-surface-secondary)] mt-2">${esc(tripStatusCopy(__uiLang, 2, outside.length))}</p>` : ''}${rigaDiaria}`;
     })();
 
     // Stato dell'approvazione: dopo aver mandato una nota spese, il silenzio è
     // il momento in cui su ogni prodotto concorrente si perde il filo ("l'ho
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
+    if (appr?.reportFingerprint && !appr.invalidatedAt) {
+      if (verdict.state === 'approvata' && inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy).blockingCount) {
+        showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
+      }
+      const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+      fingerprintTripSnapshot(snapshot).then(hash => {
+        const current = (VaultDAO.state.businessTrips || []).find(t => t.id === trip.id);
+        if (!current || current.approval?.reportFingerprint !== appr.reportFingerprint || current.approval?.invalidatedAt || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot || hash === appr.reportFingerprint) return;
+        persistTrip({ ...current, approval: { ...current.approval, invalidatedAt: Date.now() } });
+        if (document.querySelector('[data-rendered-trip]')?.dataset.renderedTrip === String(trip.id)) render();
+      }).catch(() => {});
+    }
     const statoApprovazione = !appr ? '' : (() => {
-      const S = appr.state === 'approvata'
+      const S = appr.invalidatedAt
+        ? { box: 'border-amber-400/40 bg-amber-500/10', txt: 'text-amber-300', icona: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>', label: tripEditCopy(__uiLang, 3) }
+        : appr.state === 'approvata'
         ? { box: 'border-emerald-400/40 bg-emerald-500/10', txt: 'text-emerald-300', icona: '<path d="M5 12.5 10 17l9-10"/>', label: tCh('tripApprovalApproved', __uiLang) }
         : appr.state === 'modifiche'
           ? { box: 'border-amber-400/40 bg-amber-500/10', txt: 'text-amber-300', icona: '<path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/>', label: tCh('tripApprovalChanges', __uiLang) }
@@ -11433,36 +11506,44 @@ window.openBusinessTrip = (tripId) => {
               ${iconaOrarioSm}<span>${esc(trip[campoOra] || '--:--')}</span>
             </button>
           </div>
-          ${apertoData ? periodoDataPannelloHtml(trip, state, campoData) : ''}
-          ${apertoOra ? periodoOrarioPannelloHtml(trip, campoOra) : ''}
         </div>`;
     };
 
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div data-rendered-trip="${esc(String(trip.id))}" class="trip-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div class="flex items-center gap-2">
           <button id="trip-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <span class="font-black text-sm">${esc(trip.name)}</span>
         </div>
         ${statoApprovazione}
+        <section class="trip-summary" aria-label="${esc(tCh('tripTotalLabel', __uiLang))}">
+          <div class="trip-summary-orbit" aria-hidden="true"><span></span></div>
+          <div class="trip-summary-copy">
+            <p class="trip-summary-label">${esc(tCh('tripTotalLabel', __uiLang))}</p>
+            <strong class="trip-summary-amount">${eur(totale)}</strong>
+            <p class="trip-summary-count">${esc(tCh('tripExpenseCount', __uiLang, expenses.length))}</p>
+          </div>
+          <div class="trip-summary-actions">
+            <button type="button" id="trip-jump-expense" class="btn-action btn-primary"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>${esc(tCh('tripAddExpense', __uiLang))}</button>
+            <button type="button" id="trip-jump-period">${esc(tCh('tripPeriodTitle', __uiLang))}</button>
+          </div>
+          <div class="trip-summary-breakdown">${totaliCat}</div>
+        </section>
         <!-- PERIODO — richiesta esplicita, confermata dalla ricerca (SAP
              Concur/Rydoo/Mobilexpense): la diaria pasti in Germania dipende
              dalle ORE di assenza, non dai giorni, e "solo la data" rende
              impossibile calcolare cosa spetta davvero. Data E ORA, inizio e
              fine — selettori DI MOMENTUM (pannelli sopra), mai il calendario
              o l'orologio del sistema operativo. -->
-        <div class="card p-3">
+        <div class="card p-3" id="trip-period-panel">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></svg>${esc(tCh('tripPeriodTitle', __uiLang))}</div>
           <div class="grid grid-cols-2 gap-2 mb-1.5">
             ${periodoPillHtml('startDate', 'startTime', tCh('tripPeriodStart', __uiLang))}
             ${periodoPillHtml('endDate', 'endTime', tCh('tripPeriodEnd', __uiLang))}
           </div>
+          ${['startDate', 'endDate'].includes(state.periodoCampoAperto) ? periodoDataPannelloHtml(trip, state, state.periodoCampoAperto) : ''}
+          ${['startTime', 'endTime'].includes(state.periodoCampoAperto) ? periodoOrarioPannelloHtml(trip, state.periodoCampoAperto) : ''}
           ${periodoInfoHtml}
-        </div>
-        <div class="card p-3">
-          <div class="text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1">${esc(tCh('tripTotalLabel', __uiLang))}</div>
-          <div class="text-2xl font-black font-mono mb-2">${eur(totale)}</div>
-          ${totaliCat}
         </div>
         ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
         ${offerti.length ? `<div class="card p-3">
@@ -11476,11 +11557,12 @@ window.openBusinessTrip = (tripId) => {
           <label class="flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-3 cursor-pointer text-[12px] font-bold text-[var(--primary)] mb-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
-            <input id="trip-receipt" type="file" accept="image/*,application/pdf" class="hidden" name="trip-receipt" />
+            <input id="trip-receipt" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="hidden" name="trip-receipt" />
           </label>
-          ${state.receiptDataUrl ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
+          ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
           <div class="flex gap-2 mb-2">
-            <input id="trip-amt" type="number" inputmode="decimal" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
+            <input id="trip-amt" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
             <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
           </div>
           <!-- Bug reale/limite trovato dal vivo: la data era sempre "oggi",
@@ -11515,24 +11597,72 @@ window.openBusinessTrip = (tripId) => {
                rimborsata. Un chip, non un checkbox nascosto: è una scelta
                che cambia cosa succede al salvataggio, deve essere visibile
                quanto la categoria stessa. -->
-          <button id="trip-offerto-toggle" type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+          <button id="trip-offerto-toggle" ${state.editingId !== null ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
             <span class="w-4 h-4 rounded-md border-2 ${state.offerto ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.offerto ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
             ${esc(tCh('tripOfferedToggle', __uiLang))}
           </button>
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
-          <button id="trip-save" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
+          ${state.editingId !== null ? '<button id="trip-edit-cancel" class="btn-action w-full py-3 mb-2">' + esc(tripEditCopy(__uiLang, 2)) + '</button>' : ''}
+          <button id="trip-save" ${state.ocrBusy ? 'disabled' : ''} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
-        ${expenses.some(t => t.receiptImage) ? bridgeCardHtml(state, expenses) : ''}
+        ${state.editingId !== null && expenses.find(tx => tx.id === state.editingId)?.tripRevisionConflict ? '<section class="trip-company"><h4>' + esc(tripEditCopy(__uiLang, 3)) + '</h4><p>' + esc(tripEditCopy(__uiLang, 5)) + '</p>' + (() => { const tx = expenses.find(tx => tx.id === state.editingId); const heads = new Set(revisionHeads(tx)); return tx.tripRevisions.filter(row => heads.has(row.id)).map(row => '<p>' + esc(row.values.date) + ' · ' + eur(row.values.amount) + ' · ' + esc(row.values.description || '') + '</p>').join(''); })() + '</section>' : ''}
+        ${expenses.some(t => t.receiptImage) ? `<details class="trip-company" ${state.bridgeConfigAperto ? 'open' : ''}><summary>${esc(tCh('bridgeTitle', __uiLang))}</summary>${bridgeCardHtml(state, expenses)}</details>` : ''}
         ${expenses.length ? `<div class="flex gap-2">
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
+        </div>
+        <details class="trip-company">
+          <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
+          <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
+          <input id="trip-receipt-threshold" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.receiptThreshold ?? 25))}" class="w-full rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" aria-describedby="trip-policy-hint" />
+          <p id="trip-policy-hint" class="text-xs my-3">${esc(tripPolicyCopy(__uiLang, 2))}</p>
+          <fieldset class="my-3"><legend class="font-bold text-sm">${esc(expensePolicyCopy(__uiLang, 0))}</legend>
+            <p class="text-xs my-2">${esc(expensePolicyCopy(__uiLang, 1))}</p>
+            <div class="grid grid-cols-2 gap-3">${TRIP_CATEGORIES.map(cat => `<label class="min-w-0 text-sm">${esc(tCh('trip_' + cat, __uiLang))}<input data-policy-limit="${cat}" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.expenseLimits?.[cat] ?? ''))}" placeholder="${esc(expensePolicyCopy(__uiLang, 2))}" class="w-full min-w-0 mt-1 rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" /></label>`).join('')}</div>
+          </fieldset>
+          <fieldset style="margin:16px 0"><legend class="font-bold text-sm">${esc(policyDetailsCopy(__uiLang, 0))}</legend>
+            <div class="grid grid-cols-2 gap-3">${TRIP_CATEGORIES.map(cat => `<label class="min-w-0 text-sm">${esc(tCh('trip_' + cat, __uiLang))}<input data-policy-daily="${cat}" type="text" inputmode="decimal" autocomplete="off" value="${esc(String(trip.receiptPolicy?.dailyLimits?.[cat] ?? ''))}" placeholder="${esc(expensePolicyCopy(__uiLang, 2))}" class="w-full min-w-0 mt-1 rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]" /></label>`).join('')}</div>
+          </fieldset>
+          <label class="block text-sm" for="trip-policy-reason">${esc(policyDetailsCopy(__uiLang, 1))}</label>
+          <textarea id="trip-policy-reason" maxlength="500" rows="2" placeholder="${esc(policyDetailsCopy(__uiLang, 2))}" class="w-full rounded-xl border border-[var(--outline)] p-3 bg-[var(--surface-elevated)]">${esc(trip.receiptPolicy?.exceptionReason || '')}</textarea>
+          <p class="text-xs">${esc(policyDetailsCopy(__uiLang, 3))}</p>
+          <label class="flex gap-3 items-center" style="min-height:48px;margin-top:12px"><input id="trip-policy-default" type="checkbox" />${esc(policyDetailsCopy(__uiLang, 4))}</label>
+          <p class="text-xs">${esc(policyDetailsCopy(__uiLang, 5))}</p>
+          <button id="trip-policy-save" class="btn-action w-full py-3 rounded-xl">${esc(tripPolicyCopy(__uiLang, 3))}</button>
+        </details>
+        <div class="trip-company">
+          <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
+          <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
+          <section id="trip-preflight" tabindex="-1" class="trip-preflight">
+            <h4>${esc(tripReadinessCopy(__uiLang, 0))}</h4>
+            <p>${exportChecks.blockingCount ? esc(tripReadinessCopy(__uiLang, 1)) + ': ' + exportChecks.blockingCount : esc(tripReadinessCopy(__uiLang, 3))}</p>
+            ${exportChecks.warningCount ? `<p>${esc(tripReadinessCopy(__uiLang, 2))}: ${exportChecks.warningCount}</p>` : ''}
+            <ul>${exportChecks.issues.filter(issue => issue.severity !== 'info').map(issue => {
+              const tx = exportRows[issue.index];
+              const editable = tx.id !== undefined && tx.id !== null && exportRows.filter(row => String(row.id).trim() === String(tx.id).trim()).length === 1 && tx.type === 'uscita';
+              return `<li><span><strong>${esc(tx.description || String(issue.index + 1))}</strong><span>${esc(tripIssueLabel(__uiLang, issue.code))}</span></span>${editable ? `<button type="button" data-trip-edit="${esc(String(tx.id))}" class="btn-action">${esc(tripReadinessCopy(__uiLang, 4))}</button>` : ''}</li>`;
+            }).join('')}</ul>
+            ${exportChecks.blockingCount ? `<p>${esc(tripReadinessCopy(__uiLang, 5))}</p>` : ''}
+            ${exportChecks.warningCount ? `<p>${esc(tripChecksCopy(__uiLang, 9))}</p>` : ''}
+          </section>
+          <button id="trip-export-archive" class="btn-action w-full px-4 py-3 rounded-xl" aria-describedby="trip-export-archive-hint">${esc(tripExportCopy(__uiLang, 0))}</button>
+          <p id="trip-export-archive-hint" class="text-xs mt-2 text-[var(--on-surface-secondary)]">${esc(tripExportCopy(__uiLang, 1))}</p>
         </div>
         <button id="trip-review-share" class="px-4 py-3 font-bold rounded-xl border border-[var(--primary)] text-[var(--primary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewShareBtn', __uiLang))}</button>` : ''}
         <button id="trip-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">${esc(tCh('tripDelete', __uiLang))}</button>
       </div>`);
 
     $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
-    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; });
+    $('#trip-jump-expense')?.addEventListener('click', () => {
+      const input = $('#trip-amt');
+      input?.scrollIntoView({ block: 'center', behavior: 'instant' });
+      input?.focus({ preventScroll: true });
+    });
+    $('#trip-jump-period')?.addEventListener('click', () => {
+      $('#trip-period-panel')?.scrollIntoView({ block: 'start', behavior: 'instant' });
+      document.querySelector('[data-periodopill="startDate"]')?.focus({ preventScroll: true });
+    });
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; e.target.removeAttribute('aria-invalid'); });
     $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
     // Selettore data di Momentum: apre/chiude il calendario disegnato.
     // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
@@ -11580,7 +11710,20 @@ window.openBusinessTrip = (tripId) => {
       try {
         const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
         const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
-        if (pred?.cat) { state.catReale = pred.cat; state.tripCategory = categoriaTripDaReale(pred.cat, state.description); render(); }
+        if (pred?.cat) {
+          state.catReale = pred.cat;
+          state.tripCategory = categoriaTripDaReale(pred.cat, state.description);
+          // Do not replace the form during blur: that removes the calendar
+          // or save button under the user's pointer before its click fires.
+          document.querySelectorAll('[data-tripcat]').forEach(button => {
+            const selected = button.dataset.tripcat === state.tripCategory;
+            button.setAttribute('aria-pressed', String(selected));
+            button.classList.toggle('border-[var(--gold)]', selected);
+            button.classList.toggle('text-[var(--gold)]', selected);
+            button.classList.toggle('border-[var(--outline)]', !selected);
+            button.classList.toggle('text-[var(--on-surface-secondary)]', !selected);
+          });
+        }
       } catch (_) {}
     };
     $('#trip-desc')?.addEventListener('change', suggerisciCategoriaTrip);
@@ -11588,6 +11731,7 @@ window.openBusinessTrip = (tripId) => {
     document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
     $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
+    $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; render(); });
     $('#trip-receipt')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -11595,6 +11739,7 @@ window.openBusinessTrip = (tripId) => {
       state.ocrBusy = true; render();
       const reader = new FileReader();
       reader.onload = async () => {
+        if (!isReviewAttachment(reader.result)) { state.ocrBusy = false; render(); showToast(tripAttachmentCopy(__uiLang, 0), 'error'); return; }
         state.receiptDataUrl = reader.result;
         // Ricerca reale: le aziende accettano come giustificativo anche PDF
         // (fatture, biglietti aerei/hotel ricevuti per email), non solo la
@@ -11646,16 +11791,53 @@ window.openBusinessTrip = (tripId) => {
         } catch (_) {}
         state.ocrBusy = false; render();
       };
+      reader.onerror = () => { state.ocrBusy = false; render(); showToast(tripAttachmentCopy(__uiLang, 2), 'error'); };
+      reader.onabort = reader.onerror;
       reader.readAsDataURL(f);
     });
+    const resetEdit = () => {
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', receiptDataUrl: null, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
+      render();
+    };
+    $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
+    document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
+      const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
+      if (!tx) return;
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, mealType: tx.mealType || null, offerto: false });
+      render();
+      $('#trip-amt')?.focus();
+    }));
     $('#trip-save')?.addEventListener('click', () => {
-      const amt = parseFloat(String(state.amount).replace(',', '.'));
-      if (!(amt > 0) && !(state.offerto && amt === 0)) { showToast(tCh('tripAmountRequired', __uiLang), 'error'); return; }
+      if (state.ocrBusy) return;
+      if (state.receiptDataUrl && !isReviewAttachment(state.receiptDataUrl)) { showToast(tripAttachmentCopy(__uiLang, 0), 'error'); return; }
+      const amt = parseTripAmount(state.amount);
+      if (amt === null || (!(amt > 0) && !(state.offerto && amt === 0))) {
+        const input = $('#trip-amt');
+        input?.setAttribute('aria-invalid', 'true');
+        input?.focus();
+        showToast(tCh('tripAmountRequired', __uiLang), 'error'); return;
+      }
       if (!state.tripCategory) { showToast(tCh('tripCategoryRequired', __uiLang), 'error'); return; }
       // Data scelta dall'utente (default oggi, mai un giorno futuro — vedi
       // il campo #trip-data sopra): quasi nessuno registra uno scontrino
       // nell'istante esatto in cui lo riceve.
       const oggi = state.data || new Date().toISOString().slice(0, 10);
+
+      if (state.editingId !== null) {
+        try {
+          const result = VaultDAO.reviseTripTransaction(state.editingId, trip.id, {
+            amount: amt, description: state.description, date: oggi,
+            tripCategory: state.tripCategory, mealType: state.mealType,
+            receiptImage: state.receiptDataUrl || null,
+          }, crypto.randomUUID(), state.editingDigest);
+          if (!result) { showToast(tripEditCopy(__uiLang, 4), 'error'); return; }
+          try { queueLiveSync(result.date.slice(0, 7), result); } catch (_) {}
+          if (trip.approval) persistTrip({ ...trip, approval: { ...trip.approval, invalidatedAt: Date.now() } });
+          window.renderDashboard?.();
+          resetEdit();
+        } catch { showToast(tCh('bridgeSendError', __uiLang), 'error'); }
+        return;
+      }
 
       // OFFERTO — pagato da un cliente/l'azienda, mai dal dipendente: vive
       // SOLO nel trip (addOfferedItem), MAI come transazione Vault. Se
@@ -11731,8 +11913,9 @@ window.openBusinessTrip = (tripId) => {
     // resta quella già impostata nel form (oggi di default, modificabile) —
     // così due tap bastano per "stessa spesa di ieri, oggi".
     document.querySelectorAll('[data-tripexpdup]').forEach(b => b.addEventListener('click', () => {
-      const orig = expenses.find(e => e.id === b.dataset.tripexpdup);
+      const orig = expenses.find(e => String(e.id) === b.dataset.tripexpdup);
       if (!orig) return;
+      state.editingId = null; state.editingDigest = '';
       state.amount = String(orig.amount);
       state.description = orig.description || '';
       state.tripCategory = TRIP_CATEGORIES.includes(orig.tripCategory) ? orig.tripCategory : null;
@@ -11749,7 +11932,45 @@ window.openBusinessTrip = (tripId) => {
       persistTrip(removeOfferedItem(trip, b.dataset.tripofferdel));
       render();
     }));
+    $('#trip-policy-save')?.addEventListener('click', () => {
+      if (trip.companyPolicy) {
+        persistTrip({ ...trip, receiptPolicy: { ...trip.receiptPolicy, exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) } });
+        render(); return;
+      }
+      const input = $('#trip-receipt-threshold');
+      const threshold = parseTripAmount(input.value);
+      if (threshold === null) { input.setAttribute('aria-invalid', 'true'); input.focus(); return; }
+      const expenseLimits = {};
+      for (const field of document.querySelectorAll('[data-policy-limit]')) {
+        if (!field.value.trim()) continue;
+        const value = parseTripAmount(field.value);
+        if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
+        expenseLimits[field.dataset.policyLimit] = value;
+      }
+      const dailyLimits = {};
+      for (const field of document.querySelectorAll('[data-policy-daily]')) {
+        if (!field.value.trim()) continue;
+        const value = parseTripAmount(field.value);
+        if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
+        dailyLimits[field.dataset.policyDaily] = value;
+      }
+      const receiptPolicy = { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, dailyLimits, currency: 'EUR', exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) };
+      if ($('#trip-policy-default').checked) VaultDAO.state.tripPolicyTemplate = { version: crypto.randomUUID(), rules: tripPolicyFromTemplate({ rules: receiptPolicy }) };
+      persistTrip({ ...trip, receiptPolicy });
+      render();
+    });
     $('#trip-export-csv')?.addEventListener('click', () => window.exportTripCsv(trip.id));
+    if (trip.companyPolicy) {
+      document.querySelectorAll('#trip-receipt-threshold,[data-policy-limit],[data-policy-daily],#trip-policy-default').forEach(input => { input.disabled = true; });
+      const hint = $('#trip-policy-hint');
+      const companyText = `${trip.companyPolicy.companyName || trip.companyPolicy.companyId} · v${trip.companyPolicy.version} · ${companyTripCopy(__uiLang, 3)}`;
+      if (hint) hint.textContent = companyText;
+      else {
+        const notice = document.createElement('p'); notice.className = 'text-sm p-3'; notice.textContent = companyText;
+        $('#modal-body')?.prepend(notice);
+      }
+    }
+    $('#trip-export-archive')?.addEventListener('click', () => window.exportTripArchive(trip.id));
     $('#trip-export-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
     $('#trip-review-share')?.addEventListener('click', () => window.openTripReviewShare(trip.id));
     // Periodo: pillole DATA/ORA di Momentum (non più input nativi). Ogni
@@ -11824,6 +12045,50 @@ window.openBusinessTrip = (tripId) => {
       render();
       showToast(tCh('bridgeSavedToast', __uiLang), 'success');
     });
+    document.querySelectorAll('[data-tripreceipt]').forEach(button => button.addEventListener('click', () => {
+      const expense = expenses.find(e => String(e.id) === button.dataset.tripreceipt);
+      const data = expense?.receiptImage;
+      if (typeof data !== 'string' || !/^data:(image\/(png|jpeg|webp|gif)|application\/pdf);base64,[a-z0-9+/=\r\n]+$/i.test(data)) {
+        showToast(tCh('bridgeSendError', __uiLang), 'error'); return;
+      }
+      const dialog = document.createElement('dialog');
+      dialog.style.cssText = 'width:min(92vw,900px);max-height:90dvh;padding:16px;border:1px solid var(--outline);border-radius:24px;background:var(--surface-elevated);color:var(--on-surface)';
+      const close = document.createElement('button');
+      close.textContent = '×'; close.ariaLabel = tCh('vaultCloseBtn', __uiLang);
+      close.style.cssText = 'display:block;margin-left:auto;min-width:44px;min-height:44px;font-size:28px';
+      close.onclick = () => dialog.close();
+      const pdf = data.startsWith('data:application/pdf');
+      const viewer = document.createElement(pdf ? 'iframe' : 'img');
+      viewer.title = tCh('tripOpenReceipt', __uiLang);
+      if (!pdf) viewer.alt = expense.description || viewer.title;
+      viewer.src = data;
+      viewer.style.cssText = pdf ? 'width:100%;height:70dvh;border:0' : 'width:100%;max-height:75dvh;object-fit:contain';
+      dialog.append(close, viewer);
+      dialog.addEventListener('close', () => { dialog.remove(); button.focus(); }, { once: true });
+      document.body.append(dialog);
+      dialog.showModal();
+      close.focus();
+    }));
+    const preparaInvioScontrini = async (pronte, address) => {
+      try {
+        const result = await shareTripReceipts({
+          files: pronte.map(item => item.file), address, navigator,
+          download: file => {
+            const url = URL.createObjectURL(file);
+            const link = document.createElement('a');
+            link.href = url; link.download = file.name;
+            document.body.append(link); link.click(); link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 4000);
+          },
+          openEmail: address => { window.location.href = 'mailto:' + encodeURIComponent(address); },
+        });
+        if (result.status === 'cancelled') return;
+        if (result.status === 'failed') { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
+        for (const { t } of pronte) Object.assign(t, prepareReceiptDelivery(t, result.channel));
+        VaultDAO.save(); render();
+        showToast(result.channel === 'share' ? receiptDeliveryCopy(__uiLang) : tCh('bridgeFallbackAllToast', __uiLang, pronte.length), 'info');
+      } catch { showToast(tCh('bridgeSendError', __uiLang), 'error'); }
+    };
     document.querySelectorAll('[data-tripexpsend]').forEach(b => b.addEventListener('click', async () => {
       const bridge = VaultDAO.state.expenseBridge;
       if (!bridge?.address) {
@@ -11832,7 +12097,7 @@ window.openBusinessTrip = (tripId) => {
         showToast(tCh('bridgeConfigureFirst', __uiLang), 'info');
         return;
       }
-      const t = expenses.find(e => e.id === b.dataset.tripexpsend);
+      const t = expenses.find(e => String(e.id) === b.dataset.tripexpsend);
       if (!t?.receiptImage) return;
       const isPdf = String(t.receiptImage).startsWith('data:application/pdf');
       let file;
@@ -11840,31 +12105,7 @@ window.openBusinessTrip = (tripId) => {
         const blob = await (await fetch(t.receiptImage)).blob();
         file = new File([blob], nomeFileGiustificativo(t, isPdf), { type: isPdf ? 'application/pdf' : (blob.type || 'image/jpeg') });
       } catch (_) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
-      // Segnato "inviato" dopo aver avviato davvero l'invio (condivisione o
-      // email aperta) — mai in automatico prima, e mai un secondo invio
-      // silenzioso di uno scontrino già segnato: un doppio invio verso un
-      // sistema aziendale può generare un doppio rimborso, non è innocuo.
-      const segnaInviato = () => { t.bridgeSentAt = new Date().toISOString(); VaultDAO.save(); render(); };
-      try {
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          // L'indirizzo va comunque scelto a mano nel foglio di condivisione
-          // (nessuna API web imposta il destinatario di un'app di posta) —
-          // copiato negli appunti per non doverlo ridigitare.
-          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
-          await navigator.share({ files: [file] });
-          segnaInviato();
-          showToast(tCh('bridgeSentToast', __uiLang, bridge.address), 'success');
-          return;
-        }
-      } catch (e) { if (e && e.name === 'AbortError') return; }
-      // Fallback universale (desktop senza Web Share): scarico il file già
-      // pronto da allegare e apro l'email col destinatario già compilato.
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 4000);
-      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
-      segnaInviato();
-      showToast(tCh('bridgeFallbackToast', __uiLang), 'info');
+      await preparaInvioScontrini([{ t, file }], bridge.address);
     }));
     // Invio multiplo: un tocco per spesa va bene con due scontrini, diventa
     // lavoro con quindici. Un'unica condivisione con tutti gli allegati
@@ -11884,28 +12125,7 @@ window.openBusinessTrip = (tripId) => {
         } catch (_) { /* uno scontrino corrotto non blocca gli altri */ }
       }
       if (!pronte.length) { showToast(tCh('bridgeSendError', __uiLang), 'error'); return; }
-      const soloFile = pronte.map(p => p.file);
-      const segnaTuttiInviati = () => { for (const { t } of pronte) t.bridgeSentAt = new Date().toISOString(); VaultDAO.save(); render(); };
-      try {
-        if (navigator.canShare && navigator.canShare({ files: soloFile })) {
-          try { await navigator.clipboard?.writeText(bridge.address); } catch (_) {}
-          await navigator.share({ files: soloFile });
-          segnaTuttiInviati();
-          showToast(tCh('bridgeSentAllToast', __uiLang, pronte.length, bridge.address), 'success');
-          return;
-        }
-      } catch (e) { if (e && e.name === 'AbortError') return; }
-      // Fallback desktop: mailto non allega nulla, quindi scarico ogni file
-      // (l'utente li allega tutti alla stessa email che si apre) — dichiarato
-      // nel testo del toast, mai finto un invio automatico multiplo.
-      for (const { file } of pronte) {
-        const url = URL.createObjectURL(file);
-        const a = document.createElement('a'); a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 4000);
-      }
-      window.location.href = `mailto:${encodeURIComponent(bridge.address)}`;
-      segnaTuttiInviati();
-      showToast(tCh('bridgeFallbackAllToast', __uiLang, pronte.length), 'info');
+      await preparaInvioScontrini(pronte, bridge.address);
     });
     $('#trip-del')?.addEventListener('click', () => {
       // Cancellare NON toglie la trasferta dall'elenco: ci mette sopra una
@@ -11935,6 +12155,16 @@ window.openBusinessTrip = (tripId) => {
 // Export CSV puro (dati, senza scontrini) — stesso standard RFC4180+BOM già
 // in uso per movimenti/gruppi split, mai un formato ERP specifico promesso:
 // un CSV leggibile ovunque, dichiarato come tale.
+window.exportTripArchive = (tripId, expectedSnapshot) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(item => item.id === tripId);
+  if (!trip) return;
+  const transactions = allTransactionsFlat();
+  if (expectedSnapshot !== undefined && tripReviewSnapshot(trip, transactions) !== expectedSnapshot) {
+    showToast(tripReviewStaleCopy(__uiLang), 'error'); return;
+  }
+  downloadTextFile(JSON.stringify(buildTripArchive(trip, transactions), null, 2), 'momentum-trip.json', 'application/json');
+};
+
 window.exportTripCsv = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
@@ -12088,19 +12318,75 @@ function buildTripReviewLink(code, tripName = '') {
   }
 }
 
+function openCompanySubmission(trip) {
+  const archive = buildTripArchive(trip, allTransactionsFlat());
+  const snapshot = tripReviewSnapshot(trip, archive.transactions);
+  const text = key => companySubmitCopy(__uiLang, key);
+  openModal(`<section class="task-editor p-4"><h3>${text(0)}</h3><p class="card-sub">${text(1)}</p><p id="company-send-status" role="status" aria-live="polite"></p><button id="company-send" class="btn-action btn-primary w-full py-3">${text(0)}</button><button id="company-status-check" class="btn-action w-full py-3" ${trip.companySubmission ? "" : "hidden"}>${companyStatusCopy(__uiLang, 0)}</button></section>`, `<button id="company-send-close" class="btn-action w-full py-3">${text(10)}</button>`);
+  const button = $('#company-send'); const status = $('#company-send-status');
+  $('#company-send-close').onclick = () => closeModal();
+  const checkButton = $('#company-status-check');
+  checkButton.style.display = trip.companySubmission ? '' : 'none';
+  checkButton.onclick = async () => {
+    if (checkButton.disabled || button.disabled) return;
+    const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+    if (!latest || !visibleTrips([latest]).length || !latest.companySubmission) { status.textContent = companySubmitError(__uiLang, 'changed'); return; }
+    checkButton.disabled = true; button.disabled = true; status.textContent = companyStatusCopy(__uiLang, 1);
+    const captured = buildTripArchive(latest, allTransactionsFlat());
+    try {
+      const { readCompanyReportStatus } = await import('./trips/company-submit.js');
+      const result = await readCompanyReportStatus(captured, latest.companySubmission);
+      const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+      if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== tripReviewSnapshot(captured.trip, captured.transactions)) { status.textContent = companyStatusCopy(__uiLang, 'changed'); return; }
+      status.textContent = companyStatusCopy(__uiLang, result.state) + (result.note ? ' ' + result.note : '');
+    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); }
+    finally { checkButton.disabled = false; button.disabled = false; }
+  };
+  button.onclick = async () => {
+    if (button.disabled) return;
+    const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+    if (!current || !visibleTrips([current]).length || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot) { status.textContent = companySubmitError(__uiLang, 'changed'); return; }
+    button.disabled = true; status.textContent = text(2);
+    try {
+      if (current.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { button.disabled = false; await checkButton.onclick(); return; }
+      const { submitCompanyReport } = await import('./trips/company-submit.js');
+      const receipt = await submitCompanyReport(archive, current.companySubmission?.revision || 0);
+      const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
+      if (latest) {
+        VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(item => item.id === trip.id ? { ...item, companySubmission: receipt } : item);
+        VaultDAO.save();
+      }
+      status.textContent = text(3); checkButton.hidden = false; checkButton.style.display = ''; button.disabled = false;
+    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
+  };
+}
+
 window.openTripReviewShare = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const checks = inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy);
+  if (checks.blockingCount) {
+    window.openBusinessTrip(trip.id);
+    const panel = document.getElementById('trip-preflight');
+    panel?.scrollIntoView({ block: 'center', behavior: 'instant' });
+    panel?.focus({ preventScroll: true });
+    showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
+  }
   const dati = exportTripData(trip, allTransactionsFlat());
   if (!dati.expenses.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  if (trip.companyPolicy) { openCompanySubmission(trip); return; }
 
-  let code;
+  const reviewSnapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+  let code, reportFingerprint;
   try {
+    reportFingerprint = await fingerprintTripSnapshot(reviewSnapshot);
     code = await encodeTripReview({
+      reportFingerprint,
       tripId: trip.id, tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate,
-      expenses: dati.expenses, totale: dati.totale,
+      expenses: dati.expenses, totale: dati.totale, offerti: dati.offerti, offertiTotale: dati.offertiTotale,
       numeroGiustificativiMancanti: dati.numeroGiustificativiMancanti,
+      policyExceptionReason: dati.policyExceptionReason,
       mittente: VaultDAO.state.profile?.name || '',
     });
   } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
@@ -12111,41 +12397,57 @@ window.openTripReviewShare = async (tripId) => {
   let qr = '';
   try { if (link.length <= 900) qr = qrSvg(link, { moduleSize: 4, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
   const messaggio = tCh('tripReviewMessage', __uiLang, trip.name, link);
+  qr = qr.replace('aria-label="QR bonifico SEPA"', `aria-label="${esc(tCh('tripReviewShareTitle', __uiLang))}"`);
 
-  // La trasferta risulta "inviata": senza questo, dopo aver condiviso il link
-  // la schermata resterebbe identica a prima e l'utente non saprebbe più a che
-  // punto è — il momento esatto in cui, su ogni prodotto concorrente, si perde
-  // il filo di una nota spese.
-  try {
-    const nuovo = touchTrip(markTripSentForReview(trip));
-    VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
-    VaultDAO.save();
-    try { window.momentumMeshNode?.shareBusinessTrips([nuovo], soloMieiDispositivi); } catch (_) {}
-  } catch (_) {}
+  // Opening/copying a draft is not delivery. Only the user's explicit
+  // acknowledgement below records dispatch; it does not prove receipt.
 
   openModal(`
-    <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="trip-workspace trip-review-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div>
         <h3 class="text-base font-black">${esc(tCh('tripReviewShareTitle', __uiLang))}</h3>
-        <p class="card-sub !mb-0">${esc(tCh('tripReviewShareSub', __uiLang))}</p>
+        <p class="card-sub !mb-0">${esc(tripApprovalCopy(__uiLang, 2))}</p>
       </div>
+      <label class="task-field"><span>${esc(tripApprovalCopy(__uiLang, 0))}</span><input id="trv-recipient" maxlength="120" value="${esc(trip.approval?.requestedReviewer || '')}" placeholder="${esc(tripApprovalCopy(__uiLang, 1))}" class="w-full p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)]" /></label>
       ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(210px,62vw)">${qr}</div>` : ''}
-      <div class="rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-[11px] break-all select-all">${esc(link)}</div>
       <div class="grid grid-cols-2 gap-2">
         <button id="trv-wa" class="btn-action btn-primary py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">WhatsApp</button>
         <button id="trv-copy" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('vaultCopy', __uiLang))}</button>
       </div>
+      <button id="trv-sent" class="btn-action btn-primary py-3 rounded-xl">${esc(tripApprovalCopy(__uiLang, 4))}</button>
+      <p id="trv-status" role="status" class="text-sm text-[var(--on-surface-secondary)]"></p>
+      <p class="text-sm text-[var(--on-surface-secondary)]">${esc(tripApprovalCopy(__uiLang, 3))}</p>
       <!-- Onestà, dichiarata dove serve saperlo e non in una nota a piè di
            pagina: nel link non ci sono le foto degli scontrini. Chi approva
            vede importi e cosa manca; per i giustificativi veri c'è il
            riepilogo stampabile, che li porta tutti dentro. -->
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('tripReviewNoPhotosHint', __uiLang))}</p>
-      <button id="trv-print" class="text-[11px] text-[var(--primary)] underline">${esc(tCh('tripExportPrint', __uiLang))}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${esc(tripArchiveShareCopy(__uiLang))}</p>
+      <button id="trv-archive" class="btn-action py-3 rounded-xl">${esc(tripExportCopy(__uiLang, 0))}</button>
+      <button id="trv-print" class="btn-action py-3 rounded-xl">${esc(tCh('tripExportPrint', __uiLang))}</button>
       <button id="trv-esito" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripVerdictPasteBtn', __uiLang))}</button>
     </div>`, `<button id="trv-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
   $('#trv-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(messaggio)}`, '_blank', 'noopener'));
-  $('#trv-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(link); showToast(tCh('lvlCopiedToast', __uiLang), 'success'); });
+  $('#trv-copy')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(messaggio); showToast(tCh('lvlCopiedToast', __uiLang), 'success'); }
+    catch { showToast(tCh('bridgeSendError', __uiLang), 'error'); }
+  });
+  $('#trv-sent')?.addEventListener('click', () => {
+    const requestedReviewer = $('#trv-recipient')?.value.trim();
+    if (!requestedReviewer) { $('#trv-status').textContent = tripApprovalCopy(__uiLang, 5); $('#trv-recipient')?.focus(); return; }
+    const current = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+    if (!current) return;
+    if (tripReviewSnapshot(current, allTransactionsFlat()) !== reviewSnapshot) { showToast(tripReviewStaleCopy(__uiLang), 'error'); return; }
+    const sent = markTripSentForReview(current);
+    sent.approval.reportFingerprint = reportFingerprint;
+    const next = touchTrip({ ...sent, approval: { ...sent.approval, requestedReviewer, deliveryVerified: false } });
+    VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(t => t.id === tripId ? next : t);
+    VaultDAO.save();
+    try { window.momentumMeshNode?.shareBusinessTrips([next], soloMieiDispositivi); } catch (_) {}
+    $('#trv-status').textContent = tripApprovalCopy(__uiLang, 6);
+    $('#trv-sent').disabled = true;
+  });
+  $('#trv-archive')?.addEventListener('click', () => window.exportTripArchive(trip.id, reviewSnapshot));
   $('#trv-print')?.addEventListener('click', () => window.printTripSummary(trip.id));
   $('#trv-esito')?.addEventListener('click', () => window.openTripVerdictPaste(trip.id));
   $('#trv-close')?.addEventListener('click', () => window.openBusinessTrip(trip.id));
@@ -12167,14 +12469,20 @@ window.openTripVerdictPaste = (tripId) => {
     </div>`, `<button id="trv-back" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
   $('#trv-back')?.addEventListener('click', () => window.openBusinessTrip(tripId));
-  $('#trv-apply')?.addEventListener('click', () => {
+  $('#trv-apply')?.addEventListener('click', async () => {
     const raw = document.getElementById('trv-code')?.value || '';
     const verdict = decodeTripVerdict(raw);
     if (!verdict) { showToast(tCh('tripVerdictInvalid', __uiLang), 'error'); return; }
     const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!trip) return;
     try {
-      const nuovo = touchTrip(applyTripVerdict(trip, verdict));
+      const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
+      const expected = await fingerprintTripSnapshot(snapshot);
+      const current = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+      if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== snapshot || verdict.reportFingerprint !== expected) {
+        showToast(tripReviewStaleCopy(__uiLang), 'error'); return;
+      }
+      const nuovo = touchTrip(applyTripVerdict(current, verdict, expected, exportTripData(current, allTransactionsFlat())));
       VaultDAO.state.businessTrips = (VaultDAO.state.businessTrips || []).map(t => t.id === trip.id ? nuovo : t);
       VaultDAO.save();
       // L'esito è la notizia più importante di tutte: deve arrivare subito su
@@ -12182,7 +12490,7 @@ window.openTripVerdictPaste = (tripId) => {
       try { window.momentumMeshNode?.shareBusinessTrips([nuovo], soloMieiDispositivi); } catch (_) {}
     } catch (err) {
       // Caso reale: due trasferte aperte, si incolla il codice dell'altra.
-      showToast(tCh('tripVerdictOtherTrip', __uiLang), 'error');
+      showToast(err.message === 'TRIP_REVIEW_CONFLICT' ? reviewConflictCopy(__uiLang) : tCh('tripVerdictOtherTrip', __uiLang), 'error');
       return;
     }
     showToast(verdict.state === 'approvata' ? tCh('tripVerdictAppliedOk', __uiLang) : tCh('tripVerdictAppliedChanges', __uiLang), 'success');
@@ -12193,15 +12501,52 @@ window.openTripVerdictPaste = (tripId) => {
 // ── LATO DI CHI APPROVA ──
 // Si apre dal link ricevuto. Sola lettura, nessun dato dell'utente che
 // approva viene toccato o salvato: legge, decide, rimanda l'esito.
+window.openTripReviewHistory = () => {
+  const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const copy = key => esc(reviewWorkspaceCopy(__uiLang, key));
+  let query = '', filter = 'all', limit = 20;
+  openModal(`<div class="trip-list-modal task-editor review-workspace"><h3>${esc(reviewHistoryCopy(__uiLang, 0))}</h3>
+    <p class="card-sub">${esc(reviewHistoryCopy(__uiLang, 3))}</p>
+    <button id="review-import" class="btn-action btn-primary w-full py-3 rounded-xl">${esc(reviewImportCopy(__uiLang, 0))}</button>
+    <p class="card-sub">${esc(reviewImportCopy(__uiLang, 1))}</p>
+    <input id="review-import-file" type="file" accept=".json,application/json" hidden />
+    <form id="review-search-form" class="review-search"><label for="review-query">${copy(3)}</label><div><input id="review-query" type="search" autocomplete="off" /><button class="btn-action" type="submit">${copy(4)}</button></div></form>
+    <div id="review-filters" class="review-filters"></div>
+    <div id="review-results"></div></div>`);
+  const renderResults = () => {
+    const page = reviewHistoryPage(VaultDAO.state.tripReviewHistory, { query, filter, limit });
+    $('#review-filters').innerHTML = ['all','pending','prepared'].map((key, i) => `<button type="button" data-review-filter="${key}" aria-pressed="${filter === key}">${copy(i)} <span>${page.counts[key]}</span></button>`).join('');
+    $('#review-results').innerHTML = page.entries.length ? page.entries.map((entry, index) => `<article class="review-history-entry"><button data-review-history="${index}" class="review-open"><span><strong>${esc(entry.review.tripName)}</strong><span>${esc(entry.review.mittente || '')}</span><small>${esc(new Date(entry.savedAt).toLocaleDateString(__uiLocale))}</small></span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>
+      ${entry.decision ? `<div class="review-decisions"><h4>${copy(7)}</h4><ol>${(entry.decisions?.length ? entry.decisions : [entry.decision]).map(d => `<li><strong>${esc(tCh(d.state === 'approvata' ? 'tripVerdictStateApproved' : 'tripVerdictStateChanges', __uiLang))}</strong>${d.reviewer ? `<span> · ${esc(d.reviewer)}</span>` : ''}${d.note ? `<p>${esc(d.note)}</p>` : ''}</li>`).join('')}</ol></div>` : ''}</article>`).join('') + (page.total > page.entries.length ? `<button id="review-more" class="btn-action w-full py-3">${copy(5)}</button>` : '') : `<p role="status" class="card-sub">${query ? copy(6) : esc(reviewHistoryCopy(__uiLang, 2))}</p>`;
+    document.querySelectorAll('[data-review-filter]').forEach(button => button.onclick = () => { filter = button.dataset.reviewFilter; limit = 20; renderResults(); document.querySelector('[data-review-filter="' + filter + '"]')?.focus(); });
+    document.querySelectorAll('[data-review-history]').forEach(button => button.onclick = () => window.openTripReviewScreen(page.entries[Number(button.dataset.reviewHistory)].review));
+    $('#review-more')?.addEventListener('click', () => { limit += 20; renderResults(); document.querySelector('[data-review-history="' + (limit - 20) + '"]')?.focus(); });
+  };
+  renderResults();
+  $('#review-search-form').addEventListener('submit', event => { event.preventDefault(); query = $('#review-query').value; limit = 20; renderResults(); });
+  $('#review-import')?.addEventListener('click', () => $('#review-import-file')?.click());
+  $('#review-import-file')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      if (file.size > MAX_REVIEW_ARCHIVE_BYTES) throw new Error('size');
+      window.openTripReviewScreen(await readReviewArchive(await file.text()));
+    } catch { showToast(reviewImportCopy(__uiLang, 2), 'error'); }
+  });
+};
+
 window.openTripReviewScreen = (rev) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const etichetta = (e) => e.mealType ? `${esc(tCh('trip_' + e.categoria, __uiLang))} · ${esc(tCh('trip_meal_' + e.mealType, __uiLang))}` : esc(tCh('trip_' + (TRIP_CATEGORIES.includes(e.categoria) ? e.categoria : 'altro'), __uiLang));
 
-  const righe = rev.expenses.map(e => `
+  const hasConflicts = rev.revisionConflictCount > 0 || rev.expenses.some(e => e.revisionConflict);
+  const offeredRows = (rev.offerti || []).map(e => `<div class="trip-row flex items-center gap-3 py-3 border-b border-[var(--outline)] last:border-0"><span class="flex-1 min-w-0"><span class="block text-sm font-bold break-words">${esc(e.descrizione) || esc(tCh('tripNoDescription', __uiLang))}</span><span class="text-xs text-[var(--on-surface-secondary)]">${etichetta(e)} · ${esc(String(e.data || '').slice(0, 10))}</span></span><span class="font-mono shrink-0">${eur(e.importo)}</span></div>`).join('');
+  const righe = rev.expenses.map((e, index) => `
     <div class="trip-row flex items-center gap-2.5 py-1.5 border-b border-[var(--outline)] last:border-0">
       <span class="flex-1 min-w-0">
         <span class="block text-[12px] font-bold truncate">${esc(e.descrizione) || esc(tCh('tripNoDescription', __uiLang))}</span>
+        ${isReviewAttachment(e.scontrino) ? `<button data-review-receipt="${index}" class="btn-action text-xs px-3 py-2 my-2 rounded-xl">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
         <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${etichetta(e)} · ${esc(String(e.data).slice(0, 10))}${e.giustificativoMancante ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
       </span>
       <span class="font-mono font-bold shrink-0">${eur(e.importo)}</span>
@@ -12238,27 +12583,59 @@ window.openTripReviewScreen = (rev) => {
         ${rev.ridotto ? `<div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReviewMissingOnlyTitle', __uiLang))}</div>` : ''}
         <div class="trip-in">${righe}</div>
       </div>` : ''}
+      ${offeredRows ? `<section class="card p-3"><h4 class="font-bold text-sm">${esc(tCh('tripOfferedSectionTitle', __uiLang))}</h4><p class="card-sub">${esc(tCh('tripOfferedSectionSub', __uiLang))}</p>${offeredRows}<div class="flex justify-between gap-3 py-3 font-bold"><span>${esc(tCh('tripOfferedTotalLabel', __uiLang))}</span><span class="font-mono">${eur(rev.offertiTotale)}</span></div>${rev.numeroOffertiTotali > rev.offerti.length ? `<p class="card-sub">${esc(tCh('tripReviewReducedHint', __uiLang, rev.numeroOffertiTotali))}</p>` : ''}</section>` : ''}
       <div class="card p-3">
         <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripReviewDecisionTitle', __uiLang))}</div>
+        ${hasConflicts ? `<p id="review-conflict" role="status" class="p-3 mb-3 rounded-xl border border-amber-400/40">${esc(reviewConflictCopy(__uiLang))}</p>` : ''}
+        ${rev.policyExceptionReason ? `<section class="p-3"><h4>${esc(policyDetailsCopy(__uiLang, 7))}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(rev.policyExceptionReason)}</p><small>${esc(policyDetailsCopy(__uiLang, 3))}</small></section>` : ''}
         <input id="trv-reviewer" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewerNamePlaceholder', __uiLang))}" name="trv-reviewer" />
         <textarea id="trv-note" rows="2" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm mb-2" placeholder="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" aria-label="${esc(tCh('tripReviewNotePlaceholder', __uiLang))}" name="trv-note"></textarea>
         <div class="grid grid-cols-2 gap-2">
-          <button id="trv-ok" class="btn-action btn-primary py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewApproveBtn', __uiLang))}</button>
+          <button id="trv-ok" ${hasConflicts ? 'disabled aria-describedby="review-conflict"' : ''} class="btn-action btn-primary py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform disabled:opacity-40">${esc(tCh('tripReviewApproveBtn', __uiLang))}</button>
           <button id="trv-ko" class="py-3 font-bold rounded-xl border border-amber-400/50 text-amber-300 bg-amber-500/10 text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripReviewChangesBtn', __uiLang))}</button>
         </div>
       </div>
     </div>`, `<button id="trv-rev-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
 
   $('#trv-rev-close')?.addEventListener('click', () => closeModal());
+  document.querySelectorAll('[data-review-receipt]').forEach(button => button.addEventListener('click', () => {
+    const data = rev.expenses[Number(button.dataset.reviewReceipt)]?.scontrino;
+    if (!isReviewAttachment(data)) return;
+    const dialog = document.createElement('dialog');
+    dialog.style.cssText = 'width:min(94vw,900px);max-height:90dvh;border:1px solid var(--outline);border-radius:20px;padding:16px;background:var(--surface-elevated);color:var(--on-surface)';
+    const close = document.createElement('button');
+    close.textContent = tCh('vaultCloseBtn', __uiLang);
+    close.className = 'btn-action px-4 py-3 mb-3 rounded-xl';
+    close.onclick = () => dialog.close();
+    const pdf = data.startsWith('data:application/pdf');
+    const viewer = document.createElement(pdf ? 'iframe' : 'img');
+    viewer.src = data; viewer.title = tCh('tripOpenReceipt', __uiLang);
+    if (!pdf) viewer.alt = viewer.title;
+    viewer.style.cssText = pdf ? 'width:100%;height:65dvh;border:0' : 'width:100%;max-height:65dvh;object-fit:contain';
+    dialog.append(close, viewer);
+    dialog.addEventListener('close', () => { dialog.remove(); button.focus(); }, { once: true });
+    document.body.append(dialog); dialog.showModal(); close.focus();
+  }));
+  const saveHistory = decision => {
+    VaultDAO.state.tripReviewHistory = rememberReview(VaultDAO.state.tripReviewHistory, rev, decision);
+    VaultDAO.save();
+  };
+  const saveButton = document.createElement('button');
+  saveButton.type = 'button'; saveButton.className = 'btn-action w-full py-3 rounded-xl';
+  saveButton.textContent = reviewHistoryCopy(__uiLang, 1);
+  saveButton.onclick = () => { saveHistory(null); showToast(reviewHistoryCopy(__uiLang, 4), 'success'); };
+  document.getElementById('modal-body')?.append(saveButton);
   const mandaEsito = (state) => {
+    try { assertReviewDecision(rev, state); } catch { showToast(reviewConflictCopy(__uiLang), 'error'); return; }
     const reviewer = document.getElementById('trv-reviewer')?.value?.trim() || '';
     const note = document.getElementById('trv-note')?.value?.trim() || '';
     // "Serve una modifica" senza dire COSA è esattamente il va-e-vieni che
     // fa odiare le note spese: la nota qui è obbligatoria solo in quel caso.
     if (state === 'modifiche' && !note) { showToast(tCh('tripReviewNoteRequired', __uiLang), 'error'); return; }
     let code;
-    try { code = encodeTripVerdict({ tripId: rev.tripId, state, note, reviewer }); }
+    try { code = encodeTripVerdict({ tripId: rev.tripId, state, note, reviewer, reportFingerprint: rev.reportFingerprint }); }
     catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
+    saveHistory({ state, note, reviewer, preparedAt: Date.now() });
     const messaggio = tCh('tripVerdictMessage', __uiLang, rev.tripName || '', state === 'approvata' ? tCh('tripVerdictStateApproved', __uiLang) : tCh('tripVerdictStateChanges', __uiLang), code);
     window.openTripVerdictShare(messaggio, code);
   };
@@ -17493,6 +17870,7 @@ window.setUiComplexity = (val) => {
   VaultDAO.save();
   haptic('light');
   updateUiComplexityVisibility();
+  updateAnalysisTensorVisibility();
   // Conferma visiva sull'INTERA card, non solo sulla pillola del selettore
   // (segnalato dal vivo: "quando cambio stato non succede niente per
   // l'utente"). Riusa lo stesso rimbalzo già usato per il tipo di
@@ -21264,7 +21642,7 @@ const initApp = () => {
     // mai prima — non deve competere col primo paint né sembrare un
     // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
     // arrivato", poi eventualmente "cosa è cambiato".
-    setTimeout(() => { try { showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
+    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
     // Ponte iOS Safari→PWA (2026-08-28, vedi vault.js): appena aperta una
     // PWA installata su iOS SENZA transazioni proprie, controlla se Safari
     // ha lasciato un'istantanea recente in Cache Storage — best-effort, mai
@@ -21668,6 +22046,8 @@ async function initMomentumRealAI() {
     }
     momentumMeshNode.getSyncSketch = () => {
       try {
+        // ID-only sketches cannot detect edits to an existing transaction.
+        if (allTransactionsFlat().some(tx => tx.tripRevisions?.length)) return null;
         const ids = idsLocali();
         if (!ids.length) return null;
         // Dimensionato sulle differenze ATTESE tra due dispositivi dello
@@ -21679,6 +22059,7 @@ async function initMomentumRealAI() {
     };
     momentumMeshNode.reconcileSketch = (msg) => {
       try {
+        if (allTransactionsFlat().some(tx => tx.tripRevisions?.length)) return { success: false };
         const ids = idsLocali();
         const mio = buildSketch(ids, { m: msg.m, k: msg.k });
         const r = reconcile(mio, msg.cells);
@@ -21700,6 +22081,7 @@ async function initMomentumRealAI() {
     );
     momentumMeshNode.onSyncReceived = (txs) => {
       const added = VaultDAO.applySyncMerge(txs);
+      if (added > 0) window.__tripLiveRefresh?.();
       if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(`${added} transazioni sincronizzate da un tuo dispositivo.`, 'success'); }
       return added;
     };

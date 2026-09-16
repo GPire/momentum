@@ -1,5 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { prepareReceiptDelivery } from './expense-bridge.js';
+
+test('preparing share or email never certifies delivery or removes pending receipts', () => {
+  for (const channel of ['share', 'email']) {
+    const original = { id: 42, receiptImage: 'receipt' };
+    const prepared = prepareReceiptDelivery(original, channel, '2026-09-13');
+    assert.equal(prepared.bridgeSentAt, undefined);
+    assert.equal(prepared.bridgePreparationChannel, channel);
+    assert.equal(scontriniDaInviare([prepared]).length, 1);
+    assert.equal(original.bridgePreparedAt, undefined);
+  }
+});
+test('preparation preserves previous delivery records and rejects unknown channels', () => {
+  const original = { id: 'uuid', bridgeSentAt: 'previous' };
+  assert.equal(prepareReceiptDelivery(original, 'email').bridgeSentAt, 'previous');
+  assert.throws(() => prepareReceiptDelivery(original, 'api'));
+});
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './expense-bridge.js';
 
 test('Concur ed Expensify hanno un indirizzo fisso verificato, Zoho e Altro no', () => {
