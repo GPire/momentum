@@ -10625,7 +10625,7 @@ window.openDebiti = () => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const debiti = () => VaultDAO.state.debiti || [];
   const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
-  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false, hasPromo: false, promoFino: '', tassoPostPromo: '' };
+  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false, hasPromo: false, promoFino: '', tassoPostPromo: '', avanzate: false };
   let strategia = 'valanga';
   let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
   const dataFraMesi = (n) => {
@@ -10753,18 +10753,21 @@ window.openDebiti = () => {
             <div class="task-field"><span>${tCh('debtTypeLabel', __uiLang)}</span>
               <div class="flex flex-wrap gap-1.5 mt-1">${TIPI.map(([k, lbl]) => `<button type="button" data-debttipo="${k}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.tipo === k ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(lbl())}</button>`).join('')}</div>
             </div>
-            <!-- "Tasso variabile" richiesto esplicitamente (2026-09-16, gap
-                 di mercato reale: "payment shock" da rialzo tassi su mutui/
-                 prestiti — vedi commento in debt-payoff.js normalizzaDebito).
-                 Visibile per QUALUNQUE tipo (non solo mutuo: anche un
-                 prestito auto/personale può essere a tasso variabile). -->
+            <!-- Percorso base: 4 campi + tipo + Aggiungi, punto. Tutto il
+                 resto (tasso variabile/promo/penale mutuo — 3 feature reali
+                 aggiunte il 2026-09-16, vedi debt-payoff.js) dietro un
+                 accordion "Opzioni avanzate": segnalato dall'utente che il
+                 form si era riempito di campi sempre visibili, in diretto
+                 conflitto con "deve essere semplicissimo da utilizzare"
+                 ripetuto più volte nella stessa sessione — nessuna feature
+                 rimossa, solo nascosta finché non serve. -->
+            <button type="button" id="dt-toggle-avanzate" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline self-start">${form.avanzate ? tCh('debtAdvancedHide', __uiLang) : tCh('debtAdvancedShow', __uiLang)}</button>
+            ${form.avanzate ? `
             <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
               <input id="dt-tasso-var" type="checkbox" ${form.tassoVariabile ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
               <span>${tCh('debtVariableRateLabel', __uiLang)}</span>
             </label>
             ${form.tassoVariabile ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtVariableRateHint', __uiLang)}</p>` : ''}
-            <!-- Tasso promozionale in scadenza (2026-09-16, dato CFPB: solo
-                 il 21% salda prima che scada — vedi debt-payoff.js). -->
             <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
               <input id="dt-promo" type="checkbox" ${form.hasPromo ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
               <span>${tCh('debtPromoLabel', __uiLang)}</span>
@@ -10776,16 +10779,12 @@ window.openDebiti = () => {
               <label class="task-field"><span>${tCh('debtPromoRateAfterLabel', __uiLang)}</span><input id="dt-promo-tasso" type="number" inputmode="decimal" value="${esc(form.tassoPostPromo)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="24" name="dt-promo-tasso" /></label>
             </div>` : ''}
             ${form.tipo === 'mutuo' ? `
-            <!-- Richiesto esplicitamente dall'utente (2026-09-15): per un
-                 mutuo la logica di "extra sempre al tasso/saldo migliore"
-                 può essere sbagliata se c'è una penale — non è un consiglio,
-                 è un dato che l'utente dichiara per proteggere quel debito
-                 dalla cascata dell'extra (vedi debt-payoff.js). -->
             <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
               <input id="dt-penale" type="checkbox" ${form.penaleEstinzione ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
               <span>${tCh('debtMortgagePenaltyLabel', __uiLang)}</span>
             </label>
             <p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtMortgagePenaltyHint', __uiLang)}</p>` : ''}
+            ` : ''}
             <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('debtAddBtn', __uiLang)}</button>
           </div>
         </div>
@@ -10803,6 +10802,7 @@ window.openDebiti = () => {
       </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
 
     $('#dt-close')?.addEventListener('click', () => closeModal());
+    $('#dt-toggle-avanzate')?.addEventListener('click', () => { form.avanzate = !form.avanzate; render(); });
     $('#dt-nome')?.addEventListener('input', (e) => { form.nome = e.target.value; });
     $('#dt-saldo')?.addEventListener('input', (e) => { form.saldo = e.target.value; });
     $('#dt-tasso')?.addEventListener('input', (e) => { form.tasso = e.target.value; });
