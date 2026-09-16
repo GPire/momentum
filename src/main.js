@@ -204,7 +204,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10715,6 +10715,11 @@ window.openDebiti = () => {
         </div>
         ${noteStress[d.id] ? `<p class="text-[11px] text-amber-400 leading-snug">${esc(noteStress[d.id])}</p>` : ''}
         ${(notePromo[d.id] || []).map(t => `<p class="text-[11px] text-amber-400 leading-snug">${esc(t)}</p>`).join('')}
+        <!-- Gap competitor reale trovato il 2026-09-16 (Tally chiuso 2024,
+             Undebt.it/Debt Payoff Planner richiedono tracciamento manuale):
+             un tocco solo per registrare il pagamento del mese, mai un
+             ricalcolo a mano — vedi window.openRegistraPagamento sotto. -->
+        <button data-regpay="${d.id}" class="self-start text-[11px] font-bold text-[var(--primary)] underline">${tCh('debtRegisterPaymentBtn', __uiLang)}</button>
       </div>`).join('');
 
     // Rapporto debito/reddito (2026-09-16, richiesto esplicitamente: "capire
@@ -10835,8 +10840,39 @@ window.openDebiti = () => {
     $('#dt-extra')?.addEventListener('input', (e) => { extraMensile = parseFloat(String(e.target.value).replace(',', '.')) || 0; VaultDAO.state.debitiExtraMensile = extraMensile; VaultDAO.save(); aggiornaRisultato(); });
     document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; aggiornaRisultato(); document.querySelectorAll('[data-strat]').forEach(x => { const on = x.dataset.strat === strategia; x.classList.toggle('border-[var(--gold)]', on); x.classList.toggle('text-[var(--gold)]', on); x.classList.toggle('border-[var(--outline)]', !on); x.classList.toggle('text-[var(--on-surface-secondary)]', !on); }); }));
     document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
+    document.querySelectorAll('[data-regpay]').forEach(b => b.addEventListener('click', () => window.openRegistraPagamento(b.dataset.regpay)));
   };
   render();
+};
+
+// Registra un pagamento (src/predict/debt-payoff.js, 2026-09-16) — modale
+// separato da openDebiti (stesso pattern di openConsolidamento): dopo il
+// salvataggio richiama openDebiti() per mostrare l'elenco aggiornato, mai
+// un secondo posto dove il saldo è tenuto (VaultDAO.state.debiti resta
+// l'unica fonte di verità).
+window.openRegistraPagamento = (debtId) => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const debito = (VaultDAO.state.debiti || []).find(d => d.id === debtId);
+  if (!debito) return;
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('debtRegisterPaymentTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtRegisterPaymentSub', __uiLang)}</p></div>
+      <div class="card p-3">
+        <p class="text-[12.5px] font-bold mb-2">${esc(debito.nome)} · ${eur(debito.saldo)}</p>
+        <label class="task-field"><span>${tCh('debtRegisterPaymentAmountLabel', __uiLang)}</span><input id="rp-importo" type="number" inputmode="decimal" value="${debito.pagamentoMinimo || ''}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="${debito.pagamentoMinimo || 50}" name="rp-importo" /></label>
+      </div>
+    </div>`, `<button id="rp-confirm" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('debtRegisterPaymentConfirm', __uiLang)}</button>`);
+  $('#rp-confirm')?.addEventListener('click', () => {
+    const importo = parseFloat(String($('#rp-importo')?.value).replace(',', '.'));
+    if (!(importo > 0)) { showToast(tCh('debtFormError', __uiLang), 'error'); return; }
+    const aggiornato = registraPagamento(debito, importo);
+    VaultDAO.state.debiti = (VaultDAO.state.debiti || []).map(d => d.id === debtId ? aggiornato : d);
+    VaultDAO.save();
+    showToast(aggiornato.saldo <= 0 ? tCh('debtRegisterPaymentPaidOff', __uiLang, debito.nome) : tCh('debtRegisterPaymentDone', __uiLang, debito.nome, eur(aggiornato.saldo)), 'success');
+    closeModal();
+    window.openDebiti();
+  });
 };
 
 // Valuta un consolidamento (src/predict/debt-payoff.js, 2026-09-16) —

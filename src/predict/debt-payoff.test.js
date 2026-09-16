@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, DTI_SOGLIA_PRUDENTE, DTI_SOGLIA_STORICA, DTI_SOGLIA_CRITICA } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, DTI_SOGLIA_PRUDENTE, DTI_SOGLIA_STORICA, DTI_SOGLIA_CRITICA, registraPagamento } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -317,4 +317,31 @@ test('DTI: le soglie sono dichiarate come costanti esportate, mai numeri sparsi 
   assert.equal(DTI_SOGLIA_PRUDENTE, 0.36);
   assert.equal(DTI_SOGLIA_STORICA, 0.43);
   assert.equal(DTI_SOGLIA_CRITICA, 0.50);
+});
+
+// ── Registra un pagamento (2026-09-16, gap competitor: Tally chiuso 2024,
+// Undebt.it/Debt Payoff Planner richiedono tracciamento manuale) ──
+test('registraPagamento: scala il saldo dell\'importo pagato, mai sotto zero', () => {
+  const debito = { id: 'a', nome: 'Carta', saldo: 1000, tasso: 20, pagamentoMinimo: 50 };
+  const r = registraPagamento(debito, 50);
+  assert.equal(r.saldo, 950);
+});
+
+test('registraPagamento: pagamento maggiore del saldo residuo -> saldo a zero, mai negativo', () => {
+  const debito = { id: 'a', nome: 'Carta', saldo: 30, tasso: 20, pagamentoMinimo: 50 };
+  const r = registraPagamento(debito, 50);
+  assert.equal(r.saldo, 0);
+});
+
+test('registraPagamento: importo non valido o negativo trattato come zero, mai un\'eccezione', () => {
+  const debito = { id: 'a', nome: 'Carta', saldo: 1000, tasso: 20, pagamentoMinimo: 50 };
+  assert.equal(registraPagamento(debito, -50).saldo, 1000);
+  assert.equal(registraPagamento(debito, NaN).saldo, 1000);
+  assert.equal(registraPagamento(debito, undefined).saldo, 1000);
+});
+
+test('registraPagamento: pura, non muta il debito originale', () => {
+  const debito = { id: 'a', nome: 'Carta', saldo: 1000, tasso: 20, pagamentoMinimo: 50 };
+  registraPagamento(debito, 100);
+  assert.equal(debito.saldo, 1000);
 });

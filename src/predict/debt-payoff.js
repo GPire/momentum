@@ -422,3 +422,18 @@ export function testoCapacitaExtra(extra, lang = 'it') {
   if (extra < 0) return tDebt('debtDtiOverThreshold', lang, eur(extra));
   return tDebt('debtDtiCapacity', lang, eur(extra));
 }
+
+// ── REGISTRA UN PAGAMENTO — chiudere il gap reale trovato nella ricerca
+// competitor (2026-09-16): Tally (il concorrente più finanziato in questo
+// spazio) ha chiuso nel 2024; i due sopravvissuti più citati (Undebt.it,
+// Debt Payoff Planner) richiedono entrambi il tracciamento MANUALE del
+// saldo — nessuno collega il piano ai dati reali, l'utente deve ricalcolare
+// e riscrivere il nuovo saldo ogni mese a mano. Qui non serve ricalcolare
+// nulla: un tocco solo, importo pre-compilato con la rata dichiarata (mai
+// un automatismo silenzioso — l'utente conferma sempre, può correggere
+// l'importo se ha pagato di più/meno quel mese). Pura, non muta l'input.
+export function registraPagamento(debito, importo) {
+  const pagato = Math.max(0, +importo || 0);
+  const nuovoSaldo = Math.max(0, (+debito.saldo || 0) - pagato);
+  return { ...debito, saldo: +nuovoSaldo.toFixed(2) };
+}
