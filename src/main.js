@@ -204,7 +204,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10717,10 +10717,30 @@ window.openDebiti = () => {
         ${(notePromo[d.id] || []).map(t => `<p class="text-[11px] text-amber-400 leading-snug">${esc(t)}</p>`).join('')}
       </div>`).join('');
 
+    // Rapporto debito/reddito (2026-09-16, richiesto esplicitamente: "capire
+    // come e quando ottenere un prestito", non solo estinguerlo) — usa lo
+    // STESSO stipendio rilevato/dichiarato del resto dell'app (resolveSalary,
+    // mai un secondo posto dove l'utente deve reinserirlo). Mostrato solo con
+    // almeno un debito: senza debiti il rapporto è banalmente 0%, rumore.
+    let dtiHtml = '';
+    if (ds.length) {
+      const salario = resolveSalary(VaultDAO.state, allTransactionsFlat());
+      const dtiInfo = calcolaDTI(ds, salario?.amount || 0);
+      const extra = capacitaExtraPrestito(ds, salario?.amount || 0);
+      dtiHtml = `
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>${tCh('debtDtiTitle', __uiLang)}</div>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mb-1.5">${tCh('debtDtiSub', __uiLang)}</p>
+          <p class="text-[12.5px] font-bold leading-snug">${esc(testoDTI(dtiInfo, __uiLang))}</p>
+          ${dtiInfo.dti != null ? `<p class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mt-1">${esc(testoCapacitaExtra(extra, __uiLang))}</p>` : ''}
+        </div>`;
+    }
+
     openModal(`
       <div class="debt-planner-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">${tCh('debtScreenTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtScreenSub', __uiLang)}</p></div>
         <div class="card p-3">${righeForm}${listaRighe}</div>
+        ${dtiHtml}
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${tCh('debtAddSectionTitle', __uiLang)}</div>
           <div class="flex flex-col gap-2">

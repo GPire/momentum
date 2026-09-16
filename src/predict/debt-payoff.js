@@ -360,3 +360,65 @@ export function testoPromoScadenza(giorni, lang = 'it') {
   if (giorni > 45) return null; // troppo lontano, un avviso ora sarebbe rumore
   return tDebt('debtPromoExpiring', lang, giorni);
 }
+
+// ── RAPPORTO DEBITO/REDDITO — "posso permettermi un nuovo prestito?" ──
+// (2026-09-16, richiesto esplicitamente: "capire come e quando ottenere un
+// prestito", non solo come estinguerlo). Ricerca di mercato: il 43% è la
+// soglia citata storicamente per i mutui USA, ma un'analisi su 30 milioni di
+// domande reali (St. Louis Fed, 2026) trova la soglia VERA al 50% — sotto,
+// i prestatori trattano il 45% quasi come il 35% (poco cambia); sopra il
+// 50% "cambia il gioco" (rifiuti molto più frequenti). Il 20% delle persone
+// ha già pagamenti debito ≥26% del proprio reddito (Penny Hoarder 2026).
+// Nessuna banca mostra questo calcolo PRIMA di una richiesta — lo si scopre
+// spesso solo dopo un rifiuto, con un'interrogazione (hard inquiry) che
+// resta sul referto creditizio. Qui il calcolo è fatto PRIMA, con i dati
+// reali già in Momentum (stipendio rilevato/dichiarato + debiti dichiarati),
+// mai un consiglio ("chiedi il prestito") — solo il numero e dove si colloca.
+//
+// Soglie dichiarate (mai indovinate): 36% = prudente (linea guida di
+// settore diffusa), 43% = soglia storicamente citata, 50% = soglia reale
+// trovata dalla ricerca 2026 sopra citata, oltre la quale i rifiuti
+// aumentano nettamente.
+export const DTI_SOGLIA_PRUDENTE = 0.36;
+export const DTI_SOGLIA_STORICA = 0.43;
+export const DTI_SOGLIA_CRITICA = 0.50;
+
+// Pura: somma i pagamenti minimi mensili di TUTTI i debiti con saldo reale
+// (mai un debito già estinto, saldo<=0, a gonfiare il rapporto). Non include
+// affitto/mutuo/altri impegni fissi che non sono nell'elenco Debiti — limite
+// dichiarato, non un dato nascosto: se l'utente ha un mutuo, va aggiunto
+// come debito qui per essere conteggiato (stesso identico elenco che già usa
+// per il piano di estinzione, nessun secondo posto dove dichiararlo).
+export function calcolaDTI(debiti, redditoMensile) {
+  const rate = (debiti || []).filter((d) => (+d.saldo || 0) > 0).reduce((s, d) => s + (+d.pagamentoMinimo || 0), 0);
+  const reddito = +redditoMensile || 0;
+  if (reddito <= 0) return { rate, reddito: 0, dti: null };
+  return { rate, reddito, dti: +(rate / reddito).toFixed(4) };
+}
+
+// Quanto extra di rata mensile l'utente potrebbe sostenere restando sotto
+// una soglia data (default: quella storica 43%, la più citata e prudente
+// come riferimento pratico) — mai un incoraggiamento a spendere quel
+// margine, solo il numero che risponde a "quanto potrei chiedere in modo
+// sicuro". Può essere negativo: dichiarato esplicitamente (già oltre soglia).
+export function capacitaExtraPrestito(debiti, redditoMensile, soglia = DTI_SOGLIA_STORICA) {
+  const { rate, reddito } = calcolaDTI(debiti, redditoMensile);
+  if (reddito <= 0) return null;
+  return +(reddito * soglia - rate).toFixed(2);
+}
+
+export function testoDTI(dtiInfo, lang = 'it') {
+  if (!dtiInfo || dtiInfo.dti == null) return tDebt('debtDtiUnknownIncome', lang);
+  const pct = Math.round(dtiInfo.dti * 100);
+  if (dtiInfo.dti >= DTI_SOGLIA_CRITICA) return tDebt('debtDtiCritico', lang, pct);
+  if (dtiInfo.dti >= DTI_SOGLIA_STORICA) return tDebt('debtDtiAttenzione', lang, pct);
+  if (dtiInfo.dti >= DTI_SOGLIA_PRUDENTE) return tDebt('debtDtiModerato', lang, pct);
+  return tDebt('debtDtiOttimo', lang, pct);
+}
+
+export function testoCapacitaExtra(extra, lang = 'it') {
+  if (extra == null) return null;
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  if (extra < 0) return tDebt('debtDtiOverThreshold', lang, eur(extra));
+  return tDebt('debtDtiCapacity', lang, eur(extra));
+}

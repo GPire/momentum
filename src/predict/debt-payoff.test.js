@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, DTI_SOGLIA_PRUDENTE, DTI_SOGLIA_STORICA, DTI_SOGLIA_CRITICA } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -264,4 +264,57 @@ test('testoImpattoFinePromo: mostra il numero reale, mai un consiglio', () => {
 
 test('impattoFinePromo: null se il debito non dichiara un tasso post-promo, mai un calcolo su un dato assente', () => {
   assert.equal(impattoFinePromo({ id: 'a', saldo: 1000, tasso: 5, pagamentoMinimo: 50 }), null);
+});
+
+// ── Rapporto debito/reddito, "posso permettermi un nuovo prestito?"
+// (2026-09-16, dato St. Louis Fed 2026: soglia reale al 50%, non 43%) ──
+test('calcolaDTI: somma i pagamenti minimi reali e li rapporta al reddito dichiarato', () => {
+  const debiti = [{ saldo: 5000, pagamentoMinimo: 250 }, { saldo: 3000, pagamentoMinimo: 150 }];
+  const r = calcolaDTI(debiti, 2000);
+  assert.equal(r.rate, 400);
+  assert.equal(r.dti, 0.2);
+});
+
+test('calcolaDTI: ignora i debiti già estinti (saldo a zero), mai un peso residuo', () => {
+  const debiti = [{ saldo: 0, pagamentoMinimo: 250 }, { saldo: 3000, pagamentoMinimo: 150 }];
+  const r = calcolaDTI(debiti, 1000);
+  assert.equal(r.rate, 150);
+});
+
+test('calcolaDTI: reddito ignoto o zero -> dti null, mai una divisione per zero', () => {
+  const debiti = [{ saldo: 1000, pagamentoMinimo: 100 }];
+  assert.equal(calcolaDTI(debiti, 0).dti, null);
+  assert.equal(calcolaDTI(debiti, null).dti, null);
+});
+
+test('testoDTI: sceglie la fascia giusta rispetto alle soglie dichiarate (36%/43%/50%)', () => {
+  assert.match(testoDTI({ dti: 0.20 }), /20%/);
+  assert.doesNotMatch(testoDTI({ dti: 0.20 }), /43%|50%/);
+  assert.match(testoDTI({ dti: 0.40 }), /40%/); // moderato, fra 36 e 43
+  assert.match(testoDTI({ dti: 0.45 }), /43%/); // attenzione, fra 43 e 50 -> cita la soglia storica
+  assert.match(testoDTI({ dti: 0.57 }), /50%/); // critico, oltre la soglia reale 2026
+});
+
+test('testoDTI: reddito sconosciuto chiede il dato, mai una percentuale inventata', () => {
+  const testo = testoDTI({ dti: null });
+  assert.doesNotMatch(testo, /%/);
+});
+
+test('capacitaExtraPrestito: margine positivo sotto soglia, negativo (dichiarato) sopra soglia', () => {
+  const debiti = [{ saldo: 5000, pagamentoMinimo: 250 }, { saldo: 3000, pagamentoMinimo: 150 }];
+  assert.equal(capacitaExtraPrestito(debiti, 2000), 460); // 2000*0.43-400
+  assert.equal(capacitaExtraPrestito(debiti, 700), -99); // 700*0.43-400, arrotondato
+});
+
+test('testoCapacitaExtra: mai un consiglio a spendere il margine, solo il numero', () => {
+  const testo = testoCapacitaExtra(460);
+  assert.match(testo, /460,00/);
+  assert.doesNotMatch(testo, /dovresti|ti consiglio|chiedi il prestito/i);
+  assert.match(testoCapacitaExtra(-99), /già/);
+});
+
+test('DTI: le soglie sono dichiarate come costanti esportate, mai numeri sparsi nel codice', () => {
+  assert.equal(DTI_SOGLIA_PRUDENTE, 0.36);
+  assert.equal(DTI_SOGLIA_STORICA, 0.43);
+  assert.equal(DTI_SOGLIA_CRITICA, 0.50);
 });
