@@ -306,3 +306,57 @@ export function testoConsolidamento(confronto, lang = 'it') {
   }
   return tDebt('debtConsolidationNoDiff', lang);
 }
+
+// ── TASSO PROMOZIONALE IN SCADENZA (2026-09-16, richiesto esplicitamente) ──
+// Ricerca di mercato (dato CFPB citato da più fonti concordanti 2026): solo
+// il 21% di chi ha un tasso promozionale 0%/introduttivo salda il saldo
+// prima che scada; l'83% non chiude la carta alla scadenza, oltre metà
+// continua a spendere. Il CFPB segnala che questi conti finiscono con saldi
+// PIÙ ALTI nel lungo periodo dei conti senza promozione — non perché il
+// tasso promozionale sia un male, ma perché la scadenza arriva senza
+// preavviso reale per l'utente. Un debito può dichiarare `promoFino` (data
+// ISO) e `tassoPostPromo` (aliquota che scatta dopo) — entrambi opzionali,
+// mai un consiglio ("salda prima"), solo il conto alla rovescia e il numero.
+export function promoScadeTraGiorni(debito, oggi = new Date()) {
+  if (!debito || !debito.promoFino) return null;
+  const scadenza = new Date(debito.promoFino + 'T00:00:00');
+  if (Number.isNaN(scadenza.getTime())) return null;
+  const giorni = Math.round((scadenza.getTime() - oggi.getTime()) / (24 * 3600 * 1000));
+  return giorni; // negativo se già scaduta — dichiarato, mai nascosto
+}
+
+// Confronta il piano di estinzione ATTUALE (al tasso promozionale) con
+// quello che scatterebbe SE il saldo di oggi restasse invariato al tasso
+// post-promo — stesso principio di stressTestTasso (isola il debito, stessa
+// rata, riusa simulaEstinzione), qui con un tasso di destinazione noto e
+// dichiarato dall'utente invece di un'ipotesi di mercato.
+export function impattoFinePromo(debito, lang = 'it') {
+  if (!debito || debito.tassoPostPromo == null) return null;
+  const attuale = simulaEstinzione([debito], { extraMensile: 0, lang });
+  const dopoPromo = simulaEstinzione([{ ...debito, tasso: +debito.tassoPostPromo || 0 }], { extraMensile: 0, lang });
+  const confrontabile = !attuale.irrisolvibile && !dopoPromo.irrisolvibile;
+  return {
+    attuale, dopoPromo,
+    differenzaMesi: confrontabile ? dopoPromo.mesiTotali - attuale.mesiTotali : null,
+    differenzaInteresse: confrontabile ? +(dopoPromo.interesseTotale - attuale.interesseTotale).toFixed(2) : null,
+  };
+}
+
+export function testoImpattoFinePromo(risultato, lang = 'it') {
+  if (!risultato) return null;
+  if (risultato.dopoPromo.irrisolvibile) return tDebt('debtPromoUnviable', lang, risultato.dopoPromo.motivo || '');
+  if (risultato.attuale.irrisolvibile) return null; // già segnalato altrove (debito irrisolvibile anche oggi)
+  if (risultato.differenzaMesi <= 0 && risultato.differenzaInteresse <= 0.01) return null;
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  return tDebt('debtPromoImpact', lang, eur(risultato.differenzaInteresse), risultato.differenzaMesi);
+}
+
+// Testo del conto alla rovescia — separato dall'impatto: l'utente deve
+// vedere PRIMA "quando" (concreto, una data) e solo dopo "quanto" (un
+// calcolo che richiede più dati). Mai unire le due cose in una frase sola.
+export function testoPromoScadenza(giorni, lang = 'it') {
+  if (giorni == null) return null;
+  if (giorni < 0) return tDebt('debtPromoExpired', lang);
+  if (giorni > 45) return null; // troppo lontano, un avviso ora sarebbe rumore
+  return tDebt('debtPromoExpiring', lang, giorni);
+}

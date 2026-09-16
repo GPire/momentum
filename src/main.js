@@ -204,7 +204,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10625,7 +10625,7 @@ window.openDebiti = () => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const debiti = () => VaultDAO.state.debiti || [];
   const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
-  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false };
+  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false, hasPromo: false, promoFino: '', tassoPostPromo: '' };
   let strategia = 'valanga';
   let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
   const dataFraMesi = (n) => {
@@ -10693,6 +10693,20 @@ window.openDebiti = () => {
         if (testo) noteStress[d.id] = testo;
       } catch (_) {}
     }
+    // Tasso promozionale in scadenza (2026-09-16, dato CFPB): due note
+    // separate e complementari — QUANDO (il conto alla rovescia, mostrato
+    // sempre entro 45 giorni) e QUANTO (l'impatto in euro/mesi, mostrato
+    // solo se l'utente ha anche dichiarato il tasso post-promo).
+    const notePromo = {};
+    for (const d of ds) {
+      if (!d.promoFino && d.tassoPostPromo == null) continue;
+      try {
+        const giorni = promoScadeTraGiorni(d);
+        const testoScadenza = testoPromoScadenza(giorni, __uiLang);
+        const testoImpatto = d.tassoPostPromo != null ? testoImpattoFinePromo(impattoFinePromo(d, __uiLang), __uiLang) : null;
+        if (testoScadenza || testoImpatto) notePromo[d.id] = [testoScadenza, testoImpatto].filter(Boolean);
+      } catch (_) {}
+    }
     const listaRighe = ds.map(d => `
       <div class="split-row flex flex-col gap-1 py-1.5 border-b border-[var(--outline)] last:border-0">
         <div class="flex items-center justify-between gap-2">
@@ -10700,6 +10714,7 @@ window.openDebiti = () => {
           <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">${tCh('debtDeleteBtn', __uiLang)}</button>
         </div>
         ${noteStress[d.id] ? `<p class="text-[11px] text-amber-400 leading-snug">${esc(noteStress[d.id])}</p>` : ''}
+        ${(notePromo[d.id] || []).map(t => `<p class="text-[11px] text-amber-400 leading-snug">${esc(t)}</p>`).join('')}
       </div>`).join('');
 
     openModal(`
@@ -10728,6 +10743,18 @@ window.openDebiti = () => {
               <span>${tCh('debtVariableRateLabel', __uiLang)}</span>
             </label>
             ${form.tassoVariabile ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtVariableRateHint', __uiLang)}</p>` : ''}
+            <!-- Tasso promozionale in scadenza (2026-09-16, dato CFPB: solo
+                 il 21% salda prima che scada — vedi debt-payoff.js). -->
+            <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
+              <input id="dt-promo" type="checkbox" ${form.hasPromo ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
+              <span>${tCh('debtPromoLabel', __uiLang)}</span>
+            </label>
+            ${form.hasPromo ? `
+            <p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtPromoHint', __uiLang)}</p>
+            <div class="task-field-pair">
+              <label class="task-field"><span>${tCh('debtPromoUntilLabel', __uiLang)}</span><input id="dt-promo-fino" type="date" value="${esc(form.promoFino)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" name="dt-promo-fino" /></label>
+              <label class="task-field"><span>${tCh('debtPromoRateAfterLabel', __uiLang)}</span><input id="dt-promo-tasso" type="number" inputmode="decimal" value="${esc(form.tassoPostPromo)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="24" name="dt-promo-tasso" /></label>
+            </div>` : ''}
             ${form.tipo === 'mutuo' ? `
             <!-- Richiesto esplicitamente dall'utente (2026-09-15): per un
                  mutuo la logica di "extra sempre al tasso/saldo migliore"
@@ -10762,6 +10789,9 @@ window.openDebiti = () => {
     $('#dt-min')?.addEventListener('input', (e) => { form.pagamentoMinimo = e.target.value; });
     $('#dt-penale')?.addEventListener('change', (e) => { form.penaleEstinzione = e.target.checked; });
     $('#dt-tasso-var')?.addEventListener('change', (e) => { form.tassoVariabile = e.target.checked; render(); });
+    $('#dt-promo')?.addEventListener('change', (e) => { form.hasPromo = e.target.checked; render(); });
+    $('#dt-promo-fino')?.addEventListener('input', (e) => { form.promoFino = e.target.value; });
+    $('#dt-promo-tasso')?.addEventListener('input', (e) => { form.tassoPostPromo = e.target.value; });
     document.querySelectorAll('[data-debttipo]').forEach(b => b.addEventListener('click', () => { form.tipo = b.dataset.debttipo; render(); }));
     $('#dt-add')?.addEventListener('click', () => {
       const saldo = parseFloat(String(form.saldo).replace(',', '.'));
@@ -10770,8 +10800,14 @@ window.openDebiti = () => {
       if (!form.nome.trim() || !(saldo > 0) || !(pagamentoMinimo > 0) || !(tasso >= 0)) {
         showToast(tCh('debtFormError', __uiLang), 'error'); return;
       }
-      persist([...debiti(), { id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo, tipo: form.tipo, penaleEstinzione: form.tipo === 'mutuo' && form.penaleEstinzione, tassoVariabile: form.tassoVariabile }]);
-      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false; form.tassoVariabile = false;
+      const tassoPostPromo = form.hasPromo ? parseFloat(String(form.tassoPostPromo).replace(',', '.')) : null;
+      persist([...debiti(), {
+        id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo, tipo: form.tipo,
+        penaleEstinzione: form.tipo === 'mutuo' && form.penaleEstinzione, tassoVariabile: form.tassoVariabile,
+        promoFino: form.hasPromo && form.promoFino ? form.promoFino : null,
+        tassoPostPromo: Number.isFinite(tassoPostPromo) ? tassoPostPromo : null,
+      }]);
+      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false; form.tassoVariabile = false; form.hasPromo = false; form.promoFino = ''; form.tassoPostPromo = '';
       render();
     });
     // Solo aggiornaRisultato() qui, MAI render(): vedi commento su

@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -224,4 +224,44 @@ test('confrontaConsolidamento: mai un\'eccezione se il nuovo prestito è irrisol
   const c = confrontaConsolidamento(debiti, propostaImpossibile);
   assert.equal(c.consolidato.irrisolvibile, true);
   assert.doesNotThrow(() => testoConsolidamento(c));
+});
+
+// ── Tasso promozionale in scadenza (2026-09-16, "teaser rate", dato CFPB) ──
+test('promoScadeTraGiorni: giorni positivi se la scadenza è nel futuro, negativi se già passata', () => {
+  const oggi = new Date('2026-09-16T00:00:00');
+  assert.equal(promoScadeTraGiorni({ promoFino: '2026-10-01' }, oggi), 15);
+  assert.equal(promoScadeTraGiorni({ promoFino: '2026-09-01' }, oggi), -15);
+});
+
+test('promoScadeTraGiorni: null se non dichiarata, mai un valore inventato', () => {
+  assert.equal(promoScadeTraGiorni({}), null);
+  assert.equal(promoScadeTraGiorni(null), null);
+});
+
+test('testoPromoScadenza: avvisa solo entro 45 giorni, mai un allarme troppo presto (rumore)', () => {
+  assert.match(testoPromoScadenza(15), /15 giorni/);
+  assert.equal(testoPromoScadenza(90), null);
+  assert.match(testoPromoScadenza(-5), /già scaduto/);
+  assert.equal(testoPromoScadenza(null), null);
+});
+
+test('impattoFinePromo: calcola il costo reale del salto di tasso a fine promo (dato CFPB: solo 21% salda prima)', () => {
+  const carta = { id: 'c', nome: 'Carta promo', saldo: 3000, tasso: 0, pagamentoMinimo: 100, tassoPostPromo: 24 };
+  const r = impattoFinePromo(carta);
+  assert.equal(r.attuale.mesiTotali, 30);
+  assert.equal(r.dopoPromo.mesiTotali, 47);
+  assert.equal(r.dopoPromo.interesseTotale, 1627.31);
+  assert.equal(r.differenzaMesi, 17);
+});
+
+test('testoImpattoFinePromo: mostra il numero reale, mai un consiglio', () => {
+  const carta = { id: 'c', nome: 'Carta promo', saldo: 3000, tasso: 0, pagamentoMinimo: 100, tassoPostPromo: 24 };
+  const testo = testoImpattoFinePromo(impattoFinePromo(carta));
+  assert.match(testo, /1627,31/);
+  assert.match(testo, /17 mesi/);
+  assert.doesNotMatch(testo, /dovresti|ti consiglio/i);
+});
+
+test('impattoFinePromo: null se il debito non dichiara un tasso post-promo, mai un calcolo su un dato assente', () => {
+  assert.equal(impattoFinePromo({ id: 'a', saldo: 1000, tasso: 5, pagamentoMinimo: 50 }), null);
 });
