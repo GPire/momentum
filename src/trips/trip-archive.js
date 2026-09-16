@@ -1,6 +1,7 @@
 // Portable evidence package, not a vendor-specific API payload or Vault backup.
 import { needsReceipt } from './trip-engine.js';
 import { isTripAttachment } from './attachment-format.js';
+import { giornoLocale } from '../core/date-utils.js';
 
 export function isTripDate(value) {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value) || !Number.isFinite(Date.parse(value))) return false;
@@ -15,7 +16,7 @@ export function inspectTripArchive(transactions, policy) {
   const daily = new Map();
   for (const tx of transactions) {
     if (!tx || !isTripDate(tx.date) || !Number.isFinite(tx.amount) || tx.amount < 0 || (tx.currency || 'EUR') !== (policy?.currency || 'EUR')) continue;
-    const key = JSON.stringify([tx.date.slice(0, 10), tx.tripCategory]);
+    const key = JSON.stringify([giornoLocale(tx.date), tx.tripCategory]);
     daily.set(key, (daily.get(key) || 0) + Math.round(tx.amount * 100));
   }
   transactions.forEach((tx, index) => {
@@ -31,7 +32,7 @@ export function inspectTripArchive(transactions, policy) {
     if (dayLimit !== undefined && dayLimit !== null) {
       if (typeof dayLimit !== 'number' || !Number.isFinite(dayLimit) || dayLimit < 0 || !Number.isSafeInteger(Math.round(dayLimit * 100))) issue('invalid_policy');
       else if ((tx.currency || 'EUR') !== (policy.currency || 'EUR')) issue('policy_currency', 'warning');
-      else if (isTripDate(tx.date) && daily.get(JSON.stringify([tx.date.slice(0, 10), tx.tripCategory])) > Math.round(dayLimit * 100)) issue('policy_daily', 'warning');
+      else if (isTripDate(tx.date) && daily.get(JSON.stringify([giornoLocale(tx.date), tx.tripCategory])) > Math.round(dayLimit * 100)) issue('policy_daily', 'warning');
     }
     const limit = policy?.expenseLimits?.[tx.tripCategory];
     if (limit !== undefined && limit !== null) {

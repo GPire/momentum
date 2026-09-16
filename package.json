@@ -3,6 +3,9 @@
   "version": "50.1.0",
   "type": "module",
   "private": true,
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite",
     "test": "node scripts/run-tests.mjs",
