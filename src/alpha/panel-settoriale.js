@@ -5,7 +5,7 @@
 // companyfacts/frames), nessuna chiave, nessuna registrazione.
 //
 // ONESTA' SULLA SCALA (regola #1): la SEC ha ricevuto depositi di ricavi da
-// ~11304 aziende nell'anno piu' recente disponibile — questo file ne
+// ~11312 aziende nell'anno piu' recente disponibile — questo file ne
 // pubblica il SETTORE (e quindi il percentile) per le prime 600
 // (scelte per completezza di dati, non per dimensione), perche' il codice SIC
 // costa una richiesta per azienda e il resto e' fuori budget di tempo di
@@ -15,9 +15,9 @@
 // E' una FOTOGRAFIA, non un flusso: vedi freschezza.js per l'eta' del dato.
 'use strict';
 
-export const SEC_PANEL_SCARICATO_IL = '2026-08-27';
+export const SEC_PANEL_SCARICATO_IL = '2026-09-17';
 export const SEC_PANEL_FONTE = 'SEC EDGAR — API frames + submissions (XBRL), moduli 10-K';
-export const SEC_PANEL_AZIENDE_TOTALI_MERCATO = 11304;
+export const SEC_PANEL_AZIENDE_TOTALI_MERCATO = 11312;
 export const SEC_PANEL_MIN_BUCKET = 8;
 
 // Percentili p10/p25/p50/p75/p90 per "gruppoSic|anno|misura" (misura:
@@ -412,7 +412,7 @@ export const PERCENTILI_SETTORE = {
   "n": 88,
   "p10": -0.1658,
   "p25": -0.0044,
-  "p50": 0.0576,
+  "p50": 0.0579,
   "p75": 0.1298,
   "p90": 0.1918
  },
@@ -428,7 +428,7 @@ export const PERCENTILI_SETTORE = {
   "n": 89,
   "p10": -0.0911,
   "p25": -0.0036,
-  "p50": 0.0467,
+  "p50": 0.0493,
   "p75": 0.0812,
   "p90": 0.1319
  },
@@ -854,7 +854,7 @@ export const PERCENTILI_SETTORE = {
   "p25": -0.2416,
   "p50": 0.0519,
   "p75": 0.1503,
-  "p90": 0.2902
+  "p90": 0.2916
  },
  "28|2024|roa": {
   "n": 121,
@@ -1610,98 +1610,98 @@ export const PERCENTILI_SETTORE = {
  },
  "50|2022|margine": {
   "n": 31,
-  "p10": 0.0104,
-  "p25": 0.0325,
-  "p50": 0.0544,
+  "p10": 0.0064,
+  "p25": 0.0286,
+  "p50": 0.0484,
   "p75": 0.092,
   "p90": 0.1211
  },
  "50|2022|roe": {
   "n": 31,
-  "p10": 0.0232,
-  "p25": 0.1318,
-  "p50": 0.1986,
+  "p10": 0.0134,
+  "p25": 0.1164,
+  "p50": 0.1943,
   "p75": 0.2602,
   "p90": 0.502
  },
  "50|2022|roa": {
   "n": 31,
-  "p10": 0.0061,
-  "p25": 0.0464,
-  "p50": 0.0926,
+  "p10": 0.0042,
+  "p25": 0.0417,
+  "p50": 0.0811,
   "p75": 0.1488,
   "p90": 0.2017
  },
  "50|2023|margine": {
   "n": 31,
   "p10": -0.0057,
-  "p25": 0.0273,
-  "p50": 0.042,
+  "p25": 0.0237,
+  "p50": 0.041,
   "p75": 0.0902,
   "p90": 0.111
  },
  "50|2023|roe": {
   "n": 31,
   "p10": -0.0136,
-  "p25": 0.099,
-  "p50": 0.1521,
+  "p25": 0.0942,
+  "p50": 0.1518,
   "p75": 0.2336,
   "p90": 0.2457
  },
  "50|2023|roa": {
   "n": 31,
   "p10": -0.0058,
-  "p25": 0.0412,
-  "p50": 0.0622,
+  "p25": 0.0316,
+  "p50": 0.0604,
   "p75": 0.1275,
   "p90": 0.1526
  },
  "50|2024|margine": {
   "n": 31,
   "p10": -0.0041,
-  "p25": 0.0183,
-  "p50": 0.0391,
-  "p75": 0.0834,
+  "p25": 0.018,
+  "p50": 0.037,
+  "p75": 0.0818,
   "p90": 0.1596
  },
  "50|2024|roe": {
   "n": 31,
   "p10": -0.0104,
-  "p25": 0.0822,
-  "p50": 0.1087,
-  "p75": 0.1984,
+  "p25": 0.0672,
+  "p50": 0.1066,
+  "p75": 0.1869,
   "p90": 0.2573
  },
  "50|2024|roa": {
   "n": 31,
   "p10": -0.0042,
-  "p25": 0.0331,
-  "p50": 0.0476,
-  "p75": 0.0984,
+  "p25": 0.0228,
+  "p50": 0.0463,
+  "p75": 0.0873,
   "p90": 0.1419
  },
  "50|2025|margine": {
   "n": 28,
   "p10": 0.0001,
-  "p25": 0.0185,
-  "p50": 0.044,
-  "p75": 0.0755,
+  "p25": 0.0132,
+  "p50": 0.0336,
+  "p75": 0.0676,
   "p90": 0.0951
  },
  "50|2025|roe": {
   "n": 27,
-  "p10": 0.0107,
-  "p25": 0.0785,
-  "p50": 0.1247,
-  "p75": 0.1906,
+  "p10": 0.0004,
+  "p25": 0.0685,
+  "p50": 0.1031,
+  "p75": 0.1779,
   "p90": 0.2113
  },
  "50|2025|roa": {
   "n": 28,
   "p10": 0.0001,
-  "p25": 0.0242,
-  "p50": 0.0523,
-  "p75": 0.0801,
+  "p25": 0.0196,
+  "p50": 0.0411,
+  "p75": 0.0724,
   "p90": 0.1331
  },
  "49|2008|margine": {
@@ -3402,7 +3402,7 @@ export const PERCENTILI_SETTORE = {
  },
  "36|2025|roa": {
   "n": 104,
-  "p10": -0.3452,
+  "p10": -0.3807,
   "p25": -0.049,
   "p50": 0.0128,
   "p75": 0.0606,
@@ -5804,7 +5804,7 @@ export const PERCENTILI_SETTORE = {
   "n": 107,
   "p10": -0.387,
   "p25": -0.0762,
-  "p50": 0.0632,
+  "p50": 0.0593,
   "p75": 0.1445,
   "p90": 0.224
  },
@@ -5812,15 +5812,15 @@ export const PERCENTILI_SETTORE = {
   "n": 102,
   "p10": -0.5042,
   "p25": -0.0729,
-  "p50": 0.0692,
-  "p75": 0.1504,
+  "p50": 0.0652,
+  "p75": 0.1472,
   "p90": 0.2303
  },
  "38|2023|roa": {
   "n": 107,
   "p10": -0.2318,
   "p25": -0.039,
-  "p50": 0.0318,
+  "p50": 0.0311,
   "p75": 0.0874,
   "p90": 0.13
  },
@@ -6211,7 +6211,7 @@ export const PERCENTILI_SETTORE = {
  "73|2022|margine": {
   "n": 152,
   "p10": -0.345,
-  "p25": -0.1152,
+  "p25": -0.1296,
   "p50": 0.0453,
   "p75": 0.1579,
   "p90": 0.2513
@@ -6234,7 +6234,7 @@ export const PERCENTILI_SETTORE = {
  },
  "73|2023|margine": {
   "n": 151,
-  "p10": -0.3324,
+  "p10": -0.3625,
   "p25": -0.0928,
   "p50": 0.0699,
   "p75": 0.1691,
@@ -6258,7 +6258,7 @@ export const PERCENTILI_SETTORE = {
  },
  "73|2024|margine": {
   "n": 150,
-  "p10": -0.446,
+  "p10": -0.4851,
   "p25": -0.0493,
   "p50": 0.0764,
   "p75": 0.1678,
@@ -7058,7 +7058,7 @@ export const PERCENTILI_SETTORE = {
  },
  "33|2023|roe": {
   "n": 16,
-  "p10": 0.0383,
+  "p10": 0.038,
   "p25": 0.0619,
   "p50": 0.0885,
   "p75": 0.1208,
@@ -7066,7 +7066,7 @@ export const PERCENTILI_SETTORE = {
  },
  "33|2023|roa": {
   "n": 16,
-  "p10": 0.0179,
+  "p10": 0.0177,
   "p25": 0.0297,
   "p50": 0.0438,
   "p75": 0.083,
@@ -28034,12 +28034,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2022,
     "ricavi": 80187000000,
-    "utileNetto": 14742000000,
+    "utileNetto": 14800000000,
     "patrimonioNetto": 44725000000,
     "attivo": 117715000000,
-    "margine": 0.1838,
-    "roe": 0.3296,
-    "roa": 0.1252,
+    "margine": 0.1846,
+    "roe": 0.3309,
+    "roa": 0.1257,
     "crediti": 5767000000,
     "costoVenduto": 42157000000,
     "attivoCorrente": 21866000000,
@@ -28052,12 +28052,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2023,
     "ricavi": 82006000000,
-    "utileNetto": 14653000000,
+    "utileNetto": 14700000000,
     "patrimonioNetto": 48829000000,
     "attivo": 120709000000,
-    "margine": 0.1787,
-    "roe": 0.3001,
-    "roa": 0.1214,
+    "margine": 0.1793,
+    "roe": 0.3011,
+    "roa": 0.1218,
     "crediti": 6334000000,
     "costoVenduto": 42760000000,
     "attivoCorrente": 23111000000,
@@ -28070,12 +28070,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2024,
     "ricavi": 84039000000,
-    "utileNetto": 14879000000,
+    "utileNetto": 15000000000,
     "patrimonioNetto": 51443000000,
     "attivo": 122639000000,
-    "margine": 0.177,
-    "roe": 0.2892,
-    "roa": 0.1213,
+    "margine": 0.1785,
+    "roe": 0.2916,
+    "roa": 0.1223,
     "crediti": 6234000000,
     "costoVenduto": 40848000000,
     "attivoCorrente": 25642000000,
@@ -28088,12 +28088,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2025,
     "ricavi": 84284000000,
-    "utileNetto": 15974000000,
+    "utileNetto": 16100000000,
     "patrimonioNetto": 53317000000,
     "attivo": 127286000000,
-    "margine": 0.1895,
-    "roe": 0.2996,
-    "roa": 0.1255,
+    "margine": 0.191,
+    "roe": 0.302,
+    "roa": 0.1265,
     "crediti": 6279000000,
     "costoVenduto": 41164000000,
     "attivoCorrente": 26588000000,
@@ -108774,7 +108774,7 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2022,
     "ricavi": 6202917000,
-    "utileNetto": 366794000,
+    "utileNetto": 366800000,
     "patrimonioNetto": 3250111000,
     "attivo": 6554549000,
     "margine": 0.0591,
@@ -108791,7 +108791,7 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2023,
     "ricavi": 6702546000,
-    "utileNetto": 384735000,
+    "utileNetto": 384700000,
     "patrimonioNetto": 3235624000,
     "attivo": 6658442000,
     "margine": 0.0574,
@@ -108808,7 +108808,7 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2024,
     "ricavi": 7659832000,
-    "utileNetto": 419924000,
+    "utileNetto": 419900000,
     "patrimonioNetto": 3728373000,
     "attivo": 8548499000,
     "margine": 0.0548,
@@ -108825,12 +108825,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2025,
     "ricavi": 8627824000,
-    "utileNetto": 499830000,
+    "utileNetto": 499800000,
     "patrimonioNetto": 4137768000,
     "attivo": 8933289000,
     "margine": 0.0579,
     "roe": 0.1208,
-    "roa": 0.056,
+    "roa": 0.0559,
     "crediti": 1366321000,
     "attivoCorrente": 2114677000,
     "passivoCorrente": 1073068000,
@@ -153610,12 +153610,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2022,
     "ricavi": 3810676000,
-    "utileNetto": 257414000,
+    "utileNetto": 257414,
     "patrimonioNetto": 1295876000,
     "attivo": 2522904000,
-    "margine": 0.0676,
-    "roe": 0.1986,
-    "roa": 0.102,
+    "margine": 0.0001,
+    "roe": 0.0002,
+    "roa": 0.0001,
     "crediti": 654510000,
     "costoVenduto": 2703760000,
     "attivoCorrente": 1422252000,
@@ -153628,12 +153628,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2023,
     "ricavi": 4412794000,
-    "utileNetto": 346739000,
+    "utileNetto": 346739,
     "patrimonioNetto": 1608028000,
     "attivo": 2782765000,
-    "margine": 0.0786,
-    "roe": 0.2156,
-    "roa": 0.1246,
+    "margine": 0.0001,
+    "roe": 0.0002,
+    "roa": 0.0001,
     "crediti": 659196000,
     "costoVenduto": 3125829000,
     "attivoCorrente": 1681992000,
@@ -153646,12 +153646,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2024,
     "ricavi": 4479406000,
-    "utileNetto": 385762000,
+    "utileNetto": 385762,
     "patrimonioNetto": 1793512000,
     "attivo": 3044641000,
-    "margine": 0.0861,
-    "roe": 0.2151,
-    "roa": 0.1267,
+    "margine": 0.0001,
+    "roe": 0.0002,
+    "roa": 0.0001,
     "crediti": 696239000,
     "costoVenduto": 3142753000,
     "attivoCorrente": 1614696000,
@@ -153664,12 +153664,12 @@ export const AZIENDE_PANEL = [
    {
     "anno": 2025,
     "ricavi": 4563424000,
-    "utileNetto": 392988000,
+    "utileNetto": 392988,
     "patrimonioNetto": 1874408000,
     "attivo": 3159322000,
-    "margine": 0.0861,
-    "roe": 0.2097,
-    "roa": 0.1244,
+    "margine": 0.0001,
+    "roe": 0.0002,
+    "roa": 0.0001,
     "crediti": 706902000,
     "costoVenduto": 3180265000,
     "attivoCorrente": 1748459000,
