@@ -35,8 +35,12 @@ test('hasFeature: una feature PRO è disponibile con licenza PRO', () => {
   assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'fisco_italia'), true);
 });
 
-test('PRO includes advanced investing; legacy Investor licences retain access', () => {
-  assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'pannello_sec_completo'), true);
+test('PRO does NOT include investor-only features (2026-09-14: piani separati per ANALISI_COMPETITOR.md §8, gating mai attivo finora quindi nessun utente reale impattato)', () => {
+  assert.equal(hasFeature({ license: { tier: TIER_PRO, exp: null } }, 'pannello_sec_completo'), false);
+});
+
+test('PRO_INVESTOR include le feature investor avanzate', () => {
+  assert.equal(hasFeature({ license: { tier: TIER_PRO_INVESTOR, exp: null } }, 'pannello_sec_completo'), true);
 });
 
 test('Free keeps data portability and presentation preferences after expiry', () => {
