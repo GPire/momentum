@@ -436,3 +436,36 @@ export function buildFatturaPaXML(data = {}) {
     blocking,
   };
 }
+
+// ---------------------------------------------------------------------------
+// 5) EXPORT ANNUALE IN BLOCCO — il ponte commercialista universale.
+// Fattura24 lega chi lo usa a UN gestionale (export B.Point, verificato in
+// ANALISI_COMPETITOR.md §6); FatturaPA è lo standard che QUALUNQUE gestionale
+// italiano importa nativamente (GBsoftware, Datalog, 1C-ERP, confermato nella
+// stessa ricerca) — questa funzione chiude l'unico gap reale rimasto: prima
+// solo una fattura alla volta, ora l'anno intero in un colpo, pronto per il
+// commercialista che sia. Ogni file resta il documento SdI ufficiale di
+// UNA fattura (mai un formato "combinato" inventato — lo standard non lo
+// prevede): questa funzione orchestra soltanto, non genera un formato nuovo.
+//
+// ONESTÀ: mai un XML che finge di essere in regola. Le fatture con dati
+// mancanti (es. un cliente salvato prima di avere l'indirizzo fiscale
+// completo) finiscono in `incomplete`, MAI silenziosamente saltate — chi
+// esporta deve sapere quali fatture completare prima di consegnarle.
+// Pura: nessun accesso al Vault, nessun ricalcolo fiscale — chi chiama
+// fornisce ogni riga già pronta nella stessa forma di buildFatturaPaXML
+// (stesso principio di trip-period.js: la tariffa/il dato la fornisce chi
+// chiama, mai indovinato qui).
+export function buildFatturaPaAnnualExport(items = []) {
+  const pronte = [];
+  const incomplete = [];
+  for (const item of items) {
+    const out = buildFatturaPaXML(item);
+    if (out.blocking) {
+      incomplete.push({ number: item?.meta?.number ?? null, filename: out.filename, controls: out.controls });
+    } else {
+      pronte.push({ number: item?.meta?.number ?? null, filename: out.filename, xml: out.xml });
+    }
+  }
+  return { pronte, incomplete };
+}

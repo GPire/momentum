@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 const {
   buildFatturaPaXML, validateFatturaPa, recommendInvoiceType, missingForFatturaPa,
   progressivoInvio, fatturaPaFilename, REGIME_FISCALE_CODE, NATURA_FORFETTARIO,
+  buildFatturaPaAnnualExport,
 } = await import('./fatturapa-xml.js');
 const { computeInvoice } = await import('./invoice-engine.js');
 
@@ -254,4 +255,56 @@ test('fatturaPaFilename: usa la P.IVA, formato IT{id}_{prog}.xml', () => {
 test('REGIME_FISCALE_CODE: mappa i due regimi correttamente', () => {
   assert.equal(REGIME_FISCALE_CODE.forfettario, 'RF19');
   assert.equal(REGIME_FISCALE_CODE.ordinario, 'RF01');
+});
+
+// --- EXPORT ANNUALE IN BLOCCO (2026-09-14) ---------------------------------
+// Il ponte commercialista di Fattura24 lega chi lo usa a UN gestionale
+// (B.Point); questo genera lo standard FatturaPA che qualunque gestionale
+// italiano importa — ma finora una fattura alla volta. L'export annuale
+// chiude quel gap senza inventare un formato nuovo: riusa buildFatturaPaXML
+// per ogni fattura, non ricalcola nulla di suo (nessuna dipendenza nuova
+// verso invoice-engine.js — chi chiama fornisce i dati già pronti, stesso
+// principio già in uso per trip-period.js).
+
+test('buildFatturaPaAnnualExport: genera un file XML per fattura, tutte pronte', () => {
+  const inv1 = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
+  const inv2 = computeInvoice({ imponibile: 500, regime: 'forfettario', country: 'IT' });
+  const out = buildFatturaPaAnnualExport([
+    { emitter: EMITTER, client: CLIENT, invoice: inv1, meta: { number: 1, year: 2026, date: '2026-01-10', regime: 'forfettario', description: 'Gennaio' } },
+    { emitter: EMITTER, client: CLIENT, invoice: inv2, meta: { number: 2, year: 2026, date: '2026-02-14', regime: 'forfettario', description: 'Febbraio' } },
+  ]);
+  assert.equal(out.pronte.length, 2);
+  assert.equal(out.incomplete.length, 0);
+  assert.equal(out.pronte[0].filename, fatturaPaFilename(EMITTER, progressivoInvio(1, 2026)));
+  assert.ok(out.pronte[0].xml.includes('<ImponibileImporto>1000.00</ImponibileImporto>'));
+  assert.ok(out.pronte[1].xml.includes('<ImponibileImporto>500.00</ImponibileImporto>'));
+});
+
+test('buildFatturaPaAnnualExport: separa le fatture con dati mancanti, mai un XML che finge di essere in regola', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'forfettario', country: 'IT' });
+  const out = buildFatturaPaAnnualExport([
+    { emitter: EMITTER, client: CLIENT, invoice: inv, meta: { number: 1, year: 2026, date: '2026-01-10', regime: 'forfettario', description: 'Completa' } },
+    { emitter: EMITTER, client: { denominazione: 'Cliente senza indirizzo' }, invoice: inv, meta: { number: 2, year: 2026, date: '2026-02-10', regime: 'forfettario', description: 'Incompleta' } },
+  ]);
+  assert.equal(out.pronte.length, 1);
+  assert.equal(out.incomplete.length, 1);
+  assert.equal(out.incomplete[0].number, 2);
+  assert.ok(out.incomplete[0].controls.some(c => c.level === 'error'));
+});
+
+test('buildFatturaPaAnnualExport: array vuoto → nessun errore, entrambe le liste vuote', () => {
+  const out = buildFatturaPaAnnualExport([]);
+  assert.deepEqual(out.pronte, []);
+  assert.deepEqual(out.incomplete, []);
+});
+
+test('buildFatturaPaAnnualExport: progressivi diversi per fatture diverse, nessun nome file duplicato', () => {
+  const inv = computeInvoice({ imponibile: 100, regime: 'forfettario', country: 'IT' });
+  const out = buildFatturaPaAnnualExport([
+    { emitter: EMITTER, client: CLIENT, invoice: inv, meta: { number: 1, year: 2026, date: '2026-01-10', regime: 'forfettario' } },
+    { emitter: EMITTER, client: CLIENT, invoice: inv, meta: { number: 2, year: 2026, date: '2026-02-10', regime: 'forfettario' } },
+    { emitter: EMITTER, client: CLIENT, invoice: inv, meta: { number: 3, year: 2026, date: '2026-03-10', regime: 'forfettario' } },
+  ]);
+  const nomi = new Set(out.pronte.map(p => p.filename));
+  assert.equal(nomi.size, 3);
 });
