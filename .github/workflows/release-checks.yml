@@ -17,5 +17,10 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
+      # server/auth ha un package.json isolato (mai nel bundle Vite
+      # personale, vedi docs/personal-company-loading.md): `npm ci` alla
+      # radice non lo installa. Senza questo passo scripts/run-tests.mjs
+      # salta i suoi test in silenzio (log esplicito) invece di farli fallire.
+      - run: npm ci --prefix server/auth
       - run: npm test
       - run: npm run build
