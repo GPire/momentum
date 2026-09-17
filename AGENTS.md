@@ -18,6 +18,14 @@
 > iPhone in background non fa mai da ponte; Nearby iOS↔Android offline non
 > esiste (parola di Google). Nessun plugin nativo installato, nessuna UI toccata.
 > Il "nodo aiutante" opt-in unifica ponte + calcolo condiviso + staffetta dati.
+> Stesso giorno, secondo cantiere: leggere [modelli-ai-2026-09-13.md](docs/modelli-ai-2026-09-13.md).
+> Audit reale dei modelli contro lo stato dell'arte: ACI (conformal.js) era
+> scritta e testata ma mai chiamata — ora collegata in orchestrator.js
+> (α di lavoro adattivo, 3 test). `frame-stream.js`: canale affidabile a
+> interfaccia RTCDataChannel sopra BLE/L2CAP/suono (7 test). Il catalogo Sciame
+> è multi-canale per principio (NFC, QR animato, Wi-Fi Direct, link, hotspot…):
+> ogni canale porta solo l'impegno pubblico. Prossimi upgrade con bench:
+> replay buffer in neural-nexus, banda conforme per la cassa, FLTrust sulle sonde.
 
 > **Priorità rilascio, 2026-09-12:** l’utente chiede di fermare l’espansione
 > continua delle infrastrutture e chiudere le altre parti. Leggere
