@@ -232,7 +232,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
@@ -10848,7 +10848,8 @@ window.openDebiti = () => {
           </div>
         </div>
         <div id="dt-risultato-wrap">${calcolaRisultato(ds)}</div>
-        ${ds.length >= 2 ? `<button onclick="window.openConsolidamento()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtConsolidationBtn', __uiLang)}</button>` : ''}` : ''}
+        ${ds.length >= 2 ? `<button onclick="window.openConsolidamento()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtConsolidationBtn', __uiLang)}</button>` : ''}
+        <button onclick="window.openConfrontaOfferte()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtOffersTitle', __uiLang)}</button>` : ''}
       </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
 
     $('#dt-close')?.addEventListener('click', () => closeModal());
@@ -10963,6 +10964,85 @@ window.openConsolidamento = () => {
   $('#dc-tasso')?.addEventListener('input', (e) => { proposta.tasso = e.target.value; aggiornaEsito(); });
   $('#dc-min')?.addEventListener('input', (e) => { proposta.pagamentoMinimo = e.target.value; aggiornaEsito(); });
   $('#dc-fee')?.addEventListener('input', (e) => { proposta.commissioneApertura = e.target.value; aggiornaEsito(); });
+};
+
+// Confronta più offerte di prestito (src/predict/debt-payoff.js,
+// confrontaOfferte — 2026-09-16, scritto e testato ma mai agganciato a
+// nessuna UI fino ad ora). Generalizza openConsolidamento a N offerte
+// contemporanee: stesso principio di onestà (classifica per costo reale
+// totale, mai per rata/tasso nominale), ma qui l'utente sta VALUTANDO fra
+// alternative concorrenti, non un singolo consolidamento contro lo status
+// quo. Ogni offerta ha il proprio blocco di campi; "aggiungi un'altra
+// offerta" ricrea il modale (azione discreta, non digitazione), mentre
+// digitare in un campo aggiorna SOLO #co-esito — stesso fix del bug
+// tastiera già documentato su calcolaRisultato/aggiornaRisultato sopra.
+window.openConfrontaOfferte = () => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const debitiEsistenti = () => VaultDAO.state.debiti || [];
+  const extraMensile = VaultDAO.state.debitiExtraMensile || 0;
+  let offerte = [{ nome: '', tasso: '', pagamentoMinimo: '', commissioneApertura: '' }];
+
+  const valide = () => offerte
+    .map(o => ({
+      nome: o.nome.trim(),
+      tasso: parseFloat(String(o.tasso).replace(',', '.')),
+      pagamentoMinimo: parseFloat(String(o.pagamentoMinimo).replace(',', '.')),
+      commissioneApertura: parseFloat(String(o.commissioneApertura).replace(',', '.')) || 0,
+    }))
+    .filter(o => o.nome && o.pagamentoMinimo > 0 && o.tasso >= 0);
+
+  const calcolaEsito = () => {
+    const ov = valide();
+    if (ov.length < 2) return '';
+    const c = confrontaOfferte(debitiEsistenti(), ov, { extraMensile, lang: __uiLang });
+    const righe = c.classifica.map((r, i) => `
+      <div class="flex flex-col gap-0.5 py-1.5 text-[12.5px] border-b border-[var(--outline)] last:border-0">
+        <div class="flex items-center justify-between gap-2">
+          <span><b>${i + 1}.</b> ${esc(r.nome)}</span>
+          <span class="text-[var(--on-surface-secondary)]">${r.consolidato.irrisolvibile ? '—' : eur(r.consolidato.interesseTotale)}</span>
+        </div>
+        <span class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(testoOfferta(r, c.attuale, __uiLang))}</span>
+      </div>`).join('');
+    const verdetto = testoMigliorOfferta(c.classifica, __uiLang);
+    return `
+      <div class="card p-3">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('debtOffersRankTitle', __uiLang)}</div>
+        ${righe}
+        ${verdetto ? `<p class="text-[12px] font-bold leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(verdetto)}</p>` : ''}
+      </div>`;
+  };
+  const aggiornaEsito = () => { const el = document.getElementById('co-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  const render = () => {
+    const campiOfferte = offerte.map((o, i) => `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('debtOffersOfferLabel', __uiLang, i + 1))}</div>
+        <div class="flex flex-col gap-2">
+          <label class="task-field"><span>${tCh('debtOffersNameLabel', __uiLang)}</span><input data-co-nome="${i}" value="${esc(o.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" name="co-nome-${i}" /></label>
+          <div class="task-field-pair">
+            <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input data-co-tasso="${i}" type="number" inputmode="decimal" value="${esc(o.tasso)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="8" name="co-tasso-${i}" /></label>
+            <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input data-co-min="${i}" type="number" inputmode="decimal" value="${esc(o.pagamentoMinimo)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="300" name="co-min-${i}" /></label>
+          </div>
+          <label class="task-field"><span>${tCh('debtConsolidationFeeLabel', __uiLang)}</span><input data-co-fee="${i}" type="number" inputmode="decimal" value="${esc(o.commissioneApertura)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="0" name="co-fee-${i}" /></label>
+        </div>
+      </div>`).join('');
+
+    openModal(`
+      <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">${tCh('debtOffersTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtOffersSub', __uiLang)}</p></div>
+        ${campiOfferte}
+        <button id="co-add" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${tCh('debtOffersAddAnother', __uiLang)}</button>
+        <div id="co-esito">${calcolaEsito()}</div>
+      </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+    $('#co-add')?.addEventListener('click', () => { offerte.push({ nome: '', tasso: '', pagamentoMinimo: '', commissioneApertura: '' }); render(); });
+    document.querySelectorAll('[data-co-nome]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coNome].nome = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-tasso]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coTasso].tasso = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-min]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coMin].pagamentoMinimo = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-fee]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coFee].commissioneApertura = e.target.value; aggiornaEsito(); }));
+  };
+  render();
 };
 
 // TRASFERTE DI LAVORO (src/trips/trip-engine.js) — ricerca reale fatta prima

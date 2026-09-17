@@ -437,3 +437,67 @@ export function registraPagamento(debito, importo) {
   const nuovoSaldo = Math.max(0, (+debito.saldo || 0) - pagato);
   return { ...debito, saldo: +nuovoSaldo.toFixed(2) };
 }
+
+// ── CONFRONTO DI PIÙ OFFERTE DI PRESTITO (2026-09-16, richiesto
+// esplicitamente: deve valere in ogni Paese, non solo in Italia) ──
+// Generalizza confrontaConsolidamento a N offerte contemporanee — lo stesso
+// bisogno reale (nessun sito/app confronta le offerte sul COSTO TOTALE
+// reale, quasi tutti si fermano al tasso nominale o alla rata, esattamente
+// l'errore di valutazione già documentato per il consolidamento). QUESTA
+// funzione è matematica di ammortamento pura (tasso/saldo/rata): **zero
+// dipendenza da regole fiscali o soglie normative di un singolo Paese** —
+// a differenza di calcolaDTI (soglie USA/Canada) o dei motori fiscali
+// (IT/CH/ES), qui non c'è nessun dato locale da sbagliare o da coprire
+// Paese per Paese. Funziona identica per un prestito in qualunque valuta
+// (la cifra è già quella dell'utente, mai un cambio valuta assunto qui —
+// confrontare offerte in valute diverse richiederebbe un tasso di cambio,
+// instabile per natura: fuori scope, dichiarato).
+export function confrontaOfferte(debitiEsistenti, offerte, { extraMensile = 0, lang = 'it' } = {}) {
+  const attuale = simulaEstinzione(debitiEsistenti, { strategia: 'valanga', extraMensile, lang });
+  const saldoTotale = (debitiEsistenti || []).reduce((s, d) => s + (+d.saldo || 0), 0);
+  const risultati = (offerte || []).map((offerta, i) => {
+    const nuovoDebito = {
+      id: `offerta_${i}`, nome: offerta.nome || `Offerta ${i + 1}`,
+      saldo: saldoTotale + (+offerta.commissioneApertura || 0),
+      tasso: +offerta.tasso || 0, pagamentoMinimo: +offerta.pagamentoMinimo || 0,
+    };
+    const sim = simulaEstinzione([nuovoDebito], { extraMensile, lang });
+    const confrontabile = !attuale.irrisolvibile && !sim.irrisolvibile;
+    return {
+      nome: nuovoDebito.nome,
+      consolidato: sim,
+      differenzaInteresse: confrontabile ? +(sim.interesseTotale - attuale.interesseTotale).toFixed(2) : null,
+      differenzaMesi: confrontabile ? sim.mesiTotali - attuale.mesiTotali : null,
+    };
+  });
+  // Classifica onesta: per costo totale REALE (interesse pagato), mai per
+  // rata o tasso nominale — le offerte irrisolvibili vanno sempre in fondo,
+  // mai spacciate per "vantaggiose" solo perché un campo è vuoto/null.
+  const classifica = [...risultati].sort((a, b) => {
+    const aIrr = a.consolidato.irrisolvibile, bIrr = b.consolidato.irrisolvibile;
+    if (aIrr && bIrr) return 0;
+    if (aIrr) return 1;
+    if (bIrr) return -1;
+    return a.consolidato.interesseTotale - b.consolidato.interesseTotale;
+  });
+  return { attuale, offerte: risultati, classifica };
+}
+
+// Testo per singola offerta: riusa ESATTAMENTE testoConsolidamento (stessa
+// disciplina, mai una seconda formula/messaggio per lo stesso concetto).
+export function testoOfferta(risultatoOfferta, attuale, lang = 'it') {
+  return testoConsolidamento({ attuale, consolidato: risultatoOfferta.consolidato, differenzaInteresse: risultatoOfferta.differenzaInteresse, differenzaMesi: risultatoOfferta.differenzaMesi }, lang);
+}
+
+// Solo il VERDETTO della classifica (mai un consiglio su cosa fare, solo il
+// fatto): quale offerta costa meno in totale, e quanto la seconda migliore
+// perde rispetto a lei — utile per capire se il distacco è reale o marginale.
+export function testoMigliorOfferta(classifica, lang = 'it') {
+  if (!classifica || !classifica.length) return null;
+  const [prima, seconda] = classifica;
+  if (prima.consolidato.irrisolvibile) return tDebt('debtOffersAllUnviable', lang);
+  if (!seconda || seconda.consolidato.irrisolvibile) return tDebt('debtOffersOnlyViable', lang, prima.nome);
+  const eur = (n) => `${Math.abs(n).toFixed(2).replace('.', ',')} €`;
+  const differenza = +(seconda.consolidato.interesseTotale - prima.consolidato.interesseTotale).toFixed(2);
+  return tDebt('debtOffersBest', lang, prima.nome, eur(differenza), seconda.nome);
+}

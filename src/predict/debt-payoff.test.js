@@ -1,7 +1,7 @@
 'use strict';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, DTI_SOGLIA_PRUDENTE, DTI_SOGLIA_STORICA, DTI_SOGLIA_CRITICA, registraPagamento } from './debt-payoff.js';
+import { ordinaDebiti, pagamentoInsufficiente, simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, DTI_SOGLIA_PRUDENTE, DTI_SOGLIA_STORICA, DTI_SOGLIA_CRITICA, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './debt-payoff.js';
 
 const CARTA = { id: 'c', nome: 'Carta di credito', saldo: 2000, tasso: 19, pagamentoMinimo: 60 };
 const AUTO = { id: 'a', nome: 'Prestito auto', saldo: 8000, tasso: 6, pagamentoMinimo: 200 };
@@ -344,4 +344,61 @@ test('registraPagamento: pura, non muta il debito originale', () => {
   const debito = { id: 'a', nome: 'Carta', saldo: 1000, tasso: 20, pagamentoMinimo: 50 };
   registraPagamento(debito, 100);
   assert.equal(debito.saldo, 1000);
+});
+
+// ── Confronto multi-offerta (2026-09-16), matematica pura — deve valere
+// identica in qualunque Paese/valuta, mai una soglia normativa locale ──
+test('confrontaOfferte: classifica per costo reale totale, mai per rata/tasso nominale', () => {
+  const debiti = [{ id: 'a', nome: 'Carta A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 }, { id: 'b', nome: 'Carta B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 }];
+  const offerte = [
+    { nome: 'Banca X', tasso: 10, pagamentoMinimo: 150, commissioneApertura: 200 }, // trappola: rata bassa, costa di più
+    { nome: 'Banca Y', tasso: 8, pagamentoMinimo: 400, commissioneApertura: 100 },  // genuinamente migliore
+    { nome: 'Banca Z', tasso: 50, pagamentoMinimo: 50, commissioneApertura: 0 },    // irrisolvibile
+  ];
+  const c = confrontaOfferte(debiti, offerte);
+  assert.deepEqual(c.classifica.map(r => r.nome), ['Banca Y', 'Banca X', 'Banca Z']);
+});
+
+test('confrontaOfferte: le offerte irrisolvibili vanno sempre in fondo alla classifica', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 1000, tasso: 15, pagamentoMinimo: 100 }];
+  const offerte = [
+    { nome: 'Impossibile', tasso: 90, pagamentoMinimo: 10 },
+    { nome: 'Sostenibile', tasso: 5, pagamentoMinimo: 200 },
+  ];
+  const c = confrontaOfferte(debiti, offerte);
+  assert.equal(c.classifica[0].nome, 'Sostenibile');
+  assert.equal(c.classifica[1].nome, 'Impossibile');
+});
+
+test('testoOfferta: riusa esattamente testoConsolidamento, mai una seconda formula per lo stesso concetto', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 }, { id: 'b', nome: 'B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 }];
+  const c = confrontaOfferte(debiti, [{ nome: 'Banca X', tasso: 10, pagamentoMinimo: 150, commissioneApertura: 200 }]);
+  const testo = testoOfferta(c.offerte[0], c.attuale);
+  assert.match(testo, /910,91/);
+});
+
+test('testoMigliorOfferta: nomina il vincitore e la differenza reale col secondo', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 5000, tasso: 22, pagamentoMinimo: 250 }, { id: 'b', nome: 'B', saldo: 3000, tasso: 18, pagamentoMinimo: 150 }];
+  const offerte = [
+    { nome: 'Banca X', tasso: 10, pagamentoMinimo: 150, commissioneApertura: 200 },
+    { nome: 'Banca Y', tasso: 8, pagamentoMinimo: 400, commissioneApertura: 100 },
+  ];
+  const c = confrontaOfferte(debiti, offerte);
+  const testo = testoMigliorOfferta(c.classifica);
+  assert.match(testo, /Banca Y/);
+  assert.match(testo, /Banca X/);
+});
+
+test('testoMigliorOfferta: dichiara onestamente se nessuna offerta è sostenibile', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 1000, tasso: 15, pagamentoMinimo: 100 }];
+  const offerte = [{ nome: 'Impossibile', tasso: 90, pagamentoMinimo: 10 }];
+  const c = confrontaOfferte(debiti, offerte);
+  assert.match(testoMigliorOfferta(c.classifica), /nessuna/i);
+});
+
+test('confrontaOfferte: array vuoto non genera un\'eccezione, ritorna una classifica vuota', () => {
+  const debiti = [{ id: 'a', nome: 'A', saldo: 1000, tasso: 15, pagamentoMinimo: 100 }];
+  const c = confrontaOfferte(debiti, []);
+  assert.deepEqual(c.classifica, []);
+  assert.equal(testoMigliorOfferta(c.classifica), null);
 });
