@@ -108,3 +108,42 @@ test('renderAccountantReportHTMLIntl: ES senza dati (nessuna fattura) non si rom
   const html = renderAccountantReportHTMLIntl(r, {});
   assert.ok(html.includes('<html'));
 });
+
+// ── LINGUA (2026-09-14): un utente ticinese/romando ha la app in it/fr, non
+// deve ricevere un documento forzato in tedesco — solo perché il Paese è CH
+// non significa che la lingua dell'utente lo sia. Le ETICHETTE del documento
+// seguono meta.lang; le note sostanziali (noteOneste, generate in tax-ch.js
+// con importi/URL interpolati) restano in italiano — limite dichiarato, non
+// tradotto di corsa (stesso principio già applicato a tax.js nel progetto). ──
+
+test('renderAccountantReportHTMLIntl: CH con lang "it" → etichette in italiano, non tedesco forzato', () => {
+  const r = buildAccountantReportCh(vault([['2026-03-10', 8000, 'fattura'], ['2026-07-15', 8000, 'fattura'], ['2026-11-02', 8000, 'fattura']]), 2026);
+  const html = renderAccountantReportHTMLIntl(r, { emitter: 'Mario Rossi', lang: 'it' });
+  assert.ok(html.includes('Riepilogo fiscale Mario Rossi'));
+  assert.ok(!/Steuerübersicht/.test(html));
+});
+
+test('renderAccountantReportHTMLIntl: CH con lang "fr" → etichette in francese', () => {
+  const r = buildAccountantReportCh(vault([['2026-03-10', 8000, 'fattura'], ['2026-07-15', 8000, 'fattura'], ['2026-11-02', 8000, 'fattura']]), 2026);
+  const html = renderAccountantReportHTMLIntl(r, { emitter: 'Mario Rossi', lang: 'fr' });
+  assert.ok(/Aperçu fiscal|Résumé fiscal/.test(html));
+  assert.ok(!/Steuerübersicht/.test(html));
+});
+
+test('renderAccountantReportHTMLIntl: CH senza lang → resta tedesco (comportamento invariato, nessuna rottura per chi già chiama senza il parametro)', () => {
+  const r = buildAccountantReportCh(vault([['2026-03-10', 8000, 'fattura'], ['2026-07-15', 8000, 'fattura'], ['2026-11-02', 8000, 'fattura']]), 2026);
+  const html = renderAccountantReportHTMLIntl(r, { emitter: 'Mario Rossi' });
+  assert.ok(/Steuerübersicht/.test(html));
+});
+
+test('renderAccountantReportHTMLIntl: lang non supportata → non si rompe, ricade sul default esistente', () => {
+  const r = buildAccountantReportCh(vault([['2026-03-10', 8000, 'fattura']]), 2026);
+  const html = renderAccountantReportHTMLIntl(r, { lang: 'xx' });
+  assert.ok(html.includes('<html'));
+});
+
+test('renderAccountantReportHTMLIntl: ES con lang "it" → etichette in italiano (non solo lo spagnolo hardcoded)', () => {
+  const r = buildAccountantReportEs(vault([['2026-02-05', 2000, 'factura'], ['2026-05-05', 2000, 'factura']]), 2026);
+  const html = renderAccountantReportHTMLIntl(r, { emitter: 'Ana García', lang: 'it' });
+  assert.ok(html.includes('Riepilogo fiscale Ana García'));
+});
