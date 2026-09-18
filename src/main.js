@@ -60,6 +60,8 @@ import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as to
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
 import { periodoTrasferta, giorniScoperti, diariaSpettante, diariaRegnoUnito, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
 import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026, TARIFFE_REGNO_UNITO_2026 } from './trips/trip-perdiem-rates.js';
+import { TARIFFA_KM_PER_PAESE } from './trips/trip-mileage-rates.js';
+import { rimborsoChilometrico } from './trips/trip-mileage.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
@@ -11479,7 +11481,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -11584,11 +11586,18 @@ window.openBusinessTrip = (tripId) => {
       // giorno, non {piena,ridotta}) — vedi trip-period.js — ma torna la
       // stessa forma {calcolabile,totale}, quindi rigaDiaria sotto non deve
       // distinguere i due casi.
-      const dia = trip.country === 'UK'
-        ? diariaRegnoUnito(trip, TARIFFE_REGNO_UNITO_2026)
-        : (trip.perDiemFull > 0 && trip.perDiemReduced != null)
-          ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
-          : null;
+      // AZIENDA (2026-09-18, bug architetturale reale segnalato dall'utente:
+      // "le quote le decidono altri uffici, non chi compila"): se la
+      // trasferta è legata a un'azienda, la SUA policy vince sempre — il
+      // Paese scelto dal dipendente non c'entra più, vedi il blocco più giù
+      // che nasconde del tutto i toggle Paese per una trasferta aziendale.
+      const dia = trip.companyPolicy
+        ? (trip.receiptPolicy?.perDiem ? diariaSpettante(trip, trip.receiptPolicy.perDiem) : null)
+        : trip.country === 'UK'
+          ? diariaRegnoUnito(trip, TARIFFE_REGNO_UNITO_2026)
+          : (trip.perDiemFull > 0 && trip.perDiemReduced != null)
+            ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
+            : null;
       const rigaDiaria = dia?.calcolabile
         ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${esc(formatMoney(dia.totale, trip.receiptPolicy?.currency || 'EUR'))}</span></div>`
         : '';
@@ -11696,6 +11705,24 @@ window.openBusinessTrip = (tripId) => {
              sopra (redesign del cantiere company, già mostra totale+
              breakdown) — tenuto solo il toggle Italia/Germania, che non ha
              equivalente altrove. -->
+        ${trip.companyPolicy ? `
+        <!-- Trasferta aziendale (2026-09-18, bug architetturale reale
+             segnalato dall'utente: "le quote le decidono altri uffici, non
+             chi compila"): niente toggle Paese, niente numero digitato dal
+             dipendente — SOLO ciò che l'azienda ha pubblicato nella sua
+             policy (trip.receiptPolicy.perDiem/mileage, propagati da
+             company-policy.js). Se l'azienda non ha impostato nulla, nessun
+             numero appare — mai un fallback al Paese/tariffa personale. -->
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>${esc(tCh('tripCompanyRatesTitle', __uiLang))}</div>
+          ${trip.receiptPolicy?.perDiem
+            ? `<p class="text-[12px]">${esc(tCh('tripCompanyPerDiemSet', __uiLang, formatMoney(trip.receiptPolicy.perDiem.piena, trip.receiptPolicy?.currency || 'EUR'), formatMoney(trip.receiptPolicy.perDiem.ridotta, trip.receiptPolicy?.currency || 'EUR')))}</p>`
+            : `<p class="text-[11px] text-[var(--on-surface-secondary)]">${esc(tCh('tripCompanyPerDiemNotSet', __uiLang))}</p>`}
+          ${trip.receiptPolicy?.mileage
+            ? `<p class="text-[12px] mt-1">${esc(tCh('tripCompanyMileageSet', __uiLang, formatMoney(trip.receiptPolicy.mileage.tariffa, trip.receiptPolicy?.currency || 'EUR'), trip.receiptPolicy.mileage.unita))}</p>`
+            : `<p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${esc(tCh('tripCompanyMileageNotSet', __uiLang))}</p>`}
+        </div>
+        ` : `
         <div class="card p-3">
           <!-- Griglia 2×2 esplicita, non flex-wrap: con 4 Paesi il testo
                andava a capo in modo illeggibile dentro ogni pulsante (bug
@@ -11728,9 +11755,28 @@ window.openBusinessTrip = (tripId) => {
               <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'UK' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'UK' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
               ${esc(tCh('tripUkToggle', __uiLang))}
             </button>
+            <!-- "Altro Paese" (2026-09-18, richiesto esplicitamente: chi
+                 lavora in un'azienda italiana ma viaggia ovunque — Lussemburgo,
+                 Norvegia, India... — non deve restare senza nulla solo perché
+                 Momentum non ha ancora ricercato quel Paese specifico).
+                 Riusa la STESSA diariaSpettante di DE/US (span 2 colonne:
+                 è l'unica opzione dove l'utente digita i propri numeri, merita
+                 più risalto delle 4 scorciatoie sopra). -->
+            <button id="trip-custom-toggle" type="button" class="w-full col-span-2 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'ALTRO' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'ALTRO' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'ALTRO' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripCustomToggle', __uiLang))}
+            </button>
           </div>
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : trip.country === 'UK' ? tCh('tripUkToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : trip.country === 'UK' ? tCh('tripUkToggleHint', __uiLang) : trip.country === 'ALTRO' ? tCh('tripCustomToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
+          ${trip.country === 'ALTRO' ? `
+          <div class="grid grid-cols-3 gap-2 mt-2" style="grid-template-columns:1fr 1fr 4.5rem">
+            <label class="task-field"><span>${esc(tCh('tripCustomFullLabel', __uiLang))}</span><input id="trip-custom-full" type="number" inputmode="decimal" value="${esc(trip.perDiemFull ?? '')}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-custom-full" /></label>
+            <label class="task-field"><span>${esc(tCh('tripCustomReducedLabel', __uiLang))}</span><input id="trip-custom-reduced" type="number" inputmode="decimal" value="${esc(trip.perDiemReduced ?? '')}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-custom-reduced" /></label>
+            <label class="task-field"><span>${esc(tCh('tripCustomCurrencyLabel', __uiLang))}</span><input id="trip-custom-currency" value="${esc(trip.receiptPolicy?.currency || '')}" maxlength="3" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px] uppercase" name="trip-custom-currency" /></label>
+          </div>
+          ${trip.receiptPolicy?.currency && !VALUTE_ISO4217.has(String(trip.receiptPolicy.currency).toUpperCase()) ? `<p class="text-[10px] text-amber-400 mt-1">${esc(tCh('tripCustomCurrencyInvalid', __uiLang))}</p>` : ''}` : ''}
         </div>
+        `}
         ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
         ${offerti.length ? `<div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripOfferedSectionTitle', __uiLang))}</div>
@@ -11782,7 +11828,47 @@ window.openBusinessTrip = (tripId) => {
           <div class="flex flex-wrap gap-1.5 mb-2">
             <button data-triptransport="pubblico" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'pubblico' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportPublic', __uiLang))}</button>
             <button data-triptransport="taxi_ncc" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'taxi_ncc' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportTaxi', __uiLang))}</button>
-          </div>` : ''}
+            <!-- Auto propria (2026-09-18): gap reale trovato — Momentum non
+                 aveva NESSUNA voce per l'uso dell'auto propria, una delle
+                 spese di trasferta più comuni. Calcolatore separato sotto
+                 (src/trips/trip-mileage.js), mai un importo scritto qui
+                 senza che l'utente lo confermi. -->
+            <button data-triptransport="auto_propria" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'auto_propria' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportOwnCar', __uiLang))}</button>
+          </div>
+          ${state.transportMode === 'auto_propria' ? (() => {
+            // Trasferta aziendale senza tariffa km pubblicata: niente input
+            // personalizzato, mai il dipendente che si inventa un numero —
+            // stesso principio già applicato alla diaria sopra.
+            const mileageBloccato = trip.companyPolicy && !trip.receiptPolicy?.mileage;
+            const tariffaPaese = (trip.companyPolicy && trip.receiptPolicy?.mileage) || (!trip.companyPolicy ? TARIFFA_KM_PER_PAESE[trip.country] : null) || null;
+            if (mileageBloccato) return `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${esc(tCh('tripKmCompanyNotSet', __uiLang))}</p>`;
+            const distanza = parseFloat(String(state.kmDistanza).replace(',', '.'));
+            const tariffaPersonalizzata = parseFloat(String(state.kmTariffaPersonalizzata).replace(',', '.'));
+            const tariffaAttiva = tariffaPaese ? tariffaPaese.tariffa : (Number.isFinite(tariffaPersonalizzata) && tariffaPersonalizzata > 0 ? tariffaPersonalizzata : null);
+            const unitaAttiva = tariffaPaese ? tariffaPaese.unita : state.kmUnita;
+            const importo = rimborsoChilometrico(distanza, tariffaAttiva);
+            return `
+            <div class="rounded-xl border border-[var(--outline)] p-2.5 mb-2">
+              <div class="flex gap-2 items-end">
+                <label class="task-field flex-1"><span>${esc(tCh(unitaAttiva === 'mi' ? 'tripKmDistanceLabelMi' : 'tripKmDistanceLabelKm', __uiLang))}</span><input id="trip-km-distanza" type="number" inputmode="decimal" value="${esc(state.kmDistanza)}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-km-distanza" /></label>
+                ${!tariffaPaese ? `
+                <label class="task-field w-20 shrink-0"><span>${esc(tCh('tripKmUnitLabel', __uiLang))}</span>
+                  <select id="trip-km-unita" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]">
+                    <option value="km" ${state.kmUnita === 'km' ? 'selected' : ''}>km</option>
+                    <option value="mi" ${state.kmUnita === 'mi' ? 'selected' : ''}>mi</option>
+                  </select>
+                </label>` : ''}
+              </div>
+              ${tariffaPaese
+                ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${esc(tCh('tripKmRateKnown', __uiLang, formatMoney(tariffaPaese.tariffa, trip.receiptPolicy?.currency || 'EUR'), unitaAttiva))}</p>`
+                : `<label class="task-field mt-1.5"><span>${esc(tCh('tripKmRateCustomLabel', __uiLang))}</span><input id="trip-km-tariffa" type="number" inputmode="decimal" value="${esc(state.kmTariffaPersonalizzata)}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-km-tariffa" /></label>`}
+              ${importo != null ? `
+              <div class="flex items-center justify-between mt-2 pt-2 border-t border-[var(--outline)]">
+                <span class="text-[12px] font-bold">${esc(formatMoney(importo, trip.receiptPolicy?.currency || 'EUR'))}</span>
+                <button type="button" id="trip-km-usa-importo" class="text-[11px] font-bold text-[var(--primary)] underline">${esc(tCh('tripKmUseAmountBtn', __uiLang))}</button>
+              </div>` : ''}
+            </div>`;
+          })() : ''}` : ''}
           <!-- Metodo di pagamento — serve SOLO all'avviso di tracciabilità
                (expenseNeedsTraceabilityWarning, trip-engine.js), mai a un
                calcolo diverso: chi non lo dichiara semplicemente non riceve
@@ -11946,6 +12032,27 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-amt')?.addEventListener('change', suggerisciCategoriaTrip);
     document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
     document.querySelectorAll('[data-triptransport]').forEach(b => b.addEventListener('click', () => { state.transportMode = state.transportMode === b.dataset.triptransport ? null : b.dataset.triptransport; render(); }));
+    // Calcolatore chilometrico: `change` non `input` — un render() completo
+    // a ogni tasto chiuderebbe la tastiera mobile (stesso bug già
+    // documentato per il modulo debiti/consolidamento).
+    $('#trip-km-distanza')?.addEventListener('change', (e) => { state.kmDistanza = e.target.value; render(); });
+    $('#trip-km-unita')?.addEventListener('change', (e) => { state.kmUnita = e.target.value; render(); });
+    $('#trip-km-tariffa')?.addEventListener('change', (e) => { state.kmTariffaPersonalizzata = e.target.value; render(); });
+    // "Usa questo importo": mai una scrittura automatica silenziosa in
+    // state.amount — un tocco esplicito, coerente col principio del
+    // progetto (nessun numero calcolato che appare senza conferma).
+    $('#trip-km-usa-importo')?.addEventListener('click', () => {
+      const tariffaPaese = (trip.companyPolicy && trip.receiptPolicy?.mileage) || (!trip.companyPolicy ? TARIFFA_KM_PER_PAESE[trip.country] : null) || null;
+      const distanza = parseFloat(String(state.kmDistanza).replace(',', '.'));
+      const tariffaPersonalizzata = parseFloat(String(state.kmTariffaPersonalizzata).replace(',', '.'));
+      const tariffaAttiva = tariffaPaese ? tariffaPaese.tariffa : (Number.isFinite(tariffaPersonalizzata) && tariffaPersonalizzata > 0 ? tariffaPersonalizzata : null);
+      const unitaAttiva = tariffaPaese ? tariffaPaese.unita : state.kmUnita;
+      const importo = rimborsoChilometrico(distanza, tariffaAttiva);
+      if (importo == null) return;
+      state.amount = String(importo).replace('.', ',');
+      if (!state.description.trim()) state.description = tCh('tripKmAutoDescription', __uiLang, distanza, unitaAttiva);
+      render();
+    });
     document.querySelectorAll('[data-trippay]').forEach(b => b.addEventListener('click', () => { state.paymentMethod = state.paymentMethod === b.dataset.trippay ? null : b.dataset.trippay; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
     $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
@@ -12240,6 +12347,39 @@ window.openBusinessTrip = (tripId) => {
         ...trip, country: attivare ? 'UK' : null, perDiemFull: null, perDiemReduced: null,
         receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'GBP' : 'EUR' },
       }));
+      render();
+    });
+    // "Altro Paese": riusa perDiemFull/perDiemReduced esattamente come
+    // DE/US (diariaSpettante non distingue una tariffa nota da una
+    // digitata dall'utente), ma qui i NUMERI li fornisce l'utente — mai
+    // un valore precompilato che sembri "ufficiale" quando non lo è.
+    // `change` (non `input`): aggiornare a ogni tasto richiederebbe un
+    // render() completo che chiude la tastiera mobile (stesso bug già
+    // documentato per il modulo debiti) — qui basta aggiornare quando si
+    // esce dal campo, la diaria non è qualcosa che si osserva mentre si
+    // digita cifra per cifra.
+    $('#trip-custom-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'ALTRO';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'ALTRO' : null,
+        perDiemFull: attivare ? trip.perDiemFull : null, perDiemReduced: attivare ? trip.perDiemReduced : null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? (trip.receiptPolicy?.currency || 'EUR') : 'EUR' },
+      }));
+      render();
+    });
+    $('#trip-custom-full')?.addEventListener('change', (e) => {
+      const v = parseFloat(String(e.target.value).replace(',', '.'));
+      persistTrip(touchTrip({ ...trip, perDiemFull: Number.isFinite(v) && v > 0 ? v : null }));
+      render();
+    });
+    $('#trip-custom-reduced')?.addEventListener('change', (e) => {
+      const v = parseFloat(String(e.target.value).replace(',', '.'));
+      persistTrip(touchTrip({ ...trip, perDiemReduced: Number.isFinite(v) && v >= 0 ? v : null }));
+      render();
+    });
+    $('#trip-custom-currency')?.addEventListener('change', (e) => {
+      const code = String(e.target.value).trim().toUpperCase().slice(0, 3);
+      persistTrip(touchTrip({ ...trip, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: code || 'EUR' } }));
       render();
     });
     document.querySelectorAll('[data-periodopill]').forEach(b => b.addEventListener('click', () => {

@@ -119,3 +119,55 @@ test('Access verifies cryptographic signature, audience, expiry and issuer', asy
   pieces[1] = base64(JSON.stringify({ ...claims, sub: 'owner' }));
   await assert.rejects(accessSubject(request(pieces.join('.')), env, fetchKeys));
 });
+
+test('validateCompanyRules: perDiem/mileage sono opzionali — una policy pubblicata prima che esistessero resta valida', () => {
+  assert.equal(validateCompanyRules(rules), true);
+});
+
+test('validateCompanyRules: perDiem valido (quota ridotta non può superare quella piena)', () => {
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 28, ridotta: 14 } }), true);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 14, ridotta: 28 } }), false);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: -1, ridotta: 0 } }), false);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 28 } }), false);
+});
+
+test('validateCompanyRules: mileage valido (tariffa positiva, unita km o mi)', () => {
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.30, unita: 'km' } }), true);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.725, unita: 'mi' } }), true);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0, unita: 'km' } }), false);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.30, unita: 'furlong' } }), false);
+});
+
+test('validateCompanyRules: perDiem/mileage pubblicati end-to-end attraverso il worker reale', async () => {
+  const { sql, env, request } = fixture();
+  try {
+    const body = { ...rules, perDiem: { piena: 68, ridotta: 51 }, mileage: { tariffa: 0.725, unita: 'mi' } };
+    assert.equal((await companyRequest(request('POST', 'a', 0, body), env, 'admin')).status, 201);
+    const stored = JSON.parse(sql.prepare('SELECT rules FROM policies WHERE company_id=? ORDER BY version DESC LIMIT 1').get('a').rules);
+    assert.deepEqual(stored.perDiem, { piena: 68, ridotta: 51 });
+    assert.deepEqual(stored.mileage, { tariffa: 0.725, unita: 'mi' });
+  } finally { sql.close(); }
+});
+
+test('workspace page includes a policy-editing form gated to owner/policy_admin, with perDiem/mileage fields', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('id="edit-policy"'));
+  assert.ok(html.includes('id="perdiem-full"'));
+  assert.ok(html.includes('id="perdiem-reduced"'));
+  assert.ok(html.includes('id="mileage-rate"'));
+  assert.ok(html.includes('id="mileage-unit"'));
+  assert.ok(html.includes("puoModificare(company){return company.role==='owner'||company.role==='policy_admin'}"));
+  const match = html.match(/const words=(\{[\s\S]*?\});const lang=/);
+  const words = JSON.parse(match[1]);
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) assert.equal(words[lang].length, 38);
+});
+
+test('workspace page policy form: la sostituzione è sempre totale, mai un merge silenzioso (verificato leggendo il codice del submit)', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  // Ogni submit ricostruisce rules da zero (currency/receiptThreshold/expenseLimits/dailyLimits),
+  // mai un oggetto parziale spedito al server che si affiderebbe a un merge lato server (che non esiste).
+  assert.ok(html.includes("const rules={currency:'EUR',receiptThreshold,expenseLimits,dailyLimits}"));
+  assert.ok(html.includes("'If-Match':'\"'+policyVersion+'\"'"));
+});

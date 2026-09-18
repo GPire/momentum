@@ -13,15 +13,34 @@ import { inboxPage } from './inbox-page.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
+// Una tariffa al km/miglio NON è un importo assoluto: le tariffe reali hanno
+// spesso il terzo decimale (IRS USA 2026: $0,725/miglio — bocciata da
+// amount() sopra, che richiede centesimi interi, verificato scrivendo
+// questo stesso test). Stessa disciplina di amount() ma a 3 decimali, non 2.
+const tariffaUnitaria = n => typeof n === 'number' && Number.isFinite(n) && n > 0 && n < 1000 && Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6;
+// perDiem/mileage sono OPZIONALI: una policy pubblicata prima che esistessero
+// resta valida senza (retrocompatibile) — mai una rottura per un'azienda che
+// ha già pubblicato solo receiptThreshold/limiti. Quando presenti, decidono
+// la diaria/il rimborso chilometrico per OGNI dipendente della trasferta —
+// prima non c'era alcun modo per un responsabile di fissarli, ogni
+// dipendente inseriva un numero a piacere sulla propria trasferta (bug
+// architetturale reale, segnalato dall'utente 2026-09-18: "le quote vengono
+// definite da altri uffici, mica da dove compila il dipendente").
+function validaOpzionale(rules, chiave, valida) {
+  return !(chiave in rules) || valida(rules[chiave]);
+}
 export function validateCompanyRules(rules) {
-  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits'].includes(k))) return false;
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits', 'perDiem', 'mileage'].includes(k))) return false;
   // The current application editor is denominated in EUR. Do not silently
   // publish other currencies until its import/edit path supports them.
   if (rules.currency !== 'EUR' || !amount(rules.receiptThreshold)) return false;
-  return ['expenseLimits', 'dailyLimits'].every(name => {
+  if (!['expenseLimits', 'dailyLimits'].every(name => {
     const limits = rules[name];
     return limits && typeof limits === 'object' && !Array.isArray(limits) && Object.entries(limits).every(([key, value]) => categories.includes(key) && amount(value));
-  });
+  })) return false;
+  if (!validaOpzionale(rules, 'perDiem', (p) => p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).every(k => ['piena', 'ridotta'].includes(k)) && amount(p.piena) && amount(p.ridotta) && p.ridotta <= p.piena)) return false;
+  if (!validaOpzionale(rules, 'mileage', (m) => m && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).every(k => ['tariffa', 'unita'].includes(k)) && tariffaUnitaria(m.tariffa) && ['km', 'mi'].includes(m.unita))) return false;
+  return true;
 }
 export const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
 export async function readBody(request, limit = 8192) {
