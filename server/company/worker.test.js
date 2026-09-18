@@ -71,7 +71,7 @@ test('stale edits, hostile origins and unvalidated rules cannot publish', async 
     assert.equal((await companyRequest(request('POST'), env, 'admin')).status, 201);
     assert.equal((await companyRequest(request('POST'), env, 'admin')).status, 409);
     assert.equal((await companyRequest(request('POST', 'a', 1, rules, 'https://evil.test'), env, 'admin')).status, 403);
-    for (const body of [{ ...rules, role: 'owner' }, { ...rules, currency: 'USD' }, { ...rules, dailyLimits: { vitto: -1 } }, { ...rules, expenseLimits: { unknown: 2 } }]) {
+    for (const body of [{ ...rules, role: 'owner' }, { ...rules, currency: 'ZZZ' }, { ...rules, currency: 'eur' }, { ...rules, dailyLimits: { vitto: -1 } }, { ...rules, expenseLimits: { unknown: 2 } }]) {
       assert.equal(validateCompanyRules(body), false);
       assert.equal((await companyRequest(request('POST', 'a', 1, body), env, 'admin')).status, 400);
     }
@@ -160,7 +160,7 @@ test('workspace page includes a policy-editing form gated to owner/policy_admin,
   assert.ok(html.includes("puoModificare(company){return company.role==='owner'||company.role==='policy_admin'}"));
   const match = html.match(/const words=(\{[\s\S]*?\});const lang=/);
   const words = JSON.parse(match[1]);
-  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) assert.equal(words[lang].length, 38);
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) assert.equal(words[lang].length, 39);
 });
 
 test('workspace page policy form: la sostituzione è sempre totale, mai un merge silenzioso (verificato leggendo il codice del submit)', async () => {
@@ -168,6 +168,21 @@ test('workspace page policy form: la sostituzione è sempre totale, mai un merge
   const html = await response.text();
   // Ogni submit ricostruisce rules da zero (currency/receiptThreshold/expenseLimits/dailyLimits),
   // mai un oggetto parziale spedito al server che si affiderebbe a un merge lato server (che non esiste).
-  assert.ok(html.includes("const rules={currency:'EUR',receiptThreshold,expenseLimits,dailyLimits}"));
+  assert.ok(html.includes("const rules={currency,receiptThreshold,expenseLimits,dailyLimits}"));
   assert.ok(html.includes("'If-Match':'\"'+policyVersion+'\"'"));
+});
+
+test('validateCompanyRules: qualunque valuta ISO 4217 reale è ammessa (non solo EUR) — un\'azienda a Londra/Oslo/Mumbai deve poter pubblicare nella propria valuta', () => {
+  for (const currency of ['USD', 'GBP', 'NOK', 'INR', 'JPY', 'CHF']) assert.equal(validateCompanyRules({ ...rules, currency }), true);
+  assert.equal(validateCompanyRules({ ...rules, currency: 'ZZZ' }), false);
+  assert.equal(validateCompanyRules({ ...rules, currency: 'eur' }), false);
+});
+
+test('workspace page: il form pubblica sempre la valuta scelta, mai EUR fisso — un\'azienda a Londra/Oslo/Mumbai deve poter usare la propria', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('id="currency-input"'));
+  assert.ok(html.includes('policyCurrency=data.rules.currency'));
+  assert.ok(html.includes("currency:policyCurrency"));
+  assert.ok(html.includes('/^[A-Z]{3}$/.test(currency)'));
 });

@@ -1,3 +1,4 @@
+import { VALUTE_ISO4217 } from '../core/iso4217.js';
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
 // Una tariffa al km/miglio non è un importo assoluto (vedi lo stesso
@@ -10,7 +11,11 @@ export async function loadCompanyPolicy(companyId, fetcher = fetch) {
   if (!response.ok) throw new Error('company_unavailable');
   const policy = await response.json();
   const rules = policy?.rules;
-  if (policy?.companyId !== companyId || !Number.isSafeInteger(policy.version) || policy.version < 1 || !rules || rules.currency !== 'EUR' || !amount(rules.receiptThreshold) ||
+  // Qualunque valuta ISO 4217 reale è ammessa (fino al 2026-09-19 solo EUR:
+  // l'editor non aveva un campo valuta — ora ce l'ha, vedi
+  // server/company/workspace-page.js). Stessa disciplina di sempre: mai
+  // fidarsi ciecamente del server, riverificata anche qui.
+  if (policy?.companyId !== companyId || !Number.isSafeInteger(policy.version) || policy.version < 1 || !rules || typeof rules.currency !== 'string' || !VALUTE_ISO4217.has(rules.currency) || !amount(rules.receiptThreshold) ||
       !['expenseLimits', 'dailyLimits'].every(key => rules[key] && typeof rules[key] === 'object' && !Array.isArray(rules[key]) && Object.entries(rules[key]).every(([category, value]) => categories.includes(category) && amount(value)))) throw new Error('invalid_policy');
   // perDiem/mileage sono OPZIONALI (una policy pubblicata prima che
   // esistessero resta valida) — ma se presenti, mai propagati senza
@@ -21,7 +26,7 @@ export async function loadCompanyPolicy(companyId, fetcher = fetch) {
   const mileage = rules.mileage && typeof rules.mileage === 'object' && !Array.isArray(rules.mileage) && tariffaUnitaria(rules.mileage.tariffa) && ['km', 'mi'].includes(rules.mileage.unita)
     ? { tariffa: rules.mileage.tariffa, unita: rules.mileage.unita } : null;
   return { companyId, companyName: typeof policy.companyName === 'string' ? policy.companyName : companyId, version: policy.version,
-    rules: { currency: 'EUR', receiptThreshold: rules.receiptThreshold, expenseLimits: { ...rules.expenseLimits }, dailyLimits: { ...rules.dailyLimits }, ...(perDiem ? { perDiem } : {}), ...(mileage ? { mileage } : {}) } };
+    rules: { currency: rules.currency, receiptThreshold: rules.receiptThreshold, expenseLimits: { ...rules.expenseLimits }, dailyLimits: { ...rules.dailyLimits }, ...(perDiem ? { perDiem } : {}), ...(mileage ? { mileage } : {}) } };
 }
 export function applyCompanyPolicy(trip, policy) {
   return { ...trip, companyPolicy: { companyId: policy.companyId, version: policy.version, companyName: policy.companyName }, receiptPolicy: JSON.parse(JSON.stringify(policy.rules)) };

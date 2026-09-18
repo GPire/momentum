@@ -10,6 +10,7 @@ import { workspacePage } from './workspace-page.js';
 import { reportRequest } from './reports.js';
 import { attachmentRequest } from './attachments.js';
 import { inboxPage } from './inbox-page.js';
+import { VALUTE_ISO4217 } from '../../src/core/iso4217.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
@@ -31,9 +32,13 @@ function validaOpzionale(rules, chiave, valida) {
 }
 export function validateCompanyRules(rules) {
   if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits', 'perDiem', 'mileage'].includes(k))) return false;
-  // The current application editor is denominated in EUR. Do not silently
-  // publish other currencies until its import/edit path supports them.
-  if (rules.currency !== 'EUR' || !amount(rules.receiptThreshold)) return false;
+  // Fino al 2026-09-19 solo EUR era ammessa: l'editor (workspace-page.js)
+  // non aveva un campo valuta, pubblicare qualunque altra cosa avrebbe
+  // significato un valore mai scelto da nessuno. Ora che l'editor esiste
+  // ed espone il campo, qualunque valuta ISO 4217 reale è ammessa — mai
+  // una sigla inventata (un'azienda a Londra/Oslo/Mumbai deve poter
+  // pubblicare una policy nella propria valuta, non solo in euro).
+  if (typeof rules.currency !== 'string' || !VALUTE_ISO4217.has(rules.currency) || !amount(rules.receiptThreshold)) return false;
   if (!['expenseLimits', 'dailyLimits'].every(name => {
     const limits = rules[name];
     return limits && typeof limits === 'object' && !Array.isArray(limits) && Object.entries(limits).every(([key, value]) => categories.includes(key) && amount(value));

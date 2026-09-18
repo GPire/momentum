@@ -44,3 +44,14 @@ test('company policy: mileage con unità sconosciuta non viene mai propagato', a
   const loaded = await loadCompanyPolicy('a', async () => Response.json(invalida));
   assert.equal(loaded.rules.mileage, undefined);
 });
+
+test('company policy: qualunque valuta ISO 4217 reale è ammessa, non solo EUR — un\'azienda a Londra/Oslo deve poter pubblicare nella propria valuta', async () => {
+  const gbp = { ...policy, rules: { ...policy.rules, currency: 'GBP' } };
+  const loaded = await loadCompanyPolicy('a', async () => Response.json(gbp));
+  assert.equal(loaded.rules.currency, 'GBP');
+});
+
+test('company policy: una valuta inventata o minuscola non viene mai accettata', async () => {
+  await assert.rejects(loadCompanyPolicy('a', async () => Response.json({ ...policy, rules: { ...policy.rules, currency: 'ZZZ' } })));
+  await assert.rejects(loadCompanyPolicy('a', async () => Response.json({ ...policy, rules: { ...policy.rules, currency: 'eur' } })));
+});
