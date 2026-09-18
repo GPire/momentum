@@ -123,6 +123,26 @@ test('diaria: un pasto offerto riduce la quota (regola tedesca: 20/40/40)', () =
   assert.ok(d.totale < d.lordo);
 });
 
+test('diaria: riduzionePasto opzionale usa la percentuale del Paese passato dal chiamante, mai quella tedesca di default per un altro Paese (regola GSA: cena=28/68 della quota piena)', () => {
+  const t = trip({
+    startDate: '2026-09-10', startTime: '08:00', endDate: '2026-09-11', endTime: '20:00',
+    offeredItems: [{ tripCategory: 'vitto', mealType: 'cena', amount: 0, description: 'Cena col cliente' }],
+  });
+  const riduzioneUsa = { colazione: 16 / 68, pranzo: 19 / 68, cena: 28 / 68 };
+  const d = diariaSpettante(t, { piena: 68, ridotta: 51, riduzionePasto: riduzioneUsa });
+  assert.equal(d.riduzioni, Math.round(68 * riduzioneUsa.cena * 100) / 100);
+  assert.notEqual(d.riduzioni, Math.round(68 * RIDUZIONE_PASTO.cena * 100) / 100); // non la percentuale tedesca (40%) applicata per errore
+});
+
+test('diaria: senza riduzionePasto esplicito, il comportamento resta quello tedesco di sempre (retrocompatibilità)', () => {
+  const t = trip({
+    startDate: '2026-09-10', startTime: '08:00', endDate: '2026-09-11', endTime: '20:00',
+    offeredItems: [{ tripCategory: 'vitto', mealType: 'cena', amount: 0, description: 'Cena col cliente' }],
+  });
+  const d = diariaSpettante(t, { piena: 28, ridotta: 14 });
+  assert.equal(d.riduzioni, Math.round(28 * RIDUZIONE_PASTO.cena * 100) / 100);
+});
+
 test('diaria: più pasti offerti si sommano, ma mai sotto zero', () => {
   const t = trip({
     startDate: '2026-09-10', startTime: '00:00', endDate: '2026-09-10', endTime: '10:00',

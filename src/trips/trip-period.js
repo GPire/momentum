@@ -99,10 +99,18 @@ export function giorniScoperti(trip, expenses = []) {
   return giorniDelPeriodo(trip).filter(g => !conSpesa.has(g));
 }
 
-// La diaria spettante, secondo la struttura a ore usata in Europa. `tariffe`
-// le passa chi chiama: { piena, ridotta } nella valuta dell'utente. Senza
-// tariffe non si stima nulla — si dichiara che non si può calcolare.
-export function diariaSpettante(trip, { piena = null, ridotta = null } = {}) {
+// La diaria spettante, secondo la struttura a ore usata per la Germania
+// (BMF) e, per la stessa forma, per il GSA statunitense — "giorno ridotto"
+// per la Germania è transito/8-24h, per gli USA è primo/ultimo giorno al
+// 75%: stessa formula, tariffe diverse. `tariffe` le passa chi chiama:
+// { piena, ridotta } nella valuta dell'utente. Senza tariffe non si stima
+// nulla — si dichiara che non si può calcolare. `riduzionePasto` è
+// opzionale e resta la percentuale tedesca di default per compatibilità
+// con ogni chiamata già esistente (mai una rottura silenziosa per chi non
+// la passa) — un nuovo Paese con una propria regola (vedi RIDUZIONE_USA_2026
+// in trip-perdiem-rates.js) la passa esplicitamente, non eredita quella
+// tedesca per sbaglio.
+export function diariaSpettante(trip, { piena = null, ridotta = null, riduzionePasto = RIDUZIONE_PASTO } = {}) {
   const p = periodoTrasferta(trip);
   if (!p) return { calcolabile: false, motivo: 'periodo non definito' };
   if (piena == null || ridotta == null) return { calcolabile: false, motivo: 'tariffe non impostate', ore: p.ore };
@@ -114,14 +122,14 @@ export function diariaSpettante(trip, { piena = null, ridotta = null } = {}) {
   // giorni civili (partenza alle 22, ritorno alle 6 del mattino dopo).
   if (p.ore < ORE_GIORNO_PIENO) {
     const lordo = ridotta;
-    const riduzioni = riduzioniPerPastiOfferti(trip, piena);
+    const riduzioni = riduzioniPerPastiOfferti(trip, piena, riduzionePasto);
     return { calcolabile: true, ore: p.ore, giorniPieni: 0, giorniRidotti: 1, lordo, riduzioni, totale: arrotonda(Math.max(0, lordo - riduzioni)), sottoSoglia: false };
   }
   // Oltre le 24 ore: primo e ultimo giorno ridotti, quelli in mezzo pieni.
   const giorniRidotti = Math.min(2, giorni.length);
   const giorniPieni = Math.max(0, giorni.length - giorniRidotti);
   const lordo = arrotonda(giorniPieni * piena + giorniRidotti * ridotta);
-  const riduzioni = riduzioniPerPastiOfferti(trip, piena);
+  const riduzioni = riduzioniPerPastiOfferti(trip, piena, riduzionePasto);
   return { calcolabile: true, ore: p.ore, giorniPieni, giorniRidotti, lordo, riduzioni, totale: arrotonda(Math.max(0, lordo - riduzioni)), sottoSoglia: false };
 }
 

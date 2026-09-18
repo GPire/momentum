@@ -59,7 +59,7 @@ import { mergeCategoryLists, touchCategory } from './core/custom-categories-merg
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
 import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
-import { TARIFFE_GERMANIA_2026 } from './trips/trip-perdiem-rates.js';
+import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026 } from './trips/trip-perdiem-rates.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
@@ -11577,11 +11577,14 @@ window.openBusinessTrip = (tripId) => {
       </div>` : `<div class="text-[10px] text-emerald-400 font-bold mt-1">${esc(tCh('tripPeriodNoGaps', __uiLang))}</div>`;
       // La diaria è un PLUS informativo: senza tariffe impostate non si mostra
       // un numero — mai un rimborso stimato su un dato che l'utente non ha dato.
+      // riduzionePasto segue il Paese della trasferta (RIDUZIONE_USA_2026 per
+      // gli USA, altrimenti il default tedesco di diariaSpettante) — mai la
+      // percentuale sbagliata applicata a dollari solo perché non passata.
       const dia = (trip.perDiemFull > 0 && trip.perDiemReduced != null)
-        ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced })
+        ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
         : null;
       const rigaDiaria = dia?.calcolabile
-        ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${eur(dia.totale)}</span></div>`
+        ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${esc(formatMoney(dia.totale, trip.receiptPolicy?.currency || 'EUR'))}</span></div>`
         : '';
       const outside = speseFuoriPeriodo(trip, expenses);
       return `<div class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodHours', __uiLang, p.ore))}</div>${righeBuchi}
@@ -11697,8 +11700,16 @@ window.openBusinessTrip = (tripId) => {
               <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'DE' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'DE' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
               ${esc(tCh('tripGermanyToggle', __uiLang))}
             </button>
+            <!-- USA (2026-09-18): stessa formula giorniPieni/giorniRidotti già
+                 scritta per la Germania (trip-period.js), solo tariffe e
+                 riduzione pasto diverse (GSA CONUS standard, vedi
+                 trip-perdiem-rates.js) — nessuna modifica alla formula. -->
+            <button id="trip-usa-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'US' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'US' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'US' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripUsaToggle', __uiLang))}
+            </button>
           </div>
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
         </div>
         ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
         ${offerti.length ? `<div class="card p-3">
@@ -12172,14 +12183,32 @@ window.openBusinessTrip = (tripId) => {
     // segnata come italiana, o viceversa): solo la Germania oggi ha una
     // tariffa nota, l'Italia non ne imposta nessuna (l'avviso contanti non
     // c'entra con la diaria).
+    // Le tre valute-Paese si escludono a vicenda esplicitamente: passare da
+    // USA a Germania senza toccare receiptPolicy.currency lascerebbe la
+    // diaria tedesca etichettata in dollari (bug reale trovato dal vivo in
+    // Chrome, 2026-09-18) — ogni toggle imposta SEMPRE la propria valuta,
+    // mai solo quando si attiva, altrimenti resta agganciata a quella del
+    // Paese precedente.
     $('#trip-italy-toggle')?.addEventListener('click', () => {
       const nuovo = trip.country === 'IT' ? null : 'IT';
-      persistTrip(touchTrip({ ...trip, country: nuovo, perDiemFull: null, perDiemReduced: null }));
+      persistTrip(touchTrip({ ...trip, country: nuovo, perDiemFull: null, perDiemReduced: null, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: 'EUR' } }));
       render();
     });
     $('#trip-germany-toggle')?.addEventListener('click', () => {
       const attivare = trip.country !== 'DE';
-      persistTrip(touchTrip({ ...trip, country: attivare ? 'DE' : null, perDiemFull: attivare ? TARIFFE_GERMANIA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_GERMANIA_2026.ridotta : null }));
+      persistTrip(touchTrip({ ...trip, country: attivare ? 'DE' : null, perDiemFull: attivare ? TARIFFE_GERMANIA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_GERMANIA_2026.ridotta : null, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: 'EUR' } }));
+      render();
+    });
+    // Le tariffe GSA sono in USD: mostrarle etichettate "€" sarebbe disonesto
+    // quanto il numero sbagliato. receiptPolicy.currency esisteva già (serve
+    // anche a inspectTripArchive per il confronto valuta), non un campo nuovo.
+    $('#trip-usa-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'US';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'US' : null,
+        perDiemFull: attivare ? TARIFFE_USA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_USA_2026.ridotta : null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'USD' : 'EUR' },
+      }));
       render();
     });
     document.querySelectorAll('[data-periodopill]').forEach(b => b.addEventListener('click', () => {
