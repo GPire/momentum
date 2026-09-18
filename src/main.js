@@ -6,6 +6,7 @@ import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { MOMENTUM_EXPORT_FIELDS, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripAttachmentCopy } from './i18n/trip-attachment.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
@@ -11794,6 +11795,7 @@ window.openBusinessTrip = (tripId) => {
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
+        <button onclick="window.openCompanyExportMapping('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyExportBtn', __uiLang))}</button>
         <details class="trip-company">
           <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
           <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
@@ -12418,6 +12420,109 @@ window.exportTripCsv = (tripId) => {
   link.click();
   URL.revokeObjectURL(link.href);
   showToast(tCh('tripExportDone', __uiLang), 'success');
+};
+
+// Export mappato verso il sistema aziendale — punto 3 di
+// docs/trip-market-and-interoperability-2026-09-13.md ("Primo collegamento
+// verificabile": anteprima, errori per riga, mapping salvato, nessuna
+// perdita silenziosa di campi). Generico per qualunque Paese/gestionale per
+// costruzione (src/trips/company-export-mapping.js): qui non c'è nessuna
+// regola fiscale/normativa, solo la corrispondenza campo→colonna che
+// l'utente sceglie una volta e riusa. Resta un export LOCALE (Blob +
+// download), nessuna credenziale, nessun upload automatico — quello è il
+// connettore autorizzato (punto 4 dello stesso documento), non questo.
+// Mappatura SALVATA in VaultDAO.state.companyExportMapping: un profilo
+// condiviso fra tutte le trasferte (un'azienda ha un solo formato
+// d'importazione), non uno diverso per ogni trasferta.
+const CAMPO_EXPORT_LABEL_KEY = {
+  localId: 'companyExportFieldLocalId', date: 'vaultExportCsvColDate', category: 'tripCsvColCategory',
+  mealType: 'companyExportFieldMealType', description: 'vaultExportCsvColDesc', amount: 'vaultExportCsvColAmount',
+  currency: 'companyExportFieldCurrency', attachmentName: 'companyExportFieldAttachment',
+  revisionFlag: 'companyExportFieldRevision', provenance: 'companyExportFieldProvenance',
+};
+window.openCompanyExportMapping = (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const records = tripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
+  if (!records.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : defaultMapping();
+  // Un salvataggio precedente potrebbe non coprire un campo aggiunto dopo:
+  // mai un crash su una chiave mancante, retrocompatibile per costruzione.
+  for (const f of MOMENTUM_EXPORT_FIELDS) if (!mapping[f]) mapping[f] = { column: '', required: false };
+
+  const calcolaEsito = () => {
+    const preview = buildMappedExportPreview(records, mapping);
+    const errRighe = preview.mappingErrors.map(e => {
+      const campoLbl = tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang);
+      return `<p class="text-[11px] text-amber-400 leading-snug">${esc(e.code === 'missing_column' ? tCh('companyExportMappingErrorMissing', __uiLang, campoLbl) : tCh('companyExportMappingErrorDuplicate', __uiLang, e.column))}</p>`;
+    }).join('');
+    // Anteprima capata alle prime 50 righe per non appesantire il DOM su una
+    // trasferta lunga — l'export scaricato copre invece SEMPRE tutte le righe pronte.
+    const righeTabella = preview.rows.slice(0, 50).map(r => `
+      <div class="flex flex-col gap-0.5 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0 ${r.errors.length ? 'opacity-70' : ''}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="min-w-0 truncate">${esc(r.record.date || '—')} · ${esc(r.record.description || '')}</span>
+          <span class="text-[var(--on-surface-secondary)] shrink-0">${Number.isFinite(r.record.amount) ? r.record.amount.toFixed(2) : '—'}</span>
+        </div>
+        ${r.errors.map(e => `<span class="text-[10.5px] text-amber-400">${esc(tCh('companyExportRowErrorMissing', __uiLang, tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang)))}</span>`).join('')}
+      </div>`).join('');
+    return `
+      <div class="card p-3">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('companyExportPreviewTitle', __uiLang)}</div>
+        ${errRighe}
+        <p class="text-[12px] font-bold mt-1">${esc(tCh('companyExportRowsReady', __uiLang, preview.readyCount))} · ${esc(tCh('companyExportRowsError', __uiLang, preview.errorCount))}</p>
+        ${righeTabella}
+      </div>`;
+  };
+  const aggiornaEsito = () => { const el = document.getElementById('cem-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  // Riga a griglia esplicita, non flex: la regola globale `.task-editor
+  // input{width:100%}` (financial-workspace.css) ha la STESSA specificità di
+  // `.w-32` e vince per ordine del CSS — in un flex avrebbe schiacciato
+  // l'etichetta a larghezza zero (bug reale trovato dal vivo in Chrome).
+  // Con una colonna di griglia a larghezza fissa, width:100% dell'input
+  // resta comunque contenuto nella colonna — stesso principio già in uso
+  // per .task-field-pair.
+  const campiForm = MOMENTUM_EXPORT_FIELDS.map(f => `
+    <div class="grid items-center gap-2 py-1.5 border-b border-[var(--outline)] last:border-0" style="grid-template-columns:1fr 8rem auto">
+      <span class="text-[12.5px] font-bold min-w-0 truncate">${esc(tCh(CAMPO_EXPORT_LABEL_KEY[f], __uiLang))}</span>
+      <input data-cem-col="${f}" value="${esc(mapping[f].column)}" placeholder="${esc(tCh('companyExportColumnPlaceholder', __uiLang))}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[11.5px]" name="cem-col-${f}" />
+      <label class="flex items-center gap-1" title="${esc(tCh('companyExportRequiredLabel', __uiLang))}">
+        <input data-cem-req="${f}" type="checkbox" ${mapping[f].required ? 'checked' : ''} class="w-3.5 h-3.5 accent-[var(--gold)]" />
+      </label>
+    </div>`).join('');
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('companyExportTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('companyExportSub', __uiLang)}</p></div>
+      <div class="card p-3">${campiForm}</div>
+      <div id="cem-esito">${calcolaEsito()}</div>
+      <div class="flex gap-2">
+        <button id="cem-save" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm">${tCh('companyExportSaveMappingBtn', __uiLang)}</button>
+        <button id="cem-download" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm">${tCh('companyExportDownloadBtn', __uiLang)}</button>
+      </div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+  document.querySelectorAll('[data-cem-col]').forEach(el => el.addEventListener('input', (e) => { mapping[el.dataset.cemCol].column = e.target.value; aggiornaEsito(); }));
+  document.querySelectorAll('[data-cem-req]').forEach(el => el.addEventListener('change', (e) => { mapping[el.dataset.cemReq].required = e.target.checked; aggiornaEsito(); }));
+  $('#cem-save')?.addEventListener('click', () => {
+    VaultDAO.state.companyExportMapping = mapping;
+    VaultDAO.save();
+    showToast(tCh('companyExportMappingSaved', __uiLang), 'success');
+  });
+  $('#cem-download')?.addEventListener('click', () => {
+    const preview = buildMappedExportPreview(records, mapping);
+    const csv = mappedExportToCsv(preview, mapping);
+    if (!csv) { showToast(tCh('companyExportDownloadBlocked', __uiLang), 'error'); return; }
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `momentum-export-${(trip.name || 'trasferta').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast(tCh('tripExportDone', __uiLang), 'success');
+  });
 };
 
 // Riepilogo stampabile CON gli scontrini incorporati (stesso pattern già
