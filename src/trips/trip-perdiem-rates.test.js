@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026 } from './trip-perdiem-rates.js';
+import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026, TARIFFE_REGNO_UNITO_2026 } from './trip-perdiem-rates.js';
 
 test('TARIFFE_GERMANIA_2026: valori 2026 verificati (BMF + fonti triangolate 2026-09-14)', () => {
   assert.equal(TARIFFE_GERMANIA_2026.piena, 28);
@@ -37,4 +37,14 @@ test('RIDUZIONE_USA_2026: derivata dalle cifre GSA reali (breakfast $16/lunch $1
   assert.ok(Math.abs(RIDUZIONE_USA_2026.colazione - 16 / 68) < 1e-9);
   assert.ok(Math.abs(RIDUZIONE_USA_2026.pranzo - 19 / 68) < 1e-9);
   assert.ok(Math.abs(RIDUZIONE_USA_2026.cena - 28 / 68) < 1e-9);
+});
+
+test('TARIFFE_REGNO_UNITO_2026: benchmark scale rates verificate su fonte primaria (gov.uk EIM30240, 2026-09-18)', () => {
+  assert.equal(TARIFFE_REGNO_UNITO_2026.cinqueOre, 5);
+  assert.equal(TARIFFE_REGNO_UNITO_2026.dieciOre, 10);
+  assert.equal(TARIFFE_REGNO_UNITO_2026.quindiciOre, 25);
+});
+
+test('TARIFFE_REGNO_UNITO_2026: oggetto immutabile', () => {
+  assert.throws(() => { TARIFFE_REGNO_UNITO_2026.cinqueOre = 999; }, /Cannot assign|read only/i);
 });

@@ -38,6 +38,27 @@ export const TARIFFE_GERMANIA_2026 = Object.freeze({ piena: 28, ridotta: 14 });
 // intermedi pieni), zero modifiche alla formula servite.
 export const TARIFFE_USA_2026 = Object.freeze({ piena: 68, ridotta: 51 });
 
+// HMRC (Regno Unito), benchmark scale rates per la sussistenza —
+// verificate su fonte primaria (gov.uk/hmrc-internal-manuals/
+// employment-income-manual/eim30240, consultata 2026-09-18): £5 per 5-10
+// ore di assenza (un pasto), £10 per 10-15 ore (due pasti), £25 per 15+ ore
+// O se il viaggio prosegue oltre le 20:00 (in quel caso è ammesso anche un
+// supplemento di £10 sopra la quota da £5/£10 — QUI NON CALCOLATO, limite
+// dichiarato: servirebbe sapere se il rientro è avvenuto dopo le 20:00 di
+// quel giorno specifico, dato che Momentum non traccia ancora esplicitamente
+// per ogni singolo giorno di una trasferta multi-giorno).
+//
+// STRUTTURA DIVERSA da Germania/USA (non riusa {piena,ridotta}): l'HMRC
+// paga per GIORNO in base alle ore di assenza QUEL giorno specifico, non
+// per posizione nel viaggio (primo/ultimo/intermedio) — un viaggio di 5
+// giorni con lo stesso orario di partenza/rientro ogni giorno avrebbe comunque
+// bisogno delle ore EFFETTIVE di ciascun giorno, calcolate in
+// oreAssenzaPerGiorno/diariaRegnoUnito (trip-period.js). Nessuna riduzione
+// per pasto offerto: il benchmark rate HMRC presume un costo reale
+// sostenuto, non un pasto forfettario indipendente dai pasti veri come la
+// diaria tedesca — dichiarato, non implementato.
+export const TARIFFE_REGNO_UNITO_2026 = Object.freeze({ cinqueOre: 5, dieciOre: 10, quindiciOre: 25 });
+
 // Riduzione per pasto offerto, GSA: a differenza della Germania (percentuali
 // fisse indipendenti dall'importo), il GSA pubblica un importo in DOLLARI
 // per pasto dentro la quota M&IE di $68 — breakfast $16, lunch $19, dinner

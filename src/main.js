@@ -58,8 +58,8 @@ import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } 
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
-import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
-import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026 } from './trips/trip-perdiem-rates.js';
+import { periodoTrasferta, giorniScoperti, diariaSpettante, diariaRegnoUnito, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
+import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026, TARIFFE_REGNO_UNITO_2026 } from './trips/trip-perdiem-rates.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
@@ -11580,9 +11580,15 @@ window.openBusinessTrip = (tripId) => {
       // riduzionePasto segue il Paese della trasferta (RIDUZIONE_USA_2026 per
       // gli USA, altrimenti il default tedesco di diariaSpettante) — mai la
       // percentuale sbagliata applicata a dollari solo perché non passata.
-      const dia = (trip.perDiemFull > 0 && trip.perDiemReduced != null)
-        ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
-        : null;
+      // UK usa una formula diversa (diariaRegnoUnito, tre fasce orarie per
+      // giorno, non {piena,ridotta}) — vedi trip-period.js — ma torna la
+      // stessa forma {calcolabile,totale}, quindi rigaDiaria sotto non deve
+      // distinguere i due casi.
+      const dia = trip.country === 'UK'
+        ? diariaRegnoUnito(trip, TARIFFE_REGNO_UNITO_2026)
+        : (trip.perDiemFull > 0 && trip.perDiemReduced != null)
+          ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
+          : null;
       const rigaDiaria = dia?.calcolabile
         ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${esc(formatMoney(dia.totale, trip.receiptPolicy?.currency || 'EUR'))}</span></div>`
         : '';
@@ -11691,12 +11697,17 @@ window.openBusinessTrip = (tripId) => {
              breakdown) — tenuto solo il toggle Italia/Germania, che non ha
              equivalente altrove. -->
         <div class="card p-3">
-          <div class="flex flex-wrap gap-1.5">
-            <button id="trip-italy-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'IT' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+          <!-- Griglia 2×2 esplicita, non flex-wrap: con 4 Paesi il testo
+               andava a capo in modo illeggibile dentro ogni pulsante (bug
+               reale trovato dal vivo in Chrome, 2026-09-18) — stesso
+               principio già applicato al mapping export (griglia invece di
+               flex quando lo spazio per elemento è stretto). -->
+          <div class="grid grid-cols-2 gap-1.5">
+            <button id="trip-italy-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'IT' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
               <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'IT' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'IT' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
               ${esc(tCh('tripItalyToggle', __uiLang))}
             </button>
-            <button id="trip-germany-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'DE' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+            <button id="trip-germany-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'DE' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
               <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'DE' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'DE' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
               ${esc(tCh('tripGermanyToggle', __uiLang))}
             </button>
@@ -11704,12 +11715,21 @@ window.openBusinessTrip = (tripId) => {
                  scritta per la Germania (trip-period.js), solo tariffe e
                  riduzione pasto diverse (GSA CONUS standard, vedi
                  trip-perdiem-rates.js) — nessuna modifica alla formula. -->
-            <button id="trip-usa-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'US' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+            <button id="trip-usa-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'US' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
               <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'US' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'US' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
               ${esc(tCh('tripUsaToggle', __uiLang))}
             </button>
+            <!-- Regno Unito (2026-09-18): formula diversa (diariaRegnoUnito,
+                 tre fasce per giorno) — nessun perDiemFull/perDiemReduced da
+                 impostare, i valori HMRC sono fissi e letti sempre da
+                 TARIFFE_REGNO_UNITO_2026 in base a trip.country, mai salvati
+                 sulla trasferta (a differenza di DE/US). -->
+            <button id="trip-uk-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'UK' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'UK' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'UK' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripUkToggle', __uiLang))}
+            </button>
           </div>
-          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : trip.country === 'UK' ? tCh('tripUkToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
         </div>
         ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
         ${offerti.length ? `<div class="card p-3">
@@ -12208,6 +12228,17 @@ window.openBusinessTrip = (tripId) => {
         ...trip, country: attivare ? 'US' : null,
         perDiemFull: attivare ? TARIFFE_USA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_USA_2026.ridotta : null,
         receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'USD' : 'EUR' },
+      }));
+      render();
+    });
+    // UK: nessun perDiemFull/perDiemReduced (la formula HMRC non li usa,
+    // vedi diariaRegnoUnito) — solo country+valuta, gli importi restano
+    // sempre TARIFFE_REGNO_UNITO_2026 letta al volo in periodoInfoHtml.
+    $('#trip-uk-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'UK';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'UK' : null, perDiemFull: null, perDiemReduced: null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'GBP' : 'EUR' },
       }));
       render();
     });

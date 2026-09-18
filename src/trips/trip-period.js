@@ -40,6 +40,15 @@ export const RIDUZIONE_PASTO = { colazione: 0.20, pranzo: 0.40, cena: 0.40 };
 export const ORE_MINIME_DIARIA = 8;
 export const ORE_GIORNO_PIENO = 24;
 
+// Soglie orarie HMRC (Regno Unito) — struttura della norma, non una tariffa:
+// vivono qui come le altre soglie sopra, mai dentro trip-perdiem-rates.js
+// (quel file tiene solo gli importi in sterline). 5h/10h/15h, NON le stesse
+// soglie tedesche (8h/24h) — un riuso per comodità avrebbe pagato la quota
+// sbagliata.
+export const ORE_UK_CINQUE = 5;
+export const ORE_UK_DIECI = 10;
+export const ORE_UK_QUINDICI = 15;
+
 function aData(iso, ora) {
   const [y, m, d] = String(iso || '').split('-').map(Number);
   if (!y || !m || !d) return null;
@@ -131,6 +140,45 @@ export function diariaSpettante(trip, { piena = null, ridotta = null, riduzioneP
   const lordo = arrotonda(giorniPieni * piena + giorniRidotti * ridotta);
   const riduzioni = riduzioniPerPastiOfferti(trip, piena, riduzionePasto);
   return { calcolabile: true, ore: p.ore, giorniPieni, giorniRidotti, lordo, riduzioni, totale: arrotonda(Math.max(0, lordo - riduzioni)), sottoSoglia: false };
+}
+
+// Ore di assenza REALI per ciascun giorno civile del periodo — serve al
+// modello HMRC (Regno Unito), che paga per giorno in base alle ore di
+// assenza QUEL giorno, non per posizione nel viaggio (vedi diariaSpettante
+// sopra, che invece usa primo/ultimo/intermedio). Un giorno intermedio è
+// sempre 24h piene; il primo e l'ultimo giorno prendono solo la porzione
+// reale (da/fino alla mezzanotte del giorno civile).
+export function oreAssenzaPerGiorno(trip) {
+  const p = periodoTrasferta(trip);
+  if (!p) return [];
+  return giorniDelPeriodo(trip).map(iso => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const inizioGiorno = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const fineGiorno = new Date(y, m - 1, d, 23, 59, 59, 999);
+    const da = p.inizio > inizioGiorno ? p.inizio : inizioGiorno;
+    const a = p.fine < fineGiorno ? p.fine : fineGiorno;
+    const ore = Math.max(0, (a - da) / 3600000);
+    return { giorno: iso, ore: Math.round(ore * 100) / 100 };
+  });
+}
+
+// Diaria HMRC (Regno Unito): tre fasce per giorno, mai un giorno "pieno o
+// ridotto" come in Germania/USA — vedi il commento su TARIFFE_REGNO_UNITO_2026
+// (trip-perdiem-rates.js) per la struttura e i limiti dichiarati (supplemento
+// serale e riduzione pasti offerti non calcolati). `tariffe` le fornisce
+// sempre chi chiama, mai indovinate qui.
+export function diariaRegnoUnito(trip, tariffe = {}) {
+  const { cinqueOre = null, dieciOre = null, quindiciOre = null } = tariffe;
+  if (cinqueOre == null || dieciOre == null || quindiciOre == null) return { calcolabile: false, motivo: 'tariffe non impostate' };
+  const giorni = oreAssenzaPerGiorno(trip);
+  if (!giorni.length) return { calcolabile: false, motivo: 'periodo non definito' };
+  let totale = 0;
+  const dettaglio = giorni.map(g => {
+    const quota = g.ore >= ORE_UK_QUINDICI ? quindiciOre : g.ore >= ORE_UK_DIECI ? dieciOre : g.ore >= ORE_UK_CINQUE ? cinqueOre : 0;
+    totale += quota;
+    return { ...g, quota };
+  });
+  return { calcolabile: true, dettaglio, totale: arrotonda(totale) };
 }
 
 // Quanto va tolto perché quei pasti li ha pagati qualcun altro. Le percentuali
