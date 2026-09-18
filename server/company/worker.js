@@ -76,7 +76,22 @@ export async function companyRequest(request, env, subject) {
     const cursor = url.searchParams.get('after') || '';
     if (cursor && !/^[a-zA-Z0-9_-]{1,80}$/.test(cursor)) return json({ error: 'invalid_cursor' }, 400);
     const db = env.COMPANY_DB.withSession ? env.COMPANY_DB.withSession('first-primary') : env.COMPANY_DB;
-    const result = await db.prepare(`SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion
+    // pendingCount: quanti resoconti aspettano UNA decisione qualsiasi in
+    // questa azienda — SOLO per chi può decidere (owner/reviewer), stessa
+    // identica definizione di "pending" già usata dalla lista di
+    // reports.js (ultima revisione per submitter+trip, nessuna decisione
+    // registrata). Gap reale trovato il 2026-09-19: un reviewer scopriva
+    // una richiesta pendente solo se ricordava di riaprire l'inbox di sua
+    // iniziativa — nessuna notifica esisteva. Non è ancora una notifica
+    // push/email (richiederebbe un servizio esterno, stesso blocco dei
+    // pagamenti), ma almeno il numero è visibile SUBITO aprendo l'elenco
+    // aziende, non sepolto dentro l'inbox di ciascuna.
+    const result = await db.prepare(`SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion,
+      (CASE WHEN m.role IN ('owner','reviewer') THEN (
+        SELECT COUNT(*) FROM reports r WHERE r.company_id=c.id
+        AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+        AND NOT EXISTS(SELECT 1 FROM report_decisions d WHERE d.report_id=r.id)
+      ) ELSE NULL END) AS pendingCount
       FROM companies c JOIN memberships m ON m.company_id=c.id WHERE m.subject=? AND m.active=1 AND c.id>? ORDER BY c.id LIMIT 51`).bind(subject, cursor).all();
     const rows = result.results || [];
     return json({ companies: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null });

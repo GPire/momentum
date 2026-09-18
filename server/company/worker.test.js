@@ -10,6 +10,7 @@ const rules = { currency: 'EUR', receiptThreshold: 25, expenseLimits: { vitto: 3
 function fixture() {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
+  sql.exec(readFileSync(new URL('./reports.sql', import.meta.url), 'utf8'));
   sql.exec("INSERT INTO companies VALUES ('a','Company A'),('b','Company B'); INSERT INTO memberships VALUES ('a','admin','owner',1),('a','employee','employee',1),('a','reviewer','reviewer',1),('a','auditor','auditor',1),('a','editor','policy_admin',1),('b','outsider','owner',1)");
   const db = { prepare(query) { return { bind(...args) { return {
     async first() { return sql.prepare(query).get(...args) || null; },
@@ -185,4 +186,29 @@ test('workspace page: il form pubblica sempre la valuta scelta, mai EUR fisso �
   assert.ok(html.includes('policyCurrency=data.rules.currency'));
   assert.ok(html.includes("currency:policyCurrency"));
   assert.ok(html.includes('/^[A-Z]{3}$/.test(currency)'));
+});
+
+test('pendingCount: conta i resoconti senza decisione SOLO per owner/reviewer — gap reale, prima nessuno sapeva di dover approvare senza aprire ogni azienda', async () => {
+  const { sql, env } = fixture();
+  try {
+    sql.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at)
+      VALUES ('r1','a','employee','trip1',1,0,'f1','{}','2026-01-01'),('r2','a','employee','trip2',1,0,'f2','{}','2026-01-01')`).run();
+    // r2 ha già una decisione: non deve contare come pendente.
+    sql.prepare(`INSERT INTO report_decisions(report_id,reviewer,decision,note,created_at) VALUES ('r2','admin','approved','','2026-01-02')`).run();
+    const forOwner = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'admin')).json();
+    assert.equal(forOwner.companies.find(c => c.id === 'a').pendingCount, 1);
+    const forReviewer = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'reviewer')).json();
+    assert.equal(forReviewer.companies.find(c => c.id === 'a').pendingCount, 1);
+    const forEmployee = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'employee')).json();
+    assert.equal(forEmployee.companies.find(c => c.id === 'a').pendingCount, null);
+    const forAuditor = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'auditor')).json();
+    assert.equal(forAuditor.companies.find(c => c.id === 'a').pendingCount, null);
+  } finally { sql.close(); }
+});
+
+test('workspace page: la lista aziende mostra il contatore da approvare accanto al nome', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('company.pendingCount>0'));
+  assert.ok(html.includes('function pendingLabel'));
 });
