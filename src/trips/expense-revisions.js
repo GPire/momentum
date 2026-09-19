@@ -1,5 +1,5 @@
 // Originals remain available for audit; concurrent edits are retained, not erased.
-const fields = ['amount', 'description', 'date', 'category', 'tripCategory', 'mealType', 'receiptImage', 'tripPersonal', 'co2'];
+const fields = ['amount', 'description', 'date', 'category', 'tripCategory', 'mealType', 'receiptImage', 'tripPersonal', 'co2', 'originalAmount', 'originalCurrency', 'exchangeRate'];
 const pick = tx => Object.fromEntries(fields.filter(key => tx[key] !== undefined).map(key => [key, tx[key]]));
 const key = row => String(row.id);
 export function revisionHeads(tx) {

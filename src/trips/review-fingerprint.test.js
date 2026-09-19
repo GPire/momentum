@@ -15,7 +15,7 @@ test('review round trip binds the decision to the same full report', async () =>
 });
 test('attachments, amounts, offered expenses and policy change the fingerprint', async () => {
   const hash = await fingerprint();
-  for (const patch of [{ amount: 13 }, { receiptImage: 'replacement' }, { date: '2026-09-14' }, { currency: 'USD' }]) {
+  for (const patch of [{ amount: 13 }, { receiptImage: 'replacement' }, { date: '2026-09-14' }, { currency: 'USD' }, { originalCurrency: 'CHF', originalAmount: 12, exchangeRate: 0.92 }]) {
     assert.notEqual(await fingerprint(trip, [{ ...rows[0], ...patch }]), hash);
   }
   assert.notEqual(await fingerprint({ ...trip, offeredItems: [{ id: 'meal', amount: 3 }] }), hash);

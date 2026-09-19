@@ -390,6 +390,10 @@ export function exportTripData(trip, allTransactions, { taxActiveCountry = null 
       avvisoTracciabilita: expenseNeedsTraceabilityWarning(t, trip),
       avvisoSpagna: expenseNeedsSpainCashWarning(t, taxActiveCountry),
       ...(t.tripRevisionConflict ? { revisionConflict: true } : {}),
+      // Valuta originale (src/trips/trip-currency.js): l'export/audit deve
+      // poter mostrare "45 CHF al tasso 0.92 del 12/08" anche fuori dall'app,
+      // mai solo l'importo già convertito senza spiegazione.
+      ...(t.originalCurrency ? { valutaOriginale: t.originalCurrency, importoOriginale: t.originalAmount, tassoCambio: t.exchangeRate } : {}),
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))

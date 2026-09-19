@@ -219,6 +219,21 @@ test('exportTripData: righe ordinate per data, con scontrino quando presente', (
   assert.equal(out.numeroGiustificativiMancanti, 1); // solo "Treno", "Cena" ha lo scontrino
 });
 
+test('exportTripData: valuta originale (src/trips/trip-currency.js) passa nell\'export solo per le spese convertite', () => {
+  const trip = createTrip({ name: 'Zurigo', startDate: '2026-09-10', endDate: '2026-09-12' });
+  const tx = [
+    { type: 'uscita', amount: 41.4, date: '2026-09-11', description: 'Hotel', businessTripId: trip.id, tripCategory: 'alloggio', originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 0.92 },
+    { type: 'uscita', amount: 20, date: '2026-09-10', description: 'Bus', businessTripId: trip.id, tripCategory: 'trasporto' },
+  ];
+  const out = exportTripData(trip, tx);
+  const hotel = out.expenses.find(e => e.descrizione === 'Hotel');
+  const bus = out.expenses.find(e => e.descrizione === 'Bus');
+  assert.equal(hotel.valutaOriginale, 'CHF');
+  assert.equal(hotel.importoOriginale, 45);
+  assert.equal(hotel.tassoCambio, 0.92);
+  assert.equal(bus.valutaOriginale, undefined);
+});
+
 test('exportTripData: numeroGiustificativiMancanti conta tutte le spese sopra soglia senza scontrino, zero se nessuna', () => {
   const trip = createTrip({ name: 'Roma' });
   const nessunGiustificativo = exportTripData(trip, [

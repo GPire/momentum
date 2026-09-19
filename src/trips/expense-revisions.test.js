@@ -49,6 +49,17 @@ test('concurrent edits converge and retain both alternatives for explicit review
   assert.equal(resolved.tripRevisions.length, 3);
   assert.equal(mergeTripExpenseRevisions(resolved, a), resolved);
 });
+test('valuta originale (src/trips/trip-currency.js): impostata e poi rimossa esplicitamente con null, mai persa in silenzio', () => {
+  const converted = reviseTripExpense(base, { amount: 11.04, originalAmount: 12, originalCurrency: 'CHF', exchangeRate: 0.92 }, 'cur1');
+  assert.equal(converted.originalCurrency, 'CHF');
+  assert.equal(converted.originalAmount, 12);
+  assert.equal(converted.exchangeRate, 0.92);
+  const cleared = reviseTripExpense(converted, { amount: 12, originalAmount: null, originalCurrency: null, exchangeRate: null }, 'cur2');
+  assert.equal(cleared.originalCurrency, null);
+  assert.equal(cleared.originalAmount, null);
+  assert.equal(cleared.exchangeRate, null);
+});
+
 test('invalid edits and unrelated incoming rows cannot alter a trip', () => {
   assert.throws(() => reviseTripExpense(base, { amount: Infinity }, 'x'));
   assert.throws(() => reviseTripExpense(base, { date: '2026-02-30' }, 'x'));

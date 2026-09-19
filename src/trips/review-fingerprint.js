@@ -4,7 +4,7 @@ const sorted = rows => rows.map(canonical).sort((a, b) => JSON.stringify(a).loca
 
 // No approval status or delivery timestamps: those don't change the reviewed facts.
 export function tripReviewSnapshot(trip, transactions) {
-  const fields = ['id', 'amount', 'date', 'description', 'category', 'tripCategory', 'mealType', 'currency', 'originalCurrency', 'originalAmount', 'receiptImage', 'tripRevisionConflict'];
+  const fields = ['id', 'amount', 'date', 'description', 'category', 'tripCategory', 'mealType', 'currency', 'originalCurrency', 'originalAmount', 'exchangeRate', 'receiptImage', 'tripRevisionConflict'];
   return JSON.stringify(canonical({
     id: trip.id, name: trip.name, startDate: trip.startDate, endDate: trip.endDate,
     startTime: trip.startTime, endTime: trip.endTime, receiptPolicy: trip.receiptPolicy,
