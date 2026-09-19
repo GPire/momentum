@@ -6,6 +6,7 @@ import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { detectTripAmountAnomalies } from './trips/trip-anomaly.js';
 import { MOMENTUM_EXPORT_FIELDS, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripAttachmentCopy } from './i18n/trip-attachment.js';
@@ -11415,6 +11416,20 @@ function ocrLangPickerHtml(state, lang) {
   </div>`;
 }
 
+// Spese fuori dalla propria norma storica (src/trips/trip-anomaly.js) — MAI
+// un'accusa, un fatto statistico dichiarato: il revisore decide, la spesa
+// resta comunque esportabile/approvabile. Colore ambra (avviso), non rosso:
+// coerente con la stessa cautela già usata per policy_daily/duplicate_receipt.
+function tripAnomalyHtml(anomalies, lang) {
+  if (!anomalies?.length) return '';
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const righe = anomalies.map(a => `<li>${esc(a.tx.description || '—')}: <b>${esc(formatMoney(a.tx.amount, a.tx.currency || 'EUR'))}</b> (${esc(tCh('tripAnomalyUsual', lang, formatMoney(a.average, a.tx.currency || 'EUR')))})</li>`).join('');
+  return `<div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3 text-[11px]">
+    <div class="font-bold text-amber-400 mb-1">${esc(tCh('tripAnomalyTitle', lang))}</div>
+    <ul class="flex flex-col gap-1 list-disc pl-4">${righe}</ul>
+  </div>`;
+}
+
 window.openBusinessTrips = () => {
   const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -11565,6 +11580,14 @@ window.openBusinessTrip = (tripId) => {
     const expenses = tripExpenses(trip, allTx);
     const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
     const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
+    // Anomalie di importo (src/trips/trip-anomaly.js): confronto contro la
+    // PROPRIA media storica di trasferta, mai contro quella di altri — lo
+    // storico serve su TUTTE le trasferte della persona (altrimenti pochi
+    // punti nella sola trasferta aperta non darebbero mai un segnale
+    // statisticamente onesto), il risultato si mostra SOLO per le spese di
+    // QUESTA trasferta.
+    const tripAnomalies = detectTripAmountAnomalies(allTx.filter(tx => tx?.businessTripId))
+      .filter(a => a.tx.businessTripId === trip.id);
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
@@ -12019,6 +12042,7 @@ window.openBusinessTrip = (tripId) => {
         <div class="trip-company">
           <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
           <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
+          ${tripAnomalyHtml(tripAnomalies, __uiLang)}
           <section id="trip-preflight" tabindex="-1" class="trip-preflight">
             <h4>${esc(tripReadinessCopy(__uiLang, 0))}</h4>
             <p>${exportChecks.blockingCount ? esc(tripReadinessCopy(__uiLang, 1)) + ': ' + exportChecks.blockingCount : esc(tripReadinessCopy(__uiLang, 3))}</p>
