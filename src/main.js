@@ -11390,10 +11390,12 @@ function receiptOcrReportHtml(report, lang) {
   const missingLine = (name) => `<span class="inline-flex items-center gap-1 text-[var(--on-surface-secondary)] opacity-70"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>${esc(tCh('tripOcrMissing', lang, fieldLabel(name)))}</span>`;
   const dateWarn = report.warnings.find(w => w.type === 'date-differs');
   const currWarn = report.warnings.find(w => w.type === 'currency-mismatch');
+  const ambigWarn = report.warnings.find(w => w.type === 'date-ambiguous');
   return `<div class="p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] flex flex-col gap-1.5">
     <div class="font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide text-[9px]">${esc(tCh('tripOcrReportTitle', lang, tCh('tripOcrSource_' + report.source, lang)))}</div>
     <div class="flex flex-col gap-1">${report.found.map(foundLine).join('')}${report.missing.map(missingLine).join('')}</div>
     ${!report.ok ? `<div class="text-rose-400 font-bold">${esc(tCh('tripOcrNoAmount', lang))}</div>` : ''}
+    ${ambigWarn ? `<div class="text-amber-400">${esc(tCh('tripOcrDateAmbiguous', lang))} <button type="button" data-trip-use-ocr-date="${esc(ambigWarn.alternateDate)}" class="font-bold underline underline-offset-2 text-[var(--primary)]">${esc(tCh('tripOcrUseAlternateDate', lang, formatDataLocale(ambigWarn.alternateDate)))}</button></div>` : ''}
     ${dateWarn ? `<button type="button" data-trip-use-ocr-date="${esc(dateWarn.ocrDate)}" class="text-left text-[var(--primary)] font-bold underline underline-offset-2">${esc(tCh('tripOcrUseDate', lang, formatDataLocale(dateWarn.ocrDate)))}</button>` : ''}
     ${currWarn ? `<div class="text-amber-400 font-bold">${esc(tCh('tripOcrCurrencyMismatch', lang, currWarn.receiptCurrency, currWarn.tripCurrency))}</div>` : ''}
     ${report.rawText ? `<details><summary class="cursor-pointer text-[var(--on-surface-secondary)] underline underline-offset-2">${esc(tCh('tripOcrShowRaw', lang))}</summary><pre class="whitespace-pre-wrap break-words mt-1 text-[10px] text-[var(--on-surface-secondary)] max-h-24 overflow-y-auto">${esc(report.rawText)}</pre></details>` : ''}

@@ -74,3 +74,29 @@ test('importo zero o negativo non è un importo trovato', () => {
   assert.ok(buildReceiptOcrReport({ amount: 0 }, {}).missing.includes('amount'));
   assert.ok(buildReceiptOcrReport({ amount: -5 }, {}).missing.includes('amount'));
 });
+
+// Data ambigua gg/mm vs mm/gg (2026-09-19): mai una confidenza piena su una
+// data che è genuinamente un colpo di moneta fra due interpretazioni valide.
+test('dateAmbiguous: confidenza abbassata a "bassa" e avviso con entrambe le date possibili', () => {
+  const r = buildReceiptOcrReport(
+    { amount: 10, date: new Date(2026, 3, 3), dateAmbiguous: true }, // 3 aprile scelto, ma potrebbe essere 4 marzo
+    { source: 'image' }
+  );
+  const campoData = r.found.find(f => f.field === 'date');
+  assert.equal(campoData.confidence, 'bassa');
+  const w = r.warnings.find(x => x.type === 'date-ambiguous');
+  assert.ok(w);
+  assert.equal(w.chosenDate, '2026-04-03');
+  assert.equal(w.alternateDate, '2026-03-04');
+});
+
+test('dateAmbiguous assente (data inequivocabile): nessun avviso, confidenza normale', () => {
+  const r = buildReceiptOcrReport({ amount: 10, date: new Date(2026, 3, 25) }, { source: 'image' });
+  assert.equal(r.warnings.some(x => x.type === 'date-ambiguous'), false);
+  assert.equal(r.found.find(f => f.field === 'date').confidence, 'media');
+});
+
+test('dateAmbiguous da un PDF: confidenza comunque abbassata a "bassa" (l\'ambiguità non dipende dalla fonte)', () => {
+  const r = buildReceiptOcrReport({ amount: 10, date: new Date(2026, 3, 3), dateAmbiguous: true }, { source: 'pdf' });
+  assert.equal(r.found.find(f => f.field === 'date').confidence, 'bassa');
+});

@@ -289,3 +289,45 @@ test("parseScreenshotTransactions: valuta rilevata PER RIGA, non solo per il sin
   assert.equal(txs[1].currency, 'EUR');
   assert.equal(txs[2].currency, 'USD');
 });
+
+// Data ambigua gg/mm vs mm/gg (2026-09-19): un numero >12 in una delle due
+// posizioni toglie ogni ambiguità (non può essere un mese); solo quando
+// ENTRAMBI sono ≤12 e diversi l'ordine è scelto (default resto del mondo:
+// gg/mm) e dichiarato come ambiguo — mai spacciato per certo.
+test("data inequivocabile (giorno > 12): nessuna ambiguità, letta correttamente indipendentemente dall'ordine scritto", () => {
+  const r = parseScreenshotText("RISTORANTE\n25/04/2026\nTOTALE 30,00");
+  assert.equal(r.date.getDate(), 25);
+  assert.equal(r.date.getMonth(), 3); // aprile
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("data inequivocabile (mese scritto per secondo > 12, es. formato US con giorno inequivocabile): nessuna ambiguità", () => {
+  const r = parseScreenshotText("RESTAURANT\n04/25/2026\nTOTAL 30.00");
+  assert.equal(r.date.getDate(), 25);
+  assert.equal(r.date.getMonth(), 3); // aprile
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("data GENUINAMENTE ambigua (entrambi i numeri ≤12): default gg/mm, dichiarata come ambigua (mai in silenzio)", () => {
+  const r = parseScreenshotText("RISTORANTE\n03/04/2026\nTOTALE 30,00");
+  assert.equal(r.date.getDate(), 3);
+  assert.equal(r.date.getMonth(), 3); // aprile: gg/mm di default
+  assert.equal(r.dateAmbiguous, true);
+});
+
+test("data ambigua con tripCountry='US': l'unico segnale disponibile fa scegliere mm/gg, resta comunque dichiarata ambigua", () => {
+  const r = parseScreenshotText("RESTAURANT\n03/04/2026\nTOTAL 30.00", { tripCountry: 'US' });
+  assert.equal(r.date.getMonth(), 2); // marzo
+  assert.equal(r.date.getDate(), 4);
+  assert.equal(r.dateAmbiguous, true);
+});
+
+test("giorno e mese identici (es. 05/05): nessuna ambiguità reale, l'ordine non cambia la data", () => {
+  const r = parseScreenshotText("RISTORANTE\n05/05/2026\nTOTALE 30,00");
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("entrambi i numeri > 12 (formato non valido per nessuna interpretazione): data non riconosciuta, mai un crash", () => {
+  const r = parseScreenshotText("RISTORANTE\n32/45/2026\nTOTALE 30,00");
+  assert.equal(r.date, null);
+});

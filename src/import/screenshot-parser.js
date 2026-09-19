@@ -105,10 +105,31 @@ export function extractMerchant(lines) {
 const INCOME_HINTS = /(accredito|accreditat|ricevut|stipendio|bonifico in entrata|incasso|rimborso)/i;
 const EXPENSE_HINTS = /(addebito|addebitat|pagamento|pagat|acquisto|prelievo|acquistat)/i;
 
+// Disambiguazione data "gg/mm" vs "mm/gg" — BUG REALE trovato rileggendo il
+// codice (mai indovinato prima): con entrambi i numeri ≤12 ("03/04/2026") il
+// formato è genuinamente ambiguo, e il codice assumeva SEMPRE gg/mm senza
+// dirlo — uno scontrino USA vero ("03/04" = 4 marzo, non 3 aprile) veniva
+// silenziosamente letto con la data sbagliata. Quando un numero supera 12
+// non c'è ambiguità (non può essere un mese): si usa quello per capire
+// l'ordine, a prescindere da qualunque preferenza. Solo quando ENTRAMBI i
+// numeri sono ≤12 (e diversi) l'ordine è scelto da `preferisciMeseGiorno`
+// (true per gli USA, unico Paese dove mm/gg è la norma) — e la scelta viene
+// dichiarata onestamente (`ambigua: true`), mai spacciata per certa.
+function interpretaDataGiornoMese(a, b, preferisciMeseGiorno) {
+  if (a > 12 && b <= 12) return { giorno: a, mese: b, ambigua: false };
+  if (b > 12 && a <= 12) return { giorno: b, mese: a, ambigua: false };
+  if (a > 12 && b > 12) return null; // nessun numero può essere un mese: data invalida
+  const ambigua = a !== b;
+  return preferisciMeseGiorno ? { giorno: b, mese: a, ambigua } : { giorno: a, mese: b, ambigua };
+}
+
 // Funzione pura: dato il testo grezzo restituito dall'OCR, estrae una
 // transazione plausibile. Nessuna dipendenza da Tesseract/DOM — testabile
-// direttamente in Node.
-export function parseScreenshotText(rawText) {
+// direttamente in Node. `opts.tripCountry`: unico segnale disponibile per
+// scegliere l'ordine giorno/mese quando è ambiguo (vedi sopra) — 'US' è
+// l'unico Paese, fra quelli già coperti dal modulo trasferte, dove mm/gg è
+// la convenzione normale.
+export function parseScreenshotText(rawText, opts = {}) {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
   // Priorità 1: pattern di NOTIFICA precisi (notification-parser.js). È il
@@ -159,13 +180,17 @@ export function parseScreenshotText(rawText) {
   // (mostra "mancante"); l'import personale (handleScreenshotUpload sotto)
   // applica il proprio fallback "oggi" al punto d'uso, non qui.
   let date = null;
+  let dateAmbiguous = false;
   const dmySlash = rawText.match(DATE_PATTERN);
   const ymdCjk = dmySlash ? null : rawText.match(DATE_PATTERN_YMD_CJK);
   if (dmySlash) {
     let yr = parseInt(dmySlash[3]);
     if (yr < 100) yr += 2000;
-    const parsed = new Date(yr, parseInt(dmySlash[2]) - 1, parseInt(dmySlash[1]));
-    if (!isNaN(parsed.getTime())) date = parsed;
+    const interpretata = interpretaDataGiornoMese(parseInt(dmySlash[1]), parseInt(dmySlash[2]), opts.tripCountry === 'US');
+    if (interpretata) {
+      const parsed = new Date(yr, interpretata.mese - 1, interpretata.giorno);
+      if (!isNaN(parsed.getTime())) { date = parsed; dateAmbiguous = interpretata.ambigua; }
+    }
   } else if (ymdCjk) {
     const parsed = new Date(parseInt(ymdCjk[1]), parseInt(ymdCjk[2]) - 1, parseInt(ymdCjk[3]));
     if (!isNaN(parsed.getTime())) date = parsed;
@@ -195,6 +220,7 @@ export function parseScreenshotText(rawText) {
     confidence: confidenceAmount || 'bassa',
     rawText,
     ...(currency ? { currency } : {}),
+    ...(dateAmbiguous ? { dateAmbiguous: true } : {}),
   };
 }
 
@@ -356,7 +382,7 @@ export async function scanScreenshot(imageFileOrBlob, opts = {}) {
   }
   const lang = resolveOcrLang(opts);
   const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
-  return { ...parseScreenshotText(data.text), ocrLang: lang };
+  return { ...parseScreenshotText(data.text, { tripCountry: opts.tripCountry }), ocrLang: lang };
 }
 
 // OCR → più transazioni (per le liste movimenti). Ritorna { transactions, rawText }.
