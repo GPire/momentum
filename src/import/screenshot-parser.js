@@ -24,13 +24,51 @@ import { resolveUiLanguage } from '../i18n/ui-strings.js';
 // resta un limite noto — il formato con separatore, il più comune sugli
 // estratti/notifiche italiane, è gestito correttamente).
 const AMOUNT_RE_SRC = '\\d{1,3}(?:[.,]\\d{3})*[.,]\\d{2}';
+// Parole "TOTALE" in ogni lingua/alfabeto selezionabile per l'OCR (vedi
+// src/import/ocr-languages.js) — non solo IT/EN: uno scontrino giapponese/
+// cinese/coreano/russo/greco/arabo/hindi/thai dice "totale" con una parola
+// diversa, e senza queste l'euristica "il numero vicino alla parola totale"
+// (l'unica che distingue il vero importo da un codice/quantità/telefono)
+// non scatta MAI per quelle lingue — bug reale trovato testando dal vivo
+// con uno scontrino giapponese sintetico (OCR corretto, importo comunque
+// non riconosciuto, perché nessuna parola chiave combaciava).
+const TOTAL_KEYWORDS = [
+  'totale', 'total', 'importo', 'pagamento', 'addebito', 'accredito', // it/en
+  'итого', 'сумма', 'к оплате',                                       // rus
+  'συνολο', 'σύνολο', 'ποσο', 'ποσό',                                 // ell (entrambe le forme: le maiuscole di stampa "ΣΥΝΟΛΟ" non portano l'accento tonos per convenzione tipografica, il minuscolo corrente sì)
+  'المجموع', 'الإجمالي',                                              // ara
+  '合[计計]', '总计', '金额', '金額',                                   // chi_sim/jpn (合计/合計 coprono entrambe le varianti)
+  '합계', '총액', '금액',                                              // kor
+  'कुल', 'योग',                                                       // hin
+  'รวม', 'ยอดรวม',                                                    // tha
+];
 // \D{0,24}: sugli scontrini reali tra la keyword e l'importo ci sono spesso
 // parole intere ("TOTALE COMPLESSIVO 45,80", "IMPORTO PAGATO EUR 12,00") —
 // con il vecchio limite di 12 caratteri questi casi finivano nel fallback
 // "importo più alto", sbagliando quando lo scontrino riporta i contanti.
-const AMOUNT_NEAR_KEYWORD = new RegExp(`(totale|total|importo|pagamento|addebito|accredito)\\D{0,24}(${AMOUNT_RE_SRC})`, 'i');
+const AMOUNT_NEAR_KEYWORD = new RegExp(`(${TOTAL_KEYWORDS.join('|')})\\D{0,24}(${AMOUNT_RE_SRC})`, 'iu');
 const ANY_AMOUNT = new RegExp(AMOUNT_RE_SRC, 'g');
+// Valute reali senza sottounità decimale (yen, won, dong, tenge, ...): "4500
+//円"/"4500원" non ha MAI due decimali, quindi AMOUNT_NEAR_KEYWORD non può
+// mai scattare per un simile scontrino, in QUALUNQUE lingua sia scritto —
+// non solo un problema giapponese/coreano, un problema di formato valuta.
+// Stessa disciplina anti-falsi-positivi dell'importo decimale: scatta SOLO
+// vicino a una parola "totale" nota (mai come numero più alto nel testo),
+// quindi nessun limite minimo di cifre — un totale di "25" (yen/rubli/baht)
+// è comune quanto uno a 4 cifre, e la parola chiave è già la protezione.
+const WHOLE_AMOUNT_RE_SRC = '\\d{1,3}(?:[.,\\s]\\d{3})+|\\d+';
+const AMOUNT_NEAR_KEYWORD_WHOLE = new RegExp(`(${TOTAL_KEYWORDS.join('|')})\\D{0,24}(${WHOLE_AMOUNT_RE_SRC})`, 'iu');
+const parseWholeAmount = (s) => { const n = parseInt(String(s).replace(/[.,\s]/g, ''), 10); return Number.isFinite(n) ? n : null; };
 const DATE_PATTERN = /(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/;
+// Data giapponese/cinese "2026年7月12日" (anno-mese-giorno, ordine sempre
+// inequivocabile a differenza di gg/mm vs mm/gg). Limite dichiarato: NON
+// copre i numeri in cifre orientali (٠١٢٣.../๐๑๒๓... di arabo/thai) — resta
+// mancante in quei casi, mai una data indovinata a caso.
+// \s*: l'OCR di un testo CJK inserisce spesso uno spazio fra ogni singolo
+// carattere/glifo ("2026 年 7 月 12 日", verificato dal vivo con Tesseract
+// reale) — senza tollerare lo spazio la data veniva sempre dichiarata
+// mancante anche quando l'OCR l'aveva letta correttamente cifra per cifra.
+const DATE_PATTERN_YMD_CJK = /(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/;
 
 // Righe di scontrino che NON sono il nome dell'esercente: dati fiscali,
 // indirizzi, diciture di legge, contatti. Un nome di negozio non contiene
@@ -95,6 +133,15 @@ export function parseScreenshotText(rawText) {
   if (amount === null) {
     const keywordMatch = rawText.match(AMOUNT_NEAR_KEYWORD);
     if (keywordMatch) { amount = parseCellAmount(keywordMatch[2]); confidenceAmount = 'alta'; }
+    // Valuta a zero decimali (yen/won/dong/...): nessun formato "xx,xx" da
+    // trovare per costruzione. Stesso vincolo di sicurezza dell'importo
+    // decimale (SOLO vicino a una parola "totale" nota, in una qualunque
+    // delle lingue coperte) — mai il fallback "numero più alto" su un
+    // intero, sarebbe un codice/quantità/telefono con probabilità reale.
+    if (amount === null) {
+      const wholeMatch = rawText.match(AMOUNT_NEAR_KEYWORD_WHOLE);
+      if (wholeMatch) { amount = parseWholeAmount(wholeMatch[2]); confidenceAmount = amount !== null ? 'alta' : null; }
+    }
     if (amount === null) {
       // fallback: importo più alto nel testo (stessa euristica del vecchio ReceiptScanner)
       const all = [...rawText.matchAll(ANY_AMOUNT)].map(m => parseCellAmount(m[0])).filter(v => v !== null);
@@ -103,12 +150,24 @@ export function parseScreenshotText(rawText) {
     }
   }
 
-  const dateMatch = rawText.match(DATE_PATTERN);
-  let date = new Date();
-  if (dateMatch) {
-    let yr = parseInt(dateMatch[3]);
+  // BUG REALE trovato testando dal vivo con uno scontrino giapponese: prima
+  // di questo fix `date` valeva SEMPRE `new Date()` quando nessun pattern
+  // combaciava — la trasparenza OCR (buildReceiptOcrReport) lo leggeva come
+  // "data trovata, confidenza media" invece di "mancante", mostrando la
+  // data di OGGI spacciata per quella letta dallo scontrino. Ora `date` è
+  // `null` quando non riconosciuta — onesto per il chiamante di trasferta
+  // (mostra "mancante"); l'import personale (handleScreenshotUpload sotto)
+  // applica il proprio fallback "oggi" al punto d'uso, non qui.
+  let date = null;
+  const dmySlash = rawText.match(DATE_PATTERN);
+  const ymdCjk = dmySlash ? null : rawText.match(DATE_PATTERN_YMD_CJK);
+  if (dmySlash) {
+    let yr = parseInt(dmySlash[3]);
     if (yr < 100) yr += 2000;
-    const parsed = new Date(yr, parseInt(dateMatch[2]) - 1, parseInt(dateMatch[1]));
+    const parsed = new Date(yr, parseInt(dmySlash[2]) - 1, parseInt(dmySlash[1]));
+    if (!isNaN(parsed.getTime())) date = parsed;
+  } else if (ymdCjk) {
+    const parsed = new Date(parseInt(ymdCjk[1]), parseInt(ymdCjk[2]) - 1, parseInt(ymdCjk[3]));
     if (!isNaN(parsed.getTime())) date = parsed;
   }
 
@@ -278,11 +337,24 @@ export function parseScreenshotTransactions(rawText) {
   return txs;
 }
 
+// BUG REALE trovato dal vivo (2026-09-19): `opts.override`/`opts.uiLang` non
+// venivano mai propagati a `ocrLanguagesFor` — la scelta esplicita
+// dell'utente ("Scontrino in un altro alfabeto?") veniva ignorata in
+// silenzio e l'OCR restava sempre su 'ita+eng', anche selezionando
+// Giapponese. Un test unitario non l'aveva preso perché testava
+// `ocrLanguagesFor` isolata, non la sua chiamata da qui — verificato dal
+// vivo con Tesseract reale (jpn+eng legge correttamente uno scontrino
+// giapponese sintetico al 93% di confidenza se invocato con la lingua
+// giusta, prova che il motore funziona: il bug era solo nel non passarla).
+function resolveOcrLang(opts) {
+  return opts.lang || ocrLanguagesFor({ tripCountry: opts.tripCountry, uiLang: opts.uiLang || resolveUiLanguage(), override: opts.override });
+}
+
 export async function scanScreenshot(imageFileOrBlob, opts = {}) {
   if (typeof Tesseract === 'undefined') {
     throw new Error('Tesseract.js non caricato in pagina.');
   }
-  const lang = opts.lang || ocrLanguagesFor({ tripCountry: opts.tripCountry, uiLang: resolveUiLanguage() });
+  const lang = resolveOcrLang(opts);
   const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
   return { ...parseScreenshotText(data.text), ocrLang: lang };
 }
@@ -290,7 +362,7 @@ export async function scanScreenshot(imageFileOrBlob, opts = {}) {
 // OCR → più transazioni (per le liste movimenti). Ritorna { transactions, rawText }.
 export async function scanScreenshotMulti(imageFileOrBlob, opts = {}) {
   if (typeof Tesseract === 'undefined') throw new Error('Tesseract.js non caricato in pagina.');
-  const lang = opts.lang || ocrLanguagesFor({ tripCountry: opts.tripCountry, uiLang: resolveUiLanguage() });
+  const lang = resolveOcrLang(opts);
   const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
   return { transactions: parseScreenshotTransactions(data.text), rawText: data.text };
 }
@@ -327,8 +399,12 @@ export async function handleScreenshotUpload(file) {
       showToast('Nessun importo riconosciuto nello screenshot.', 'error');
       return null;
     }
+    // `parsed.date` è null quando lo scontrino non riporta una data
+    // riconoscibile (onesto per il chiamante di trasferta) — qui l'import
+    // personale ricade su oggi, unico punto dove questo default ha senso.
+    const dataRisolta = parsed.date || new Date();
 
-    const catId = safeCategorize(parsed.description, parsed.amount, parsed.date, parsed.type); // guardrail
+    const catId = safeCategorize(parsed.description, parsed.amount, dataRisolta, parsed.type); // guardrail
 
     const tx = {
       id: Date.now() + Math.random(),
@@ -337,14 +413,14 @@ export async function handleScreenshotUpload(file) {
       category: catId,
       description: parsed.description,
       color: getCatById(catId).color,
-      date: parsed.date.toISOString(),
+      date: dataRisolta.toISOString(),
       source: 'screenshot_ocr',
     };
-    const k = monthKey(parsed.date);
+    const k = monthKey(dataRisolta);
     const { duplicate, route } = VaultDAO.addTransaction(k, tx);
 
     if (window.momentumOrchestrator) {
-      window.momentumOrchestrator.learn(parsed.description, catId, parsed.amount, parsed.date);
+      window.momentumOrchestrator.learn(parsed.description, catId, parsed.amount, dataRisolta);
     }
 
     showToast(
@@ -353,7 +429,7 @@ export async function handleScreenshotUpload(file) {
         : `Transazione riconosciuta: ${parsed.description} ${parsed.amount}€ (confidenza OCR: ${parsed.confidence}).`,
       duplicate ? 'info' : 'success'
     );
-    return { ...parsed, duplicate, route };
+    return { ...parsed, date: dataRisolta, duplicate, route };
   } catch (err) {
     console.error('Errore import screenshot:', err);
     showToast('Errore nella lettura dello screenshot.', 'error');

@@ -223,3 +223,59 @@ Mercadona Barcelona -18,75 €
   // esercente pulito
   assert.ok(!/Ita999/.test(txs[0].description));
 });
+
+test("scontrino senza alcuna data riconoscibile: date è null, mai 'oggi' spacciato per letto (bug reale trovato dal vivo con scontrino giapponese)", () => {
+  const raw = "RISTORANTE\nTOTALE 45,80";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.date, null);
+});
+
+test("data giapponese/cinese 'AAAA年MM月GG日' riconosciuta", () => {
+  const raw = "東京レストラン\n2026年7月12日\n合計 4.500,00";
+  const result = parseScreenshotText(raw);
+  assert.ok(result.date instanceof Date);
+  assert.equal(result.date.getFullYear(), 2026);
+  assert.equal(result.date.getMonth(), 6); // luglio
+  assert.equal(result.date.getDate(), 12);
+});
+
+test("data giapponese con spazi fra i caratteri (OCR reale Tesseract su testo CJK, verificato dal vivo)", () => {
+  const raw = "東京 レス トラ ン\n2026 年 7 月 12 日\n合計 4500 円";
+  const result = parseScreenshotText(raw);
+  assert.ok(result.date instanceof Date);
+  assert.equal(result.date.getFullYear(), 2026);
+  assert.equal(result.date.getMonth(), 6);
+  assert.equal(result.date.getDate(), 12);
+  assert.equal(result.amount, 4500);
+});
+
+test("importo whole-number vicino a parola 'totale' non italiana/inglese (valuta a zero decimali, es. yen/won)", () => {
+  const casi = [
+    ["RISTORANTE TOKYO\n合計 4500円", 4500],       // giapponese/cinese: 合計 = totale
+    ["서울 식당\n합계 12000원", 12000],              // coreano: 합계 = totale
+    ["РЕСТОРАН МОСКВА\nИТОГО 1500 руб", 1500],     // russo: итого = totale
+    ["ΕΣΤΙΑΤΟΡΙΟ ΑΘΗΝΑ\nΣΥΝΟΛΟ 25 €", 25],          // greco: σύνολο = totale
+    ["ร้านอาหารกรุงเทพ\nรวม 350 บาท", 350],          // thai: รวม = totale
+  ];
+  for (const [raw, atteso] of casi) {
+    const result = parseScreenshotText(raw);
+    assert.equal(result.amount, atteso, `fallito per: ${raw}`);
+    assert.equal(result.confidence, "alta");
+  }
+});
+
+test("importo whole-number MAI usato come fallback 'numero più alto' senza parola chiave (anti falso-positivo)", () => {
+  // Nessuna parola "totale" nota: un numero intero isolato (es. un codice
+  // scontrino) non deve mai diventare l'importo — a differenza del formato
+  // decimale, che ha comunque il proprio fallback dedicato e testato altrove.
+  const raw = "SCONTRINO N. 88291\nCASSA 4\nOPERATORE 12";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.amount, null);
+});
+
+test("parola 'totale' non latina con importo DECIMALE (non whole-number) resta prioritaria e ad alta confidenza", () => {
+  const raw = "ΕΣΤΙΑΤΟΡΙΟ\nΣΥΝΟΛΟ 45,80";
+  const result = parseScreenshotText(raw);
+  assert.equal(result.amount, 45.80);
+  assert.equal(result.confidence, "alta");
+});

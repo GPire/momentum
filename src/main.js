@@ -313,6 +313,7 @@ import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exp
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
+import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
 import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
 import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
 import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
@@ -11397,6 +11398,23 @@ function receiptOcrReportHtml(report, lang) {
   </div>`;
 }
 
+// Selettore esplicito di lingua/alfabeto per l'OCR (vedi src/import/ocr-
+// languages.js): l'euristica automatica (Paese trasferta/lingua interfaccia)
+// non può indovinare uno scontrino in cirillico/arabo/CJK/thai/hindi — mai
+// un OCR sull'alfabeto sbagliato in silenzio, l'utente lo dichiara.
+function ocrLangPickerHtml(state, lang) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const active = NON_LATIN_OCR_LANGUAGES.find(l => l.code === state.ocrLangOverride);
+  const chip = (code, label, selected) => `<button type="button" data-ocrlang="${esc(code)}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${selected ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(label)}</button>`;
+  return `<div class="mb-2">
+    <button type="button" id="trip-ocrlang-toggle" class="text-[11px] font-bold text-[var(--primary)] underline underline-offset-2">${esc(active ? tCh('tripOcrLangActive', lang, tCh(active.labelKey, lang)) : tCh('tripOcrLangToggle', lang))}</button>
+    ${state.ocrLangPickerOpen ? `<div class="flex flex-wrap gap-1.5 mt-2">
+      ${chip('', tCh('tripOcrLangAuto', lang), !state.ocrLangOverride)}
+      ${NON_LATIN_OCR_LANGUAGES.map(l => chip(l.code, tCh(l.labelKey, lang), state.ocrLangOverride === l.code)).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
 window.openBusinessTrips = () => {
   const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -11540,7 +11558,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -11850,6 +11868,7 @@ window.openBusinessTrip = (tripId) => {
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
             <input id="trip-receipt" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="hidden" name="trip-receipt" />
           </label>
+          ${String(state.receiptDataUrl || '').startsWith('data:application/pdf') ? '' : ocrLangPickerHtml(state, __uiLang)}
           ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
           ${receiptOcrReportHtml(state.ocrReport, __uiLang)}
@@ -12025,8 +12044,8 @@ window.openBusinessTrip = (tripId) => {
       $('#trip-period-panel')?.scrollIntoView({ block: 'start', behavior: 'instant' });
       document.querySelector('[data-periodopill="startDate"]')?.focus({ preventScroll: true });
     });
-    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; e.target.removeAttribute('aria-invalid'); });
-    $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; state.amountFromOcr = false; e.target.removeAttribute('aria-invalid'); });
+    $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; state.descriptionFromOcr = false; });
     // Selettore data di Momentum: apre/chiude il calendario disegnato.
     // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
     // il campo sembrava rotto, ed era la segnalazione da cui è nato tutto.)
@@ -12119,6 +12138,32 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
     $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; state.ocrReport = null; render(); });
     $('[data-trip-use-ocr-date]')?.addEventListener('click', (e) => { state.data = e.currentTarget.dataset.tripUseOcrDate; render(); });
+    $('#trip-ocrlang-toggle')?.addEventListener('click', () => { state.ocrLangPickerOpen = !state.ocrLangPickerOpen; render(); });
+    document.querySelectorAll('[data-ocrlang]').forEach(b => b.addEventListener('click', async () => {
+      if (state.ocrBusy) return;
+      state.ocrLangOverride = b.dataset.ocrlang || null;
+      state.ocrLangPickerOpen = false;
+      // Scontrino-immagine già allegato: ri-leggo con la lingua scelta SOLO se
+      // importo/descrizione sono ancora quelli letti dall'OCR (mai un rilancio
+      // che scavalca una correzione fatta a mano dall'utente).
+      if (state.receiptDataUrl && !String(state.receiptDataUrl).startsWith('data:application/pdf')) {
+        state.ocrBusy = true; render();
+        try {
+          const blob = await (await fetch(state.receiptDataUrl)).blob();
+          const parsed = await scanScreenshot(blob, { tripCountry: trip.country, uiLang: __uiLang, override: state.ocrLangOverride });
+          if (parsed?.amount > 0 && (state.amountFromOcr || !state.amount)) { state.amount = String(parsed.amount); state.amountFromOcr = true; }
+          if (parsed?.description && (state.descriptionFromOcr || !state.description)) { state.description = parsed.description; state.descriptionFromOcr = true; }
+          state.ocrReport = buildReceiptOcrReport(parsed, { tripCurrency: trip.receiptPolicy?.currency || 'EUR', source: 'image', currentDate: state.data });
+          try {
+            const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
+            const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+            if (pred?.cat) { state.catReale = pred.cat; if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(pred.cat, state.description); }
+          } catch (_) {}
+        } catch (_) { /* rilettura fallita: i valori precedenti restano, mai persi */ }
+        state.ocrBusy = false;
+      }
+      render();
+    }));
     $('#trip-receipt')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
@@ -12155,8 +12200,8 @@ window.openBusinessTrip = (tripId) => {
               txs = extractTransactionsFromItems(items);
               currency = detectCurrency(items.map(i => i.text).join(' '));
               if (txs.length) {
-                if (txs[0].amount > 0 && !state.amount) state.amount = String(txs[0].amount);
-                if (txs[0].description && !state.description) state.description = txs[0].description;
+                if (txs[0].amount > 0 && !state.amount) { state.amount = String(txs[0].amount); state.amountFromOcr = true; }
+                if (txs[0].description && !state.description) { state.description = txs[0].description; state.descriptionFromOcr = true; }
               }
             }
           } catch (_) { /* PDF scansionato o non riconosciuto: l'utente compila a mano, mai un blocco */ }
@@ -12180,10 +12225,10 @@ window.openBusinessTrip = (tripId) => {
         // vocabolario locale, in silenzio.
         let parsed = null;
         try {
-          parsed = await scanScreenshot(f, { tripCountry: trip.country, uiLang: __uiLang });
+          parsed = await scanScreenshot(f, { tripCountry: trip.country, uiLang: __uiLang, override: state.ocrLangOverride });
         } catch (_) { /* OCR non disponibile o scontrino illeggibile: l'utente compila a mano, mai un blocco */ }
-        if (parsed?.amount > 0 && !state.amount) state.amount = String(parsed.amount);
-        if (parsed?.description && !state.description) state.description = parsed.description;
+        if (parsed?.amount > 0 && !state.amount) { state.amount = String(parsed.amount); state.amountFromOcr = true; }
+        if (parsed?.description && !state.description) { state.description = parsed.description; state.descriptionFromOcr = true; }
         state.ocrReport = buildReceiptOcrReport(parsed, { tripCurrency, source: 'image', currentDate: state.data });
         // Categoria REALE proposta dall'ensemble proprietario di Momentum
         // (lo stesso di ogni altra spesa, mai un modello a parte) — mappata
@@ -12200,14 +12245,14 @@ window.openBusinessTrip = (tripId) => {
       reader.readAsDataURL(f);
     });
     const resetEdit = () => {
-      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', receiptDataUrl: null, ocrReport: null, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
       render();
     };
     $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
     document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
       const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
       if (!tx) return;
-      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, mealType: tx.mealType || null, offerto: false });
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, mealType: tx.mealType || null, offerto: false });
       render();
       $('#trip-amt')?.focus();
     }));
@@ -12254,7 +12299,7 @@ window.openBusinessTrip = (tripId) => {
           const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
           persistTrip(nuovoTrip);
         } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
-        state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
         render();
         return;
       }
@@ -12296,7 +12341,7 @@ window.openBusinessTrip = (tripId) => {
       VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
       try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
       VaultDAO.save();
-      state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
       // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
       // incidere sul budget), ma la Dashboard sottostante restava con lo
       // snapshot di quando il modale si era aperto — chiudendo il modale
@@ -12324,6 +12369,8 @@ window.openBusinessTrip = (tripId) => {
       state.editingId = null; state.editingDigest = '';
       state.amount = String(orig.amount);
       state.description = orig.description || '';
+      state.amountFromOcr = false;
+      state.descriptionFromOcr = false;
       state.tripCategory = TRIP_CATEGORIES.includes(orig.tripCategory) ? orig.tripCategory : null;
       state.tripCategoryManuale = true;
       state.catReale = orig.category || null;
@@ -12332,6 +12379,8 @@ window.openBusinessTrip = (tripId) => {
       state.transportMode = orig.transportMode === 'pubblico' || orig.transportMode === 'taxi_ncc' ? orig.transportMode : null;
       state.receiptDataUrl = null;
       state.ocrReport = null;
+      state.ocrLangOverride = null;
+      state.ocrLangPickerOpen = false;
       state.offerto = false;
       showToast(tCh('tripDuplicated', __uiLang), 'success');
       render();
