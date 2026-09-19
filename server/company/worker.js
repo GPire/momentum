@@ -31,7 +31,7 @@ function validaOpzionale(rules, chiave, valida) {
   return !(chiave in rules) || valida(rules[chiave]);
 }
 export function validateCompanyRules(rules) {
-  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits', 'perDiem', 'mileage'].includes(k))) return false;
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits', 'perDiem', 'mileage', 'secondApprover'].includes(k))) return false;
   // Fino al 2026-09-19 solo EUR era ammessa: l'editor (workspace-page.js)
   // non aveva un campo valuta, pubblicare qualunque altra cosa avrebbe
   // significato un valore mai scelto da nessuno. Ora che l'editor esiste
@@ -45,6 +45,17 @@ export function validateCompanyRules(rules) {
   })) return false;
   if (!validaOpzionale(rules, 'perDiem', (p) => p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).every(k => ['piena', 'ridotta'].includes(k)) && amount(p.piena) && amount(p.ridotta) && p.ridotta <= p.piena)) return false;
   if (!validaOpzionale(rules, 'mileage', (m) => m && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).every(k => ['tariffa', 'unita'].includes(k)) && tariffaUnitaria(m.tariffa) && ['km', 'mi'].includes(m.unita))) return false;
+  // secondApprover (opzionale, ricerca 2026-09-19): quando impostato, OGNI
+  // resoconto richiede una SECONDA approvazione da qualcuno con questo
+  // ruolo, sempre una persona diversa da chi ha dato la prima — pattern
+  // reale più comune trovato (Expensify "Advanced Approval": il
+  // responsabile approva e inoltra, la finance dà l'ultima parola). Sempre
+  // 'owner' per ora (unico ruolo con autorità gerarchica sopra 'reviewer'
+  // nello schema esistente) — mai 'reviewer' due volte, sarebbe lo stesso
+  // livello travestito da due. Nessuna soglia di importo in questa prima
+  // versione (limite dichiarato: sempre 2 stadi se attivo, non solo sopra
+  // un importo — richiederebbe sommare l'archivio in SQL, cantiere a parte).
+  if (!validaOpzionale(rules, 'secondApprover', (s) => s === 'owner')) return false;
   return true;
 }
 export const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
@@ -76,22 +87,34 @@ export async function companyRequest(request, env, subject) {
     const cursor = url.searchParams.get('after') || '';
     if (cursor && !/^[a-zA-Z0-9_-]{1,80}$/.test(cursor)) return json({ error: 'invalid_cursor' }, 400);
     const db = env.COMPANY_DB.withSession ? env.COMPANY_DB.withSession('first-primary') : env.COMPANY_DB;
-    // pendingCount: quanti resoconti aspettano UNA decisione qualsiasi in
-    // questa azienda — SOLO per chi può decidere (owner/reviewer), stessa
-    // identica definizione di "pending" già usata dalla lista di
-    // reports.js (ultima revisione per submitter+trip, nessuna decisione
-    // registrata). Gap reale trovato il 2026-09-19: un reviewer scopriva
-    // una richiesta pendente solo se ricordava di riaprire l'inbox di sua
+    // pendingCount: quanti resoconti aspettano UNA decisione dalla persona
+    // che sta guardando — SOLO per chi può decidere (owner/reviewer),
+    // consapevole degli stadi (vedi report_decisions.stage/secondApprover
+    // sotto): un 'reviewer' vede solo i resoconti al primo stadio, un
+    // 'owner' vede anche quelli in attesa della seconda approvazione
+    // finale. Gap reale trovato il 2026-09-19: un reviewer scopriva una
+    // richiesta pendente solo se ricordava di riaprire l'inbox di sua
     // iniziativa — nessuna notifica esisteva. Non è ancora una notifica
     // push/email (richiederebbe un servizio esterno, stesso blocco dei
     // pagamenti), ma almeno il numero è visibile SUBITO aprendo l'elenco
-    // aziende, non sepolto dentro l'inbox di ciascuna.
-    const result = await db.prepare(`SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion,
-      (CASE WHEN m.role IN ('owner','reviewer') THEN (
-        SELECT COUNT(*) FROM reports r WHERE r.company_id=c.id
-        AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
-        AND NOT EXISTS(SELECT 1 FROM report_decisions d WHERE d.report_id=r.id)
-      ) ELSE NULL END) AS pendingCount
+    // aziende, non sepolto dentro l'inbox di ciascuna. Semplificazione
+    // dichiarata: non esclude chi ha già dato la prima approvazione dal
+    // conteggio della seconda (lo fa invece la vera porta in reports.js,
+    // questo è solo un numero indicativo, non un controllo di sicurezza).
+    const result = await db.prepare(`WITH pending_reports AS (
+        SELECT r.id, r.company_id,
+          (SELECT COUNT(*) FROM report_decisions d WHERE d.report_id=r.id AND d.decision='approved') AS approved_stages,
+          EXISTS(SELECT 1 FROM report_decisions d WHERE d.report_id=r.id AND d.decision='changes_requested') AS rejected,
+          (SELECT json_extract(p.rules,'$.secondApprover') FROM policies p WHERE p.company_id=r.company_id AND p.version=r.policy_version) AS second_approver
+        FROM reports r
+        WHERE r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+      )
+      SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion,
+      (CASE
+        WHEN m.role='reviewer' THEN (SELECT COUNT(*) FROM pending_reports pr WHERE pr.company_id=c.id AND NOT pr.rejected AND pr.approved_stages=0)
+        WHEN m.role='owner' THEN (SELECT COUNT(*) FROM pending_reports pr WHERE pr.company_id=c.id AND NOT pr.rejected AND (pr.approved_stages=0 OR (pr.approved_stages=1 AND pr.second_approver='owner')))
+        ELSE NULL
+      END) AS pendingCount
       FROM companies c JOIN memberships m ON m.company_id=c.id WHERE m.subject=? AND m.active=1 AND c.id>? ORDER BY c.id LIMIT 51`).bind(subject, cursor).all();
     const rows = result.results || [];
     return json({ companies: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null });

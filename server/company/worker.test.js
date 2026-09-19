@@ -194,7 +194,7 @@ test('pendingCount: conta i resoconti senza decisione SOLO per owner/reviewer �
     sql.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at)
       VALUES ('r1','a','employee','trip1',1,0,'f1','{}','2026-01-01'),('r2','a','employee','trip2',1,0,'f2','{}','2026-01-01')`).run();
     // r2 ha già una decisione: non deve contare come pendente.
-    sql.prepare(`INSERT INTO report_decisions(report_id,reviewer,decision,note,created_at) VALUES ('r2','admin','approved','','2026-01-02')`).run();
+    sql.prepare(`INSERT INTO report_decisions(report_id,stage,reviewer,decision,note,created_at) VALUES ('r2',1,'admin','approved','','2026-01-02')`).run();
     const forOwner = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'admin')).json();
     assert.equal(forOwner.companies.find(c => c.id === 'a').pendingCount, 1);
     const forReviewer = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'reviewer')).json();
@@ -211,4 +211,11 @@ test('workspace page: la lista aziende mostra il contatore da approvare accanto 
   const html = await response.text();
   assert.ok(html.includes('company.pendingCount>0'));
   assert.ok(html.includes('function pendingLabel'));
+});
+
+test('validateCompanyRules: secondApprover accetta solo \'owner\' — mai due reviewer allo stesso livello travestiti da due stadi', () => {
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'owner' }), true);
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'reviewer' }), false);
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'employee' }), false);
+  assert.equal(validateCompanyRules({ ...rules }), true); // opzionale, retrocompatibile
 });
