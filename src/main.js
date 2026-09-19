@@ -66,7 +66,7 @@ import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustific
 import { reconcileCardStatement } from './trips/card-reconciliation.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
-import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
+import { VoiceCore, linguaVoceAttiva, VoiceParser, SPEECH_LOCALE } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
@@ -11558,7 +11558,7 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, voiceBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
@@ -11868,6 +11868,10 @@ window.openBusinessTrip = (tripId) => {
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
             <input id="trip-receipt" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="hidden" name="trip-receipt" />
           </label>
+          ${(typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)) ? `<button type="button" id="trip-voice-btn" ${state.voiceBusy ? 'disabled' : ''} class="w-full flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-2.5 mb-2 text-[12px] font-bold ${state.voiceBusy ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+            ${state.voiceBusy ? esc(tCh('voiceListening', __uiLang)) : esc(tCh('tripVoiceButton', __uiLang))}
+          </button>` : ''}
           ${String(state.receiptDataUrl || '').startsWith('data:application/pdf') ? '' : ocrLangPickerHtml(state, __uiLang)}
           ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
@@ -12164,6 +12168,50 @@ window.openBusinessTrip = (tripId) => {
       }
       render();
     }));
+    // Voice-to-expense: riusa lo stesso motore di comprensione già in
+    // produzione per le spese personali (VoiceParser, src/voice/voice.js) —
+    // nessun secondo interprete scritto da zero. A differenza del microfono
+    // globale (continuous, sempre in ascolto, gestisce anche promemoria/
+    // split/domande), qui basta UNA frase singola con un solo esito: la
+    // spesa da inserire in QUESTA trasferta, mai un altro intento.
+    $('#trip-voice-btn')?.addEventListener('click', () => {
+      if (state.voiceBusy) return;
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) return; // bottone comunque non renderizzato in questo caso, difesa in profondità
+      const rec = new SpeechRec();
+      rec.continuous = false;
+      rec.interimResults = false;
+      const lingua = linguaVoceAttiva();
+      rec.lang = SPEECH_LOCALE[lingua] || 'it-IT';
+      state.voiceBusy = true; render();
+      rec.onresult = (e) => {
+        const testo = e.results?.[0]?.[0]?.transcript || '';
+        // Stesso motore delle spese personali, ma qui interessa SOLO il primo
+        // intento di tipo spesa — promemoria/split/domande non hanno senso
+        // dentro il form di una singola spesa di trasferta, si ignorano.
+        const risultati = VoiceParser.parse(testo) || [];
+        const spesa = risultati.find(r => r.intent === 'transaction');
+        if (!spesa || spesa.amountMissing) {
+          showToast(tCh('tripVoiceNoTransaction', __uiLang), 'error');
+          return;
+        }
+        if (!state.amount) state.amount = String(spesa.amount);
+        if (!state.description) state.description = spesa.description;
+        if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(spesa.category, spesa.description);
+        state.catReale = spesa.category;
+        showToast(tCh('tripVoiceFilled', __uiLang, spesa.description, formatMoney(spesa.amount, trip.receiptPolicy?.currency || 'EUR')), 'success');
+      };
+      rec.onerror = (e) => {
+        const MESSAGGI = {
+          'not-allowed': tCh('voiceErrNotAllowed', lingua), 'service-not-allowed': tCh('voiceErrNotAllowed', lingua),
+          'no-speech': tCh('voiceErrNoSpeech', lingua), 'audio-capture': tCh('voiceErrNoMic', lingua),
+          'network': tCh('voiceErrNetwork', lingua), 'aborted': null,
+        };
+        if (MESSAGGI[e.error]) showToast(MESSAGGI[e.error], 'error');
+      };
+      rec.onend = () => { state.voiceBusy = false; render(); };
+      try { rec.start(); } catch (_) { state.voiceBusy = false; render(); }
+    });
     $('#trip-receipt')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
