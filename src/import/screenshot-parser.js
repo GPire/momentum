@@ -16,6 +16,8 @@ import { getCatById, VaultDAO } from '../core/vault.js';
 import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { safeCategorize } from './categorize.js';
+import { ocrLanguagesFor } from './ocr-languages.js';
+import { resolveUiLanguage } from '../i18n/ui-strings.js';
 
 // Cattura importi con o senza separatore delle migliaia (1.500,00 / 1500,00
 // col separatore assente non è distinguibile in modo affidabile da OCR e
@@ -276,18 +278,20 @@ export function parseScreenshotTransactions(rawText) {
   return txs;
 }
 
-export async function scanScreenshot(imageFileOrBlob) {
+export async function scanScreenshot(imageFileOrBlob, opts = {}) {
   if (typeof Tesseract === 'undefined') {
     throw new Error('Tesseract.js non caricato in pagina.');
   }
-  const { data } = await Tesseract.recognize(imageFileOrBlob, 'ita+eng');
-  return parseScreenshotText(data.text);
+  const lang = opts.lang || ocrLanguagesFor({ tripCountry: opts.tripCountry, uiLang: resolveUiLanguage() });
+  const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
+  return { ...parseScreenshotText(data.text), ocrLang: lang };
 }
 
 // OCR → più transazioni (per le liste movimenti). Ritorna { transactions, rawText }.
-export async function scanScreenshotMulti(imageFileOrBlob) {
+export async function scanScreenshotMulti(imageFileOrBlob, opts = {}) {
   if (typeof Tesseract === 'undefined') throw new Error('Tesseract.js non caricato in pagina.');
-  const { data } = await Tesseract.recognize(imageFileOrBlob, 'ita+eng');
+  const lang = opts.lang || ocrLanguagesFor({ tripCountry: opts.tripCountry, uiLang: resolveUiLanguage() });
+  const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
   return { transactions: parseScreenshotTransactions(data.text), rawText: data.text };
 }
 

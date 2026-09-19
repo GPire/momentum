@@ -18,6 +18,8 @@ import { extractTransactionsFromItems, parseCellAmount, parseCellDate, COLUMN_KE
 import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
 import { parseCamt053, isCamt053 } from './camt053.js';
+import { ocrLanguagesFor } from './ocr-languages.js';
+import { resolveUiLanguage } from '../i18n/ui-strings.js';
 import { rilevaAcquistoTitolo } from './security-purchase-detector.js';
 import { simpleHash } from '../core/utils.js';
 
@@ -197,7 +199,7 @@ async function ocrPdfPage(page) {
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-  const { data: { text } } = await Tesseract.recognize(canvas, 'ita+eng');
+  const { data: { text } } = await Tesseract.recognize(canvas, ocrLanguagesFor({ uiLang: resolveUiLanguage() }));
 
   const lines = text.split('\n').filter(l => l.trim().length > 3);
   const headerLine = lines.find(l => COLUMN_KEYWORDS.expense.test(l) || COLUMN_KEYWORDS.income.test(l));
@@ -251,7 +253,7 @@ async function parsePdfFile(file) {
 
 async function parseImageFile(file) {
   if (typeof Tesseract === 'undefined') throw new Error('OCR (Tesseract) non caricato');
-  const { data } = await Tesseract.recognize(file, 'ita+eng');
+  const { data } = await Tesseract.recognize(file, ocrLanguagesFor({ uiLang: resolveUiLanguage() }));
   return parseScreenshotTransactions(data.text);
 }
 
