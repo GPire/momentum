@@ -8,7 +8,7 @@ globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0, hardwareConcurrency: 4 };
 globalThis.document = globalThis.document || { querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {}, getElementById: () => null };
 
-const { parseScreenshotText } = await import("./screenshot-parser.js");
+const { parseScreenshotText, stripPaymentProcessorPrefix } = await import("./screenshot-parser.js");
 
 test("estrae il totale di uno scontrino distinguendolo da contanti/resto", () => {
   const raw = "BAR ROMA\nVia Roma 12\nCaffe 1.20\nCornetto 1.50\nTOTALE 38,90\nCONTANTI 40,00\nRESTO 1,10";
@@ -330,4 +330,39 @@ test("giorno e mese identici (es. 05/05): nessuna ambiguità reale, l'ordine non
 test("entrambi i numeri > 12 (formato non valido per nessuna interpretazione): data non riconosciuta, mai un crash", () => {
   const r = parseScreenshotText("RISTORANTE\n32/45/2026\nTOTALE 30,00");
   assert.equal(r.date, null);
+});
+
+// Prefisso di PROCESSORE di pagamento (2026-09-19): mai il vero esercente —
+// "SQ *BLUE BOTTLE COFFEE" deve diventare "Blue Bottle Coffee", non restare
+// col nome di chi incassa per conto del negozio.
+test("stripPaymentProcessorPrefix: rimuove i prefissi documentati dei processori più comuni (Square/Toast/PayPal/Clover/Zettle/SumUp/Checkout.com/Shopify)", () => {
+  assert.equal(stripPaymentProcessorPrefix('SQ *BLUE BOTTLE COFFEE'), 'BLUE BOTTLE COFFEE');
+  assert.equal(stripPaymentProcessorPrefix('TST* Blue Coffee Shop'), 'Blue Coffee Shop');
+  assert.equal(stripPaymentProcessorPrefix('PAYPAL *ETSY'), 'ETSY');
+  assert.equal(stripPaymentProcessorPrefix('CLV*Corner Bakery'), 'Corner Bakery');
+  assert.equal(stripPaymentProcessorPrefix('IZ *Mercatino Bio'), 'Mercatino Bio');
+  assert.equal(stripPaymentProcessorPrefix('SUMUP *Bar Centrale'), 'Bar Centrale');
+  assert.equal(stripPaymentProcessorPrefix('CKO*Global Shop'), 'Global Shop');
+  assert.equal(stripPaymentProcessorPrefix('SHOPIFY *Etsy Seller'), 'Etsy Seller');
+});
+
+test("stripPaymentProcessorPrefix: un nome negozio che contiene per caso le stesse lettere ma NON è un prefisso reale (niente separatore) resta intatto", () => {
+  assert.equal(stripPaymentProcessorPrefix('SQUARE PIZZA ROMA'), 'SQUARE PIZZA ROMA');
+  assert.equal(stripPaymentProcessorPrefix('Testoni Boutique'), 'Testoni Boutique');
+});
+
+test("stripPaymentProcessorPrefix: nessun prefisso -> testo invariato, mai un troncamento a caso", () => {
+  assert.equal(stripPaymentProcessorPrefix('Ristorante Da Mario'), 'Ristorante Da Mario');
+  assert.equal(stripPaymentProcessorPrefix(''), '');
+  assert.equal(stripPaymentProcessorPrefix(null), '');
+});
+
+test("extractMerchant: il prefisso del processore viene rimosso anche quando l'esercente arriva da uno scontrino OCR", () => {
+  const nome = extractMerchant(['SQ *BLUE BOTTLE COFFEE', '12/07/2026', 'TOTALE 4,50']);
+  assert.equal(nome, 'BLUE BOTTLE COFFEE');
+});
+
+test("parseScreenshotText: descrizione pulita dal prefisso del processore end-to-end", () => {
+  const r = parseScreenshotText('PAYPAL *ETSY SELLER\n12/07/2026\nTOTALE 25,00');
+  assert.equal(r.description, 'ETSY SELLER');
 });

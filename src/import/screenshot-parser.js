@@ -83,6 +83,22 @@ const MERCHANT_NOISE = [
   /reparto|cassa|operatore|cassiere/i,
 ];
 
+// Prefisso di PROCESSORE di pagamento (mai il vero esercente): sugli
+// estratti/ricevute digitali reali, chi incassa tramite un aggregatore
+// mostra spesso "SQ *NOME LOCALE"/"TST* NOME LOCALE"/"PAYPAL *NOME NEGOZIO"
+// invece del solo nome — il cliente non ha mai scelto Square/Toast/PayPal,
+// li ha scelti il negozio. Pattern DOCUMENTATI dagli stessi processori (non
+// indovinati): Square, Toast POS, PayPal, Clover, iZettle/Zettle, SumUp,
+// Checkout.com, Shopify Payments. Rimosso PRIMA di mostrare la descrizione
+// — "SQ *BLUE BOTTLE COFFEE" diventa "Blue Bottle Coffee".
+// Limite dichiarato: elenco curato dei processori più comuni al mondo, non
+// esaustivo — un processore non in lista passa comunque, solo senza pulizia
+// (mai un nome troncato a caso su un prefisso non riconosciuto).
+const PROCESSOR_PREFIX_RE = /^(SQ|TST|PAYPAL|CLV|IZ|SUMUP|CKO|SHOPIFY)\s*[*#:]\s*/i;
+export function stripPaymentProcessorPrefix(text) {
+  return String(text || '').replace(PROCESSOR_PREFIX_RE, '').trim();
+}
+
 // Esercente: prima riga sostanziosa (≥3 lettere) tra le prime 6 che non è
 // rumore fiscale/indirizzo. null se non c'è niente di plausibile — il
 // chiamante decide il fallback, qui mai un nome inventato.
@@ -93,7 +109,7 @@ export function extractMerchant(lines) {
     if (letters < 3) continue;
     // una riga con importo non è il nome (es. "TOTALE 45,80")
     if (new RegExp(AMOUNT_RE_SRC).test(line)) continue;
-    return line.slice(0, 60);
+    return stripPaymentProcessorPrefix(line).slice(0, 60);
   }
   return null;
 }
@@ -303,7 +319,7 @@ function isDateHeader(line) {
 // Pulisce il nome esercente dal rumore: codici località ("Ita16100ita",
 // "Genova Ita16126ita"), circuiti di pagamento, diciture di stato.
 function cleanMerchant(s) {
-  return s
+  return stripPaymentProcessorPrefix(s)
     .replace(/\b[Il1]ta\d{2,}\w*/gi, '')                             // codici "Ita16100ita"/"Ita999" (OCR: I→1/l)
     .replace(/(apple pay|google pay|pagamento nfc|pagamento cless con device|pagamento con device|contactless|da contabilizzare|nfc)/ig, '')
     .replace(/\s{2,}/g, ' ')
