@@ -10,7 +10,13 @@ export function tripReviewSnapshot(trip, transactions) {
     startTime: trip.startTime, endTime: trip.endTime, receiptPolicy: trip.receiptPolicy,
     companyPolicy: trip.companyPolicy,
     offeredItems: sorted(trip.offeredItems || []),
-    expenses: sorted(transactions.filter(tx => tx.businessTripId === trip.id).map(tx => Object.fromEntries(fields.filter(key => tx[key] !== undefined).map(key => [key, tx[key]])))),
+    // Bleisure (2026-09-19): una spesa marcata tripPersonal non fa parte di
+    // ciò che viene davvero inviato all'azienda (vedi reimbursableTripExpenses
+    // in trip-engine.js) — esclusa anche qui, altrimenti modificarla dopo
+    // l'approvazione la invaliderebbe per un dato che il revisore non ha mai
+    // visto né approvato. Marcarla/smarcarla cambia comunque l'elenco (entra o
+    // esce da questa lista), quindi resta rilevata come una modifica vera.
+    expenses: sorted(transactions.filter(tx => tx.businessTripId === trip.id && !tx.tripPersonal).map(tx => Object.fromEntries(fields.filter(key => tx[key] !== undefined).map(key => [key, tx[key]])))),
   }));
 }
 

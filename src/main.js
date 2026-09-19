@@ -317,7 +317,7 @@ import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-pars
 import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
 import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
 import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
+import { createTrip, tripExpenses, reimbursableTripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
 import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
 import { reviewConflictCopy } from './i18n/review-conflict.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
@@ -11573,12 +11573,12 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, voiceBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, voiceBusy: false, offerto: false, tripPersonal: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
-    const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
+    const exportRows = reimbursableTripExpenses(trip, allTx);
     const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
     // Anomalie di importo (src/trips/trip-anomaly.js): confronto contro la
     // PROPRIA media storica di trasferta, mai contro quella di altri — lo
@@ -11606,9 +11606,9 @@ window.openBusinessTrip = (tripId) => {
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
           <button type="button" data-trip-edit="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px]">${esc(tripEditCopy(__uiLang, t.tripRevisionConflict ? 3 : 0))}</button>
           ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}${t.tripPersonal ? `<span class="inline-flex items-center gap-1 text-[var(--primary)] font-bold bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripPersonalHint', __uiLang))}">${esc(tCh('tripPersonalTag', __uiLang))}</span>` : ''}</span>
         </span>
-        <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
+        <span class="font-mono font-bold shrink-0 ${t.tripPersonal ? 'opacity-50' : ''}">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
         <button data-tripexpdup="${t.id}" aria-label="${esc(tCh('tripDuplicateAria', __uiLang))}" title="${esc(tCh('tripDuplicateAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button data-tripexpdel="${t.id}" data-month="${monthKey(new Date(t.date))}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
@@ -11712,7 +11712,7 @@ window.openBusinessTrip = (tripId) => {
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
     if (appr?.reportFingerprint && !appr.invalidatedAt) {
-      if (verdict.state === 'approvata' && inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy).blockingCount) {
+      if (verdict.state === 'approvata' && inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy).blockingCount) {
         showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
       }
       const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
@@ -11776,7 +11776,7 @@ window.openBusinessTrip = (tripId) => {
           <div class="trip-summary-copy">
             <p class="trip-summary-label">${esc(tCh('tripTotalLabel', __uiLang))}</p>
             <strong class="trip-summary-amount">${eur(totale)}</strong>
-            <p class="trip-summary-count">${esc(tCh('tripExpenseCount', __uiLang, expenses.length))}</p>
+            <p class="trip-summary-count">${esc(tCh('tripExpenseCount', __uiLang, exportRows.length))}</p>
           </div>
           <div class="trip-summary-actions">
             <button type="button" id="trip-jump-expense" class="btn-action btn-primary"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>${esc(tCh('tripAddExpense', __uiLang))}</button>
@@ -12004,11 +12004,23 @@ window.openBusinessTrip = (tripId) => {
                rimborsata. Un chip, non un checkbox nascosto: è una scelta
                che cambia cosa succede al salvataggio, deve essere visibile
                quanto la categoria stessa. -->
-          <button id="trip-offerto-toggle" ${state.editingId !== null ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+          <button id="trip-offerto-toggle" ${state.editingId !== null || state.tripPersonal ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
             <span class="w-4 h-4 rounded-md border-2 ${state.offerto ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.offerto ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
             ${esc(tCh('tripOfferedToggle', __uiLang))}
           </button>
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
+          <!-- Bleisure (richiesta esplicita 2026-09-19): una spesa vera pagata
+               dal dipendente durante il periodo della trasferta ma NON di
+               lavoro (es. la notte extra del weekend prolungato) — resta una
+               transazione vera (i soldi sono usciti davvero), ma esclusa dal
+               totale da rimborsare (reimbursableTripExpenses, trip-engine.js).
+               Mutuamente esclusivo con "Offerto": non ha senso dichiarare
+               "ha pagato un altro" E "è una mia spesa personale" insieme. -->
+          <button id="trip-personal-toggle" ${state.offerto ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.tripPersonal ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+            <span class="w-4 h-4 rounded-md border-2 ${state.tripPersonal ? 'border-[var(--primary)] bg-[var(--primary)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.tripPersonal ? '<svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+            ${esc(tCh('tripPersonalToggle', __uiLang))}
+          </button>
+          ${state.tripPersonal ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripPersonalHint', __uiLang))}</p>` : ''}
           ${state.editingId !== null ? '<button id="trip-edit-cancel" class="btn-action w-full py-3 mb-2">' + esc(tripEditCopy(__uiLang, 2)) + '</button>' : ''}
           <button id="trip-save" ${state.ocrBusy ? 'disabled' : ''} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
@@ -12163,7 +12175,8 @@ window.openBusinessTrip = (tripId) => {
     });
     document.querySelectorAll('[data-trippay]').forEach(b => b.addEventListener('click', () => { state.paymentMethod = state.paymentMethod === b.dataset.trippay ? null : b.dataset.trippay; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
-    $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
+    $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; if (state.offerto) state.tripPersonal = false; render(); });
+    $('#trip-personal-toggle')?.addEventListener('click', () => { state.tripPersonal = !state.tripPersonal; if (state.tripPersonal) state.offerto = false; render(); });
     $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; state.ocrReport = null; render(); });
     $('[data-trip-use-ocr-date]')?.addEventListener('click', (e) => { state.data = e.currentTarget.dataset.tripUseOcrDate; render(); });
     $('#trip-ocrlang-toggle')?.addEventListener('click', () => { state.ocrLangPickerOpen = !state.ocrLangPickerOpen; render(); });
@@ -12317,14 +12330,14 @@ window.openBusinessTrip = (tripId) => {
       reader.readAsDataURL(f);
     });
     const resetEdit = () => {
-      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, tripPersonal: false, mealType: null, data: giornoLocale(new Date()) });
       render();
     };
     $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
     document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
       const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
       if (!tx) return;
-      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, mealType: tx.mealType || null, offerto: false });
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, mealType: tx.mealType || null, offerto: false, tripPersonal: tx.tripPersonal === true });
       render();
       $('#trip-amt')?.focus();
     }));
@@ -12349,7 +12362,7 @@ window.openBusinessTrip = (tripId) => {
           const result = VaultDAO.reviseTripTransaction(state.editingId, trip.id, {
             amount: amt, description: state.description, date: oggi,
             tripCategory: state.tripCategory, mealType: state.mealType,
-            receiptImage: state.receiptDataUrl || null,
+            receiptImage: state.receiptDataUrl || null, tripPersonal: state.tripPersonal,
           }, crypto.randomUUID(), state.editingDigest);
           if (!result) { showToast(tripEditCopy(__uiLang, 4), 'error'); return; }
           try { queueLiveSync(result.date.slice(0, 7), result); } catch (_) {}
@@ -12371,7 +12384,7 @@ window.openBusinessTrip = (tripId) => {
           const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
           persistTrip(nuovoTrip);
         } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
-        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.tripPersonal = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
         render();
         return;
       }
@@ -12399,6 +12412,7 @@ window.openBusinessTrip = (tripId) => {
         ...(state.paymentMethod ? { paymentMethod: state.paymentMethod } : {}),
         ...(state.transportMode ? { transportMode: state.transportMode } : {}),
         ...(state.receiptDataUrl ? { receiptImage: state.receiptDataUrl } : {}),
+        ...(state.tripPersonal ? { tripPersonal: true } : {}),
       };
       // Bug reale trovato dal vivo TESTANDO "duplica spesa": senza restringere
       // la finestra di dedup fuzzy (default 48 ore, pensata per fondere la
@@ -12413,7 +12427,7 @@ window.openBusinessTrip = (tripId) => {
       VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
       try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
       VaultDAO.save();
-      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.tripPersonal = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
       // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
       // incidere sul budget), ma la Dashboard sottostante restava con lo
       // snapshot di quando il modale si era aperto — chiudendo il modale
@@ -12454,6 +12468,7 @@ window.openBusinessTrip = (tripId) => {
       state.ocrLangOverride = null;
       state.ocrLangPickerOpen = false;
       state.offerto = false;
+      state.tripPersonal = orig.tripPersonal === true;
       showToast(tCh('tripDuplicated', __uiLang), 'success');
       render();
       document.getElementById('trip-amt')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -12845,7 +12860,7 @@ window.openCompanyExportMapping = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const records = tripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
+  const records = reimbursableTripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
   if (!records.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : defaultMapping();
   // Un salvataggio precedente potrebbe non coprire un campo aggiunto dopo:
@@ -13157,7 +13172,7 @@ window.openTripReviewShare = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const checks = inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy);
+  const checks = inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy);
   if (checks.blockingCount) {
     window.openBusinessTrip(trip.id);
     const panel = document.getElementById('trip-preflight');

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, addOfferedItem, removeOfferedItem, tripOfferedTotals, MEAL_SUBTYPES, needsReceipt, isCashTraceabilityRuleApplicable, expenseNeedsTraceabilityWarning, SOGLIA_CONTANTI_ACCESSORIE, expenseNeedsSpainCashWarning } from './trip-engine.js';
+import { createTrip, tripExpenses, reimbursableTripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, addOfferedItem, removeOfferedItem, tripOfferedTotals, MEAL_SUBTYPES, needsReceipt, isCashTraceabilityRuleApplicable, expenseNeedsTraceabilityWarning, SOGLIA_CONTANTI_ACCESSORIE, expenseNeedsSpainCashWarning } from './trip-engine.js';
 
 // ── TRACCIABILITÀ PAGAMENTI TRASFERTA (Circolare Agenzia delle Entrate
 // n. 15/E del 22/12/2025): spese di trasferta in ITALIA pagate in contanti
@@ -136,6 +136,45 @@ test('tripExpenses: filtra SOLO le transazioni di quel viaggio, ignora le altre 
   const risultato = tripExpenses(trip, tx);
   assert.equal(risultato.length, 1);
   assert.equal(risultato[0].id, 1);
+});
+
+// Bleisure (2026-09-19): una spesa personale durante la trasferta (es. il
+// weekend extra) resta visibile in tripExpenses (il viaggiatore la vede
+// comunque), ma sparisce da reimbursableTripExpenses e da tutto ciò che ne
+// dipende — mai un euro di vacanza rimborsato per errore.
+test('reimbursableTripExpenses: esclude le spese marcate tripPersonal, tripExpenses le mostra comunque', () => {
+  const trip = createTrip({ name: 'Milano' });
+  const tx = [
+    { id: 1, type: 'uscita', amount: 20, businessTripId: trip.id, tripCategory: 'trasporto' },
+    { id: 2, type: 'uscita', amount: 80, businessTripId: trip.id, tripCategory: 'alloggio', tripPersonal: true }, // notte extra personale
+  ];
+  assert.equal(tripExpenses(trip, tx).length, 2); // il viaggiatore vede entrambe
+  const rimborsabili = reimbursableTripExpenses(trip, tx);
+  assert.equal(rimborsabili.length, 1);
+  assert.equal(rimborsabili[0].id, 1);
+});
+
+test('tripTotals: le spese personali (bleisure) non entrano nel totale da rimborsare', () => {
+  const trip = createTrip({ name: 'Milano' });
+  const tx = [
+    { type: 'uscita', amount: 45, businessTripId: trip.id, tripCategory: 'trasporto' },
+    { type: 'uscita', amount: 300, businessTripId: trip.id, tripCategory: 'alloggio', tripPersonal: true },
+  ];
+  const { totale, perCategoria, numeroSpese } = tripTotals(trip, tx);
+  assert.equal(totale, 45);
+  assert.equal(perCategoria.alloggio, 0);
+  assert.equal(numeroSpese, 1);
+});
+
+test('exportTripData: le spese personali (bleisure) non vengono esportate verso l\'azienda', () => {
+  const trip = createTrip({ name: 'Milano' });
+  const tx = [
+    { type: 'uscita', amount: 45, date: '2026-09-12', businessTripId: trip.id, tripCategory: 'trasporto' },
+    { type: 'uscita', amount: 300, date: '2026-09-13', businessTripId: trip.id, tripCategory: 'alloggio', tripPersonal: true },
+  ];
+  const dati = exportTripData(trip, tx);
+  assert.equal(dati.expenses.length, 1);
+  assert.equal(dati.expenses[0].importo, 45);
 });
 
 test('tripTotals: somma per macro-voce e totale generale, categoria mancante o sconosciuta ricade su "altro"', () => {

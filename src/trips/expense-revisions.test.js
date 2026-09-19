@@ -24,6 +24,19 @@ test('edit preserves identity, attachment, provenance and original values', () =
   assert.equal(edited.tripRevisionBase.amount, 12);
   assert.equal(base.amount, 12);
 });
+// Bleisure (2026-09-19): marcare/smarcare una spesa come personale è una
+// revisione vera come cambiare l'importo — deve sopravvivere al giro
+// pick()/materialize(), altrimenti il toggle sparirebbe silenziosamente
+// alla prima modifica successiva della spesa.
+test('edit carries tripPersonal through a revision (bleisure toggle survives an edit)', () => {
+  const personal = reviseTripExpense(base, { tripPersonal: true }, 'p1');
+  assert.equal(personal.tripPersonal, true);
+  const stillPersonal = reviseTripExpense(personal, { amount: 20 }, 'p2');
+  assert.equal(stillPersonal.tripPersonal, true);
+  const backToReimbursable = reviseTripExpense(stillPersonal, { tripPersonal: false }, 'p3');
+  assert.equal(backToReimbursable.tripPersonal, false);
+});
+
 test('concurrent edits converge and retain both alternatives for explicit review', () => {
   const a = reviseTripExpense(base, { amount: 14 }, 'a');
   const b = reviseTripExpense(base, { amount: 16 }, 'b');
