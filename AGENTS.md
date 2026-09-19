@@ -1,12 +1,5 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
-> **Posizione P.IVA Italia, 2026-09-15:** leggere
-> [docs/partita-iva-italia-posizione-2026-09-15.md](docs/partita-iva-italia-posizione-2026-09-15.md).
-> `buildItalianTaxPosition` compone fatturato, incassato, stima, versamenti,
-> scadenze e copertura senza duplicare formule né scrivere nel Vault. La card
-> fiscale usa la posizione quando le fatture sono disponibili; resta una
-> stima, non un invio F24/SdI né una dichiarazione ufficiale.
-
 > **Servizio policy aziendali, 2026-09-13:** vedere
 > [server/company/README.md](server/company/README.md). Worker separato con
 > verifica JWT Access, membership per azienda e policy versionate su D1.
@@ -25,6 +18,14 @@
 > iPhone in background non fa mai da ponte; Nearby iOS↔Android offline non
 > esiste (parola di Google). Nessun plugin nativo installato, nessuna UI toccata.
 > Il "nodo aiutante" opt-in unifica ponte + calcolo condiviso + staffetta dati.
+> Stesso giorno, secondo cantiere: leggere [modelli-ai-2026-09-13.md](docs/modelli-ai-2026-09-13.md).
+> Audit reale dei modelli contro lo stato dell'arte: ACI (conformal.js) era
+> scritta e testata ma mai chiamata — ora collegata in orchestrator.js
+> (α di lavoro adattivo, 3 test). `frame-stream.js`: canale affidabile a
+> interfaccia RTCDataChannel sopra BLE/L2CAP/suono (7 test). Il catalogo Sciame
+> è multi-canale per principio (NFC, QR animato, Wi-Fi Direct, link, hotspot…):
+> ogni canale porta solo l'impegno pubblico. Prossimi upgrade con bench:
+> replay buffer in neural-nexus, banda conforme per la cassa, FLTrust sulle sonde.
 
 > **Priorità rilascio, 2026-09-12:** l’utente chiede di fermare l’espansione
 > continua delle infrastrutture e chiudere le altre parti. Leggere

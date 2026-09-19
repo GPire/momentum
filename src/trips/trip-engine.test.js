@@ -1,6 +1,100 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, addOfferedItem, removeOfferedItem, tripOfferedTotals, MEAL_SUBTYPES, needsReceipt } from './trip-engine.js';
+import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, addOfferedItem, removeOfferedItem, tripOfferedTotals, MEAL_SUBTYPES, needsReceipt, isCashTraceabilityRuleApplicable, expenseNeedsTraceabilityWarning, SOGLIA_CONTANTI_ACCESSORIE, expenseNeedsSpainCashWarning } from './trip-engine.js';
+
+// ── TRACCIABILITÀ PAGAMENTI TRASFERTA (Circolare Agenzia delle Entrate
+// n. 15/E del 22/12/2025): spese di trasferta in ITALIA pagate in contanti
+// non sono più deducibili per vitto/alloggio/trasporto, salvo biglietti di
+// trasporto pubblico e piccole spese accessorie fino a 15,49€ ──
+
+test('isCashTraceabilityRuleApplicable: trasferta in Italia → true', () => {
+  assert.equal(isCashTraceabilityRuleApplicable({ country: 'IT' }), true);
+});
+
+test('isCashTraceabilityRuleApplicable: trasferta estera → false (la circolare esenta l\'estero)', () => {
+  assert.equal(isCashTraceabilityRuleApplicable({ country: 'ES' }), false);
+});
+
+test('isCashTraceabilityRuleApplicable: Paese non dichiarato → false, mai un\'assunzione senza dato', () => {
+  assert.equal(isCashTraceabilityRuleApplicable({ country: null }), false);
+  assert.equal(isCashTraceabilityRuleApplicable(null), false);
+});
+
+test('expenseNeedsTraceabilityWarning: contanti + Italia + vitto sopra soglia → avviso', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 40, tripCategory: 'vitto' }, trip), true);
+});
+
+test('expenseNeedsTraceabilityWarning: contanti + Italia + alloggio sopra soglia → avviso', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 90, tripCategory: 'alloggio' }, trip), true);
+});
+
+test('expenseNeedsTraceabilityWarning: pagamento tracciabile (carta) → mai un avviso, qualunque importo/categoria', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'carta', amount: 90, tripCategory: 'vitto' }, trip), false);
+});
+
+test('expenseNeedsTraceabilityWarning: metodo di pagamento non dichiarato → nessun avviso, mai un dato inventato', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ amount: 90, tripCategory: 'vitto' }, trip), false);
+});
+
+test('expenseNeedsTraceabilityWarning: trasferta estera, anche in contanti → mai un avviso (eccezione dichiarata dalla circolare)', () => {
+  const trip = { country: 'ES' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 90, tripCategory: 'vitto' }, trip), false);
+});
+
+test('expenseNeedsTraceabilityWarning: piccola spesa accessoria fino a 15,49€ → mai un avviso', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: SOGLIA_CONTANTI_ACCESSORIE, tripCategory: 'vitto' }, trip), false);
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 15.50, tripCategory: 'vitto' }, trip), true);
+});
+
+test('expenseNeedsTraceabilityWarning: biglietto di trasporto pubblico in contanti → mai un avviso (eccezione esplicita della circolare)', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 90, tripCategory: 'trasporto', transportMode: 'pubblico' }, trip), false);
+});
+
+test('expenseNeedsTraceabilityWarning: trasporto in contanti SENZA transportMode dichiarato → avviso conservativo (mai assumere "va bene" su un dato mancante)', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 90, tripCategory: 'trasporto' }, trip), true);
+});
+
+test('expenseNeedsTraceabilityWarning: categoria "altro" → nessun avviso, la circolare copre solo vitto/alloggio/trasporto', () => {
+  const trip = { country: 'IT' };
+  assert.equal(expenseNeedsTraceabilityWarning({ paymentMethod: 'contanti', amount: 90, tripCategory: 'altro' }, trip), false);
+});
+
+// ── SPAGNA — Real Decreto 439/2007, art. 9.A.3.a): "gastos de manutención"
+// (vitto) in contanti mai deducibili, nessuna soglia, indipendente dalla
+// destinazione della trasferta (dipende da chi dichiara in Spagna) ──
+
+test('expenseNeedsSpainCashWarning: contanti + vitto + regime fiscale attivo ES → avviso', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'vitto' }, 'es'), true);
+});
+
+test('expenseNeedsSpainCashWarning: nessuna soglia di importo, a differenza dell\'Italia — anche 1 centesimo in contanti scatta', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'vitto', amount: 0.5 }, 'es'), true);
+});
+
+test('expenseNeedsSpainCashWarning: pagamento tracciabile → mai un avviso', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'carta', tripCategory: 'vitto' }, 'es'), false);
+});
+
+test('expenseNeedsSpainCashWarning: regime fiscale attivo diverso da ES → nessun avviso (la regola vale per chi dichiara in Spagna)', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'vitto' }, 'it'), false);
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'vitto' }, null), false);
+});
+
+test('expenseNeedsSpainCashWarning: si applica indipendentemente dal Paese della trasferta (vale anche fuori Spagna, a differenza dell\'Italia)', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'vitto', tripCountry: 'DE' }, 'es'), true);
+});
+
+test('expenseNeedsSpainCashWarning: categoria diversa da vitto (alloggio/trasporto/altro) → nessun avviso, la norma qui copre solo manutención', () => {
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'alloggio' }, 'es'), false);
+  assert.equal(expenseNeedsSpainCashWarning({ paymentMethod: 'contanti', tripCategory: 'trasporto' }, 'es'), false);
+});
 
 // ── GIUSTIFICATIVO MANCANTE (problema lato azienda: nota spese rifiutata
 // se manca lo scontrino sopra soglia) ──
@@ -98,6 +192,39 @@ test('exportTripData: numeroGiustificativiMancanti conta tutte le spese sopra so
     { type: 'uscita', amount: 10, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto' }, // sotto soglia
   ]);
   assert.equal(tuttoAPosto.numeroGiustificativiMancanti, 0);
+});
+
+test('exportTripData: numeroAvvisiTracciabilita conta le spese in contanti a rischio (Circolare 15/E), incluse nelle righe come avvisoTracciabilita', () => {
+  const tripIT = createTrip({ name: 'Milano', country: 'IT' });
+  const out = exportTripData(tripIT, [
+    { type: 'uscita', amount: 40, date: '2026-09-10', businessTripId: tripIT.id, tripCategory: 'vitto', paymentMethod: 'contanti' }, // avviso
+    { type: 'uscita', amount: 40, date: '2026-09-10', businessTripId: tripIT.id, tripCategory: 'vitto', paymentMethod: 'carta' }, // tracciabile, nessun avviso
+    { type: 'uscita', amount: 10, date: '2026-09-10', businessTripId: tripIT.id, tripCategory: 'vitto', paymentMethod: 'contanti' }, // sotto soglia
+  ]);
+  assert.equal(out.numeroAvvisiTracciabilita, 1);
+  assert.equal(out.expenses[0].avvisoTracciabilita, true);
+  assert.equal(out.expenses[1].avvisoTracciabilita, false);
+
+  const tripES = createTrip({ name: 'Barcellona', country: 'ES' });
+  const outEstero = exportTripData(tripES, [
+    { type: 'uscita', amount: 40, date: '2026-09-10', businessTripId: tripES.id, tripCategory: 'vitto', paymentMethod: 'contanti' },
+  ]);
+  assert.equal(outEstero.numeroAvvisiTracciabilita, 0); // trasferta estera, eccezione dichiarata
+});
+
+test('exportTripData: numeroAvvisiSpagna conta i pasti in contanti quando il regime fiscale attivo è ES, indipendente dal Paese della trasferta', () => {
+  const trip = createTrip({ name: 'Monaco', country: 'DE' }); // trasferta in Germania, non in Spagna
+  const conRegimeEs = exportTripData(trip, [
+    { type: 'uscita', amount: 5, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto', paymentMethod: 'contanti' },
+    { type: 'uscita', amount: 5, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto', paymentMethod: 'carta' },
+  ], { taxActiveCountry: 'es' });
+  assert.equal(conRegimeEs.numeroAvvisiSpagna, 1);
+  assert.equal(conRegimeEs.expenses[0].avvisoSpagna, true);
+
+  const senzaRegimeEs = exportTripData(trip, [
+    { type: 'uscita', amount: 5, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto', paymentMethod: 'contanti' },
+  ], { taxActiveCountry: 'it' });
+  assert.equal(senzaRegimeEs.numeroAvvisiSpagna, 0);
 });
 
 // ── SPESE "OFFERTE" (meals provided / spesa pagata da altri, mai rimborsata) ──

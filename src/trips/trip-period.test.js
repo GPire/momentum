@@ -4,6 +4,7 @@ import { tripExpenses, touchTrip } from './trip-engine.js';
 import {
   periodoTrasferta, giorniDelPeriodo, speseFuoriPeriodo, giorniScoperti,
   diariaSpettante, riduzioniPerPastiOfferti, RIDUZIONE_PASTO,
+  oreAssenzaPerGiorno, diariaRegnoUnito,
 } from './trip-period.js';
 
 const trip = (extra = {}) => ({ id: 't1', name: 'Milano', offeredItems: [], ...extra });
@@ -123,6 +124,26 @@ test('diaria: un pasto offerto riduce la quota (regola tedesca: 20/40/40)', () =
   assert.ok(d.totale < d.lordo);
 });
 
+test('diaria: riduzionePasto opzionale usa la percentuale del Paese passato dal chiamante, mai quella tedesca di default per un altro Paese (regola GSA: cena=28/68 della quota piena)', () => {
+  const t = trip({
+    startDate: '2026-09-10', startTime: '08:00', endDate: '2026-09-11', endTime: '20:00',
+    offeredItems: [{ tripCategory: 'vitto', mealType: 'cena', amount: 0, description: 'Cena col cliente' }],
+  });
+  const riduzioneUsa = { colazione: 16 / 68, pranzo: 19 / 68, cena: 28 / 68 };
+  const d = diariaSpettante(t, { piena: 68, ridotta: 51, riduzionePasto: riduzioneUsa });
+  assert.equal(d.riduzioni, Math.round(68 * riduzioneUsa.cena * 100) / 100);
+  assert.notEqual(d.riduzioni, Math.round(68 * RIDUZIONE_PASTO.cena * 100) / 100); // non la percentuale tedesca (40%) applicata per errore
+});
+
+test('diaria: senza riduzionePasto esplicito, il comportamento resta quello tedesco di sempre (retrocompatibilità)', () => {
+  const t = trip({
+    startDate: '2026-09-10', startTime: '08:00', endDate: '2026-09-11', endTime: '20:00',
+    offeredItems: [{ tripCategory: 'vitto', mealType: 'cena', amount: 0, description: 'Cena col cliente' }],
+  });
+  const d = diariaSpettante(t, { piena: 28, ridotta: 14 });
+  assert.equal(d.riduzioni, Math.round(28 * RIDUZIONE_PASTO.cena * 100) / 100);
+});
+
 test('diaria: più pasti offerti si sommano, ma mai sotto zero', () => {
   const t = trip({
     startDate: '2026-09-10', startTime: '00:00', endDate: '2026-09-10', endTime: '10:00',
@@ -144,6 +165,70 @@ test('riduzioniPerPastiOfferti: un mealType non riconosciuto non riduce nulla', 
 test('riduzioniPerPastiOfferti: senza una quota piena valida, zero e nessun crash', () => {
   assert.equal(riduzioniPerPastiOfferti(trip(), 0), 0);
   assert.equal(riduzioniPerPastiOfferti(trip(), null), 0);
+});
+
+// ── Regno Unito (HMRC benchmark scale rates): fasce orarie PER GIORNO, mai
+// per posizione nel viaggio come Germania/USA — vedi il commento in
+// trip-perdiem-rates.js su TARIFFE_REGNO_UNITO_2026 per la fonte e i limiti
+// dichiarati (nessun supplemento serale, nessuna riduzione pasti offerti).
+const TARIFFE_UK = { cinqueOre: 5, dieciOre: 10, quindiciOre: 25 };
+
+test('oreAssenzaPerGiorno: un giorno intermedio di un viaggio con pernotto è sempre 24h piene', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '14:00', endDate: '2026-09-12', endTime: '11:00' });
+  const giorni = oreAssenzaPerGiorno(t);
+  assert.deepEqual(giorni.map(g => g.giorno), ['2026-09-10', '2026-09-11', '2026-09-12']);
+  assert.equal(giorni[1].ore, 24);
+});
+
+test('oreAssenzaPerGiorno: primo e ultimo giorno prendono solo la porzione reale, non 24h per convenzione', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '14:00', endDate: '2026-09-12', endTime: '11:00' });
+  const giorni = oreAssenzaPerGiorno(t);
+  assert.equal(giorni[0].ore, 10); // 14:00 -> mezzanotte
+  assert.equal(giorni[2].ore, 11); // mezzanotte -> 11:00
+});
+
+test('diariaRegnoUnito: una gita di un giorno di 9 ore prende la fascia da £5 (5-10h)', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '09:00', endDate: '2026-09-10', endTime: '18:00' });
+  const d = diariaRegnoUnito(t, TARIFFE_UK);
+  assert.equal(d.calcolabile, true);
+  assert.equal(d.totale, 5);
+});
+
+test('diariaRegnoUnito: 14 ore di assenza prendono la fascia da £10 (10-15h)', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '08:00', endDate: '2026-09-10', endTime: '22:00' });
+  const d = diariaRegnoUnito(t, TARIFFE_UK);
+  assert.equal(d.totale, 10);
+});
+
+test('diariaRegnoUnito: 16 ore di assenza prendono la fascia massima da £25 (15h+)', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '07:00', endDate: '2026-09-10', endTime: '23:00' });
+  const d = diariaRegnoUnito(t, TARIFFE_UK);
+  assert.equal(d.totale, 25);
+});
+
+test('diariaRegnoUnito: sotto 5 ore di assenza, zero — mai un rimborso sotto soglia', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '09:00', endDate: '2026-09-10', endTime: '12:00' });
+  const d = diariaRegnoUnito(t, TARIFFE_UK);
+  assert.equal(d.totale, 0);
+});
+
+test('diariaRegnoUnito: viaggio di 3 giorni somma le fasce di ciascun giorno, mai un totale forfettario', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '14:00', endDate: '2026-09-12', endTime: '11:00' });
+  const d = diariaRegnoUnito(t, TARIFFE_UK);
+  assert.equal(d.calcolabile, true);
+  assert.equal(d.dettaglio.length, 3);
+  assert.deepEqual(d.dettaglio.map(g => g.quota), [10, 25, 10]);
+  assert.equal(d.totale, 45);
+});
+
+test('diariaRegnoUnito: senza tariffe impostate, dichiara di non poter calcolare — mai un numero inventato', () => {
+  const t = trip({ startDate: '2026-09-10', startTime: '09:00', endDate: '2026-09-10', endTime: '18:00' });
+  assert.equal(diariaRegnoUnito(t, {}).calcolabile, false);
+  assert.equal(diariaRegnoUnito(t).calcolabile, false);
+});
+
+test('diariaRegnoUnito: senza periodo definito, dichiara di non poter calcolare', () => {
+  assert.equal(diariaRegnoUnito(trip(), TARIFFE_UK).calcolabile, false);
 });
 
 test('dati sporchi non rompono nulla', () => {

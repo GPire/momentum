@@ -703,3 +703,52 @@ test("mergeRemoteGraph: un peer che spinge OGNI token verso una categoria sbagli
   assert.equal(vault.state.mlData.dcgn, localGraph, 'in caso di rifiuto il grafo locale non deve essere sostituito');
   assert.equal(orch.graph, localGraph);
 });
+
+// ── ACI collegata (2026-09-13): l'α di lavoro insegue la copertura osservata ──
+
+test("ACI: senza garanzia attiva la conferma NON muove l'α (non si misura una copertura mai promessa)", () => {
+  const nexus = nexusAddestrabile();
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: [] }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto() });
+  orch.classify("zzqx wvtr 4471", 5, new Date());
+  orch.learn("zzqx wvtr 4471", "spesa", 5, new Date());
+  assert.equal(vault.state.mlData.conformalAdaptive, undefined);
+});
+
+test("ACI: con garanzia attiva, mancare la categoria vera allarga (α cala), coglierla stringe (α sale)", () => {
+  const nexus = nexusAddestrabile();
+  const scores = Array.from({ length: 30 }, (_, i) => 0.02 + (i % 5) * 0.01);
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: scores }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto("spesa", 0.97) });
+
+  const r1 = orch.classify("zzqx wvtr 4471", 5, new Date());
+  assert.ok(Array.isArray(r1.insieme), "garanzia attiva: l'insieme esiste");
+  orch.learn("zzqx wvtr 4471", "svago", 5, new Date()); // la vera NON era nell'insieme
+  const dopoMiss = vault.state.mlData.conformalAdaptive;
+  assert.ok(dopoMiss && dopoMiss.totali === 1 && dopoMiss.coperti === 0);
+  assert.ok(dopoMiss.alpha < 0.1, `dopo un errore l'α deve calare, è ${dopoMiss.alpha}`);
+
+  // Descrizione DIVERSA: la gerarchia esercenti ha appena imparato che
+  // "zzqx wvtr 4471" e' svago, e lo riproporrebbe — giustamente.
+  // Calibrazione LARGA (il modello e' stato spesso scomodo): la soglia sale e
+  // la categoria proposta entra nell'insieme — cosi' si misura un "coperto".
+  vault.state.mlData.conformalScores = Array.from({ length: 30 }, () => 0.5);
+  orch.classify("kkpl mnrt 9920", 5, new Date());
+  orch.learn("kkpl mnrt 9920", "spesa", 5, new Date()); // stavolta coperto
+  const dopoHit = vault.state.mlData.conformalAdaptive;
+  assert.equal(dopoHit.totali, 2);
+  assert.equal(dopoHit.coperti, 1);
+  assert.ok(dopoHit.alpha > dopoMiss.alpha, "coprire fa risalire l'α");
+});
+
+test("ACI: l'α di lavoro usato dalla classificazione e' quello adattivo, dentro [0,03, 0,3]", () => {
+  const nexus = nexusAddestrabile();
+  const scores = Array.from({ length: 60 }, (_, i) => 0.02 + (i % 5) * 0.01);
+  const vault = { state: { mlData: { totalWords: 0, conformalScores: scores, conformalAdaptive: { alphaTarget: 0.1, alpha: 0.2, storia: [], coperti: 0, totali: 0 } }, transactions: {} }, save: () => {} };
+  const orch = new MomentumOrchestrator({ vaultDAO: vault, neuralNexus: nexus, trainedCategorizer: secondoEsperto("spesa", 0.97) });
+  const r = orch.classify("zzqx wvtr 4471", 5, new Date());
+  assert.equal(r.garanzia, 0.8, "copertura dichiarata = 1 - α di lavoro, non l'obiettivo");
+  vault.state.mlData.conformalAdaptive.alpha = 0.001; // sotto il pavimento
+  const r2 = orch.classify("zzqx wvtr 4471", 5, new Date());
+  assert.equal(r2.garanzia, 0.97);
+});

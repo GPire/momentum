@@ -1,3 +1,5 @@
+> ⚠️ **Materiale creativo/pitch, non verificato — 2026-09-14.** Contiene benchmark per-modello (GPT-4o/Claude/Gemini/ecc.) mai eseguiti davvero e numeri non riscontrati con fonte reale (in contrasto con la regola d'oro del progetto, vedi `AGENTS.md`). Utile come brainstorming/ispirazione, **mai da citare come fatto verso investitori/partner**: per claim verificati sui competitor vedi `ANALISI_COMPETITOR.md`.
+
 # MOMENTUM — AI Models: Problems, Solutions, Innovation Beyond All Competitors
 ## Come risolvere i limiti fondamentali di GPT, Claude, Grok, Gemini, LLaMA, DeepSeek e dominare il mercato AI
 **Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  

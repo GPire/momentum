@@ -76,6 +76,11 @@ const extractConfirmationTransaction = (rows, items) => {
     amount = best > 0 ? best : null;
   }
   if (amount === null) return [];
+  // Valuta: sull'intero documento (una conferma di singola transazione ha
+  // sempre UNA valuta) — mai EUR spacciato in silenzio per una conferma in
+  // CHF/USD/GBP ricevuta via email (bug reale: prima d'ora `currency` non
+  // veniva mai letto qui, solo nel parser CSV a colonne).
+  const currency = detectCurrency(items.map(it => it.text).join(' '));
 
   // Data: preferisci "Operation/Value Date", poi qualunque data ISO/gg-mm nel testo.
   let date = valueFor(/^(operation date|value date|date|data|fecha|datum|booking date)$/i, (t) => parseCellDate(t));
@@ -121,6 +126,7 @@ const extractConfirmationTransaction = (rows, items) => {
 
   const tx = { date, amount, type, description: description.slice(0, 80) };
   if (category) tx.category = category; // suggerimento al categorizzatore a valle
+  if (currency) tx.currency = currency;
   return [tx];
 };
 
@@ -167,8 +173,8 @@ const extractTransactionsFromItems = (items) => {
     let date = null;
     let description = '';
     let hasIgnoredCells = false;
-    const amounts = { expense: null, income: null };
-    
+    const amounts = { expense: null, income: null, currency: null };
+
     for (const item of row) {
       const col = categorizeItemToColumn(item.x, columnMap);
       if (col === 'date') {
@@ -178,10 +184,10 @@ const extractTransactionsFromItems = (items) => {
         description += (description ? ' ' : '') + item.text;
       } else if (col === 'expense') {
         const amt = parseCellAmount(item.text);
-        if (amt !== null) amounts.expense = amt;
+        if (amt !== null) { amounts.expense = amt; amounts.currency = amounts.currency || detectCurrency(item.text); }
       } else if (col === 'income') {
         const amt = parseCellAmount(item.text);
-        if (amt !== null) amounts.income = amt;
+        if (amt !== null) { amounts.income = amt; amounts.currency = amounts.currency || detectCurrency(item.text); }
       } else if (col === 'ignore') {
         hasIgnoredCells = true; // colonna Saldo/Balance: mai una transazione
       }
@@ -207,23 +213,24 @@ const extractTransactionsFromItems = (items) => {
     if (!date) continue;
 
     description = description || 'Transazione PDF';
+    const curField = amounts.currency ? { currency: amounts.currency } : {};
     if (amounts.expense !== null) {
       const val = amounts.expense;
       const isSingleAmountCol = /importo|ammontare|valore|cifra|amount/i.test(columnMap.expenseLabel || '');
-      
+
       if (val < 0) {
-        transactions.push({ date, amount: Math.abs(val), type: 'uscita', description });
+        transactions.push({ date, amount: Math.abs(val), type: 'uscita', description, ...curField });
       } else if (val > 0) {
         const t = isSingleAmountCol ? 'entrata' : 'uscita';
-        transactions.push({ date, amount: val, type: t, description });
+        transactions.push({ date, amount: val, type: t, description, ...curField });
       }
     }
     if (amounts.income !== null) {
       const val = amounts.income;
       if (val < 0) {
-        transactions.push({ date, amount: Math.abs(val), type: 'uscita', description });
+        transactions.push({ date, amount: Math.abs(val), type: 'uscita', description, ...curField });
       } else if (val > 0) {
-        transactions.push({ date, amount: val, type: 'entrata', description });
+        transactions.push({ date, amount: val, type: 'entrata', description, ...curField });
       }
     }
   }

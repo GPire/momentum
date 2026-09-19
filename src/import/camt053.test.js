@@ -109,3 +109,18 @@ test('parseCamt053: un <Ntry> senza CdtDbtInd (campo obbligatorio mancante) vien
   const txs = parseCamt053(xml);
   assert.equal(txs.length, 1);
 });
+
+// BUG REALE (2026-09-19): la valuta è un campo ESPLICITO dello standard
+// (attributo Ccy su <Amt>), ma non veniva mai letta — un estratto CAMT.053
+// estero (CHF/USD/GBP) veniva importato come se fosse sempre EUR.
+test('parseCamt053: currency letta dall\'attributo Ccy di <Amt>', () => {
+  const txs = parseCamt053(CAMT_ESEMPIO);
+  assert.ok(txs.every((t) => t.currency === 'EUR'));
+});
+
+test('parseCamt053: estratto in valuta estera (CHF) — currency corretta per entrambi i movimenti', () => {
+  const xml = CAMT_ESEMPIO.replaceAll('Ccy="EUR"', 'Ccy="CHF"');
+  const txs = parseCamt053(xml);
+  assert.equal(txs.length, 2);
+  assert.ok(txs.every((t) => t.currency === 'CHF'));
+});

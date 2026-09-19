@@ -1,3 +1,5 @@
+> ⚠️ **Materiale creativo/pitch, non verificato — 2026-09-14.** Contiene numeri di competitor e stime non riscontrati con fonte reale (in contrasto con la regola d'oro del progetto, vedi `AGENTS.md`). Utile come brainstorming/ispirazione, **mai da citare come fatto verso investitori/partner**: per claim verificati sui competitor vedi `ANALISI_COMPETITOR.md`.
+
 # MOMENTUM — Investment Banking Strategy & Federated Learning Deep Dive
 ## Valutazione finanziaria, moat costruibile, tokenomics mesh, auto-training loop
 **Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  

@@ -1,4 +1,4 @@
-import { readdirSync } from 'node:fs';
+import { readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -10,7 +10,20 @@ function collectTests(directory) {
 }
 
 const major = Number.parseInt(process.versions.node, 10);
-const files = [...collectTests('src'), ...collectTests('server')];
+// `server/` è un bundle isolato per principio (docs/personal-company-loading.md,
+// scripts/personal-bundle-boundary.mjs): dipendenze proprie, mai nel bundle
+// Vite personale. Le sue dipendenze (server/auth/package.json, es. better-auth)
+// non sono installate da un `npm ci` alla radice — solo da un `npm ci` con
+// prefix dedicato — e server/company/*.test.js usa `node:sqlite`, disponibile
+// solo da Node 22+. Un ambiente che non ha fatto quel passo aggiuntivo (una
+// CI su Node 20 pensata per script/fetch, o un checkout locale mai installato
+// dentro server/auth) non deve far fallire l'INTERA suite personale per
+// questo — si salta `server/` con un avviso esplicito, mai un crash silenzioso.
+const serverDepsPronte = major >= 22 && existsSync(join('server', 'auth', 'node_modules'));
+if (!serverDepsPronte) {
+  console.log(`server/*.test.js saltati (richiede Node 22+ e 'npm ci' dentro server/auth — Node attuale: ${process.versions.node}${major >= 22 ? ', dipendenze non installate' : ''}).`);
+}
+const files = [...collectTests('src'), ...(serverDepsPronte ? collectTests('server') : [])];
 // Separate processes still isolate globals; inherited handles avoid restricted
 // environments that cannot create the test runner's IPC pipes.
 if (process.argv.includes('--serial-files')) {

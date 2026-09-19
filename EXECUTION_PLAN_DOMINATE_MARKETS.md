@@ -1,3 +1,5 @@
+> ⚠️ **Materiale creativo/pitch, non verificato — 2026-09-14.** Contiene numeri di competitor e stime non riscontrati con fonte reale (in contrasto con la regola d'oro del progetto, vedi `AGENTS.md`). Utile come brainstorming/ispirazione, **mai da citare come fatto verso investitori/partner**: per claim verificati sui competitor vedi `ANALISI_COMPETITOR.md`.
+
 # MOMENTUM — Piano di Esecuzione Completo
 ## Da oggi (2026-07-31) a €2.5B exit (2028-2029)
 **Stato**: 1440 test verdi (31 luglio) → **3768 test verdi (2026-08-24, verificato dal vivo)**, "Insieme" già committato e pushato  

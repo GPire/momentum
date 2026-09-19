@@ -10,6 +10,7 @@ const rules = { currency: 'EUR', receiptThreshold: 25, expenseLimits: { vitto: 3
 function fixture() {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
+  sql.exec(readFileSync(new URL('./reports.sql', import.meta.url), 'utf8'));
   sql.exec("INSERT INTO companies VALUES ('a','Company A'),('b','Company B'); INSERT INTO memberships VALUES ('a','admin','owner',1),('a','employee','employee',1),('a','reviewer','reviewer',1),('a','auditor','auditor',1),('a','editor','policy_admin',1),('b','outsider','owner',1)");
   const db = { prepare(query) { return { bind(...args) { return {
     async first() { return sql.prepare(query).get(...args) || null; },
@@ -71,7 +72,7 @@ test('stale edits, hostile origins and unvalidated rules cannot publish', async 
     assert.equal((await companyRequest(request('POST'), env, 'admin')).status, 201);
     assert.equal((await companyRequest(request('POST'), env, 'admin')).status, 409);
     assert.equal((await companyRequest(request('POST', 'a', 1, rules, 'https://evil.test'), env, 'admin')).status, 403);
-    for (const body of [{ ...rules, role: 'owner' }, { ...rules, currency: 'USD' }, { ...rules, dailyLimits: { vitto: -1 } }, { ...rules, expenseLimits: { unknown: 2 } }]) {
+    for (const body of [{ ...rules, role: 'owner' }, { ...rules, currency: 'ZZZ' }, { ...rules, currency: 'eur' }, { ...rules, dailyLimits: { vitto: -1 } }, { ...rules, expenseLimits: { unknown: 2 } }]) {
       assert.equal(validateCompanyRules(body), false);
       assert.equal((await companyRequest(request('POST', 'a', 1, body), env, 'admin')).status, 400);
     }
@@ -118,4 +119,103 @@ test('Access verifies cryptographic signature, audience, expiry and issuer', asy
   const pieces = valid.split('.');
   pieces[1] = base64(JSON.stringify({ ...claims, sub: 'owner' }));
   await assert.rejects(accessSubject(request(pieces.join('.')), env, fetchKeys));
+});
+
+test('validateCompanyRules: perDiem/mileage sono opzionali — una policy pubblicata prima che esistessero resta valida', () => {
+  assert.equal(validateCompanyRules(rules), true);
+});
+
+test('validateCompanyRules: perDiem valido (quota ridotta non può superare quella piena)', () => {
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 28, ridotta: 14 } }), true);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 14, ridotta: 28 } }), false);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: -1, ridotta: 0 } }), false);
+  assert.equal(validateCompanyRules({ ...rules, perDiem: { piena: 28 } }), false);
+});
+
+test('validateCompanyRules: mileage valido (tariffa positiva, unita km o mi)', () => {
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.30, unita: 'km' } }), true);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.725, unita: 'mi' } }), true);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0, unita: 'km' } }), false);
+  assert.equal(validateCompanyRules({ ...rules, mileage: { tariffa: 0.30, unita: 'furlong' } }), false);
+});
+
+test('validateCompanyRules: perDiem/mileage pubblicati end-to-end attraverso il worker reale', async () => {
+  const { sql, env, request } = fixture();
+  try {
+    const body = { ...rules, perDiem: { piena: 68, ridotta: 51 }, mileage: { tariffa: 0.725, unita: 'mi' } };
+    assert.equal((await companyRequest(request('POST', 'a', 0, body), env, 'admin')).status, 201);
+    const stored = JSON.parse(sql.prepare('SELECT rules FROM policies WHERE company_id=? ORDER BY version DESC LIMIT 1').get('a').rules);
+    assert.deepEqual(stored.perDiem, { piena: 68, ridotta: 51 });
+    assert.deepEqual(stored.mileage, { tariffa: 0.725, unita: 'mi' });
+  } finally { sql.close(); }
+});
+
+test('workspace page includes a policy-editing form gated to owner/policy_admin, with perDiem/mileage fields', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('id="edit-policy"'));
+  assert.ok(html.includes('id="perdiem-full"'));
+  assert.ok(html.includes('id="perdiem-reduced"'));
+  assert.ok(html.includes('id="mileage-rate"'));
+  assert.ok(html.includes('id="mileage-unit"'));
+  assert.ok(html.includes("puoModificare(company){return company.role==='owner'||company.role==='policy_admin'}"));
+  const match = html.match(/const words=(\{[\s\S]*?\});const lang=/);
+  const words = JSON.parse(match[1]);
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) assert.equal(words[lang].length, 39);
+});
+
+test('workspace page policy form: la sostituzione è sempre totale, mai un merge silenzioso (verificato leggendo il codice del submit)', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  // Ogni submit ricostruisce rules da zero (currency/receiptThreshold/expenseLimits/dailyLimits),
+  // mai un oggetto parziale spedito al server che si affiderebbe a un merge lato server (che non esiste).
+  assert.ok(html.includes("const rules={currency,receiptThreshold,expenseLimits,dailyLimits}"));
+  assert.ok(html.includes("'If-Match':'\"'+policyVersion+'\"'"));
+});
+
+test('validateCompanyRules: qualunque valuta ISO 4217 reale è ammessa (non solo EUR) — un\'azienda a Londra/Oslo/Mumbai deve poter pubblicare nella propria valuta', () => {
+  for (const currency of ['USD', 'GBP', 'NOK', 'INR', 'JPY', 'CHF']) assert.equal(validateCompanyRules({ ...rules, currency }), true);
+  assert.equal(validateCompanyRules({ ...rules, currency: 'ZZZ' }), false);
+  assert.equal(validateCompanyRules({ ...rules, currency: 'eur' }), false);
+});
+
+test('workspace page: il form pubblica sempre la valuta scelta, mai EUR fisso — un\'azienda a Londra/Oslo/Mumbai deve poter usare la propria', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('id="currency-input"'));
+  assert.ok(html.includes('policyCurrency=data.rules.currency'));
+  assert.ok(html.includes("currency:policyCurrency"));
+  assert.ok(html.includes('/^[A-Z]{3}$/.test(currency)'));
+});
+
+test('pendingCount: conta i resoconti senza decisione SOLO per owner/reviewer — gap reale, prima nessuno sapeva di dover approvare senza aprire ogni azienda', async () => {
+  const { sql, env } = fixture();
+  try {
+    sql.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at)
+      VALUES ('r1','a','employee','trip1',1,0,'f1','{}','2026-01-01'),('r2','a','employee','trip2',1,0,'f2','{}','2026-01-01')`).run();
+    // r2 ha già una decisione: non deve contare come pendente.
+    sql.prepare(`INSERT INTO report_decisions(report_id,stage,reviewer,decision,note,created_at) VALUES ('r2',1,'admin','approved','','2026-01-02')`).run();
+    const forOwner = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'admin')).json();
+    assert.equal(forOwner.companies.find(c => c.id === 'a').pendingCount, 1);
+    const forReviewer = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'reviewer')).json();
+    assert.equal(forReviewer.companies.find(c => c.id === 'a').pendingCount, 1);
+    const forEmployee = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'employee')).json();
+    assert.equal(forEmployee.companies.find(c => c.id === 'a').pendingCount, null);
+    const forAuditor = await (await companyRequest(new Request('https://momentum.test/v1/me/companies'), env, 'auditor')).json();
+    assert.equal(forAuditor.companies.find(c => c.id === 'a').pendingCount, null);
+  } finally { sql.close(); }
+});
+
+test('workspace page: la lista aziende mostra il contatore da approvare accanto al nome', async () => {
+  const response = workspacePage();
+  const html = await response.text();
+  assert.ok(html.includes('company.pendingCount>0'));
+  assert.ok(html.includes('function pendingLabel'));
+});
+
+test('validateCompanyRules: secondApprover accetta solo \'owner\' — mai due reviewer allo stesso livello travestiti da due stadi', () => {
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'owner' }), true);
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'reviewer' }), false);
+  assert.equal(validateCompanyRules({ ...rules, secondApprover: 'employee' }), false);
+  assert.equal(validateCompanyRules({ ...rules }), true); // opzionale, retrocompatibile
 });

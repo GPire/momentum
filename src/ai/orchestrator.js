@@ -8,7 +8,7 @@ import { TrainedCategorizer } from './trained-categorizer.js';
 import { MeshNode } from '../mesh/mesh-signaling.js';
 import { lookupMerchant } from './merchant-dictionary.js';
 import { fuseSignals } from './signal-fusion.js';
-import { calibrateClassifier, predictSet, conformalQuantile, minCalibrationFor } from './conformal.js';
+import { calibrateClassifier, predictSet, conformalQuantile, minCalibrationFor, initAdaptive, updateAdaptive } from './conformal.js';
 import { createGraph, observe as dcgnObserve, classify as dcgnClassify, decay as dcgnDecay, mergeExpertWeighted as dcgnMergeExpertWeighted, validateLoss as dcgnValidateLoss, validateLossPerCategoria as dcgnValidateLossPerCategoria } from '../graph/dcgn.js';
 import { adaptiveExecutionPlan, canActivate } from '../device/adaptive-runtime.js';
 import { expertContext, expertWeightFactor, observeExpertOutcome } from './expert-bandit.js';
@@ -154,6 +154,16 @@ class MomentumOrchestrator {
         const prec = this.vault.state.mlData.conformalScores || [];
         this.vault.state.mlData.conformalScores =
           [...prec, Number.isFinite(pVera) ? 1 - pVera : 1].slice(-300);
+      }
+      // ── ACI: la copertura si misura solo quando un insieme era stato
+      // davvero proposto (garanzia attiva). "Coperto" = la categoria vera era
+      // dentro. La storia (ultimi 200 esiti) alimenta `observedCoverage`, che
+      // dice se la promessa "9 volte su 10" regge per QUESTA persona.
+      if (Array.isArray(this._lastVote.insiemeConforme)) {
+        this.vault.state.mlData.conformalAdaptive = updateAdaptive(
+          this.vault.state.mlData.conformalAdaptive || initAdaptive(0.1),
+          this._lastVote.insiemeConforme.includes(catId)
+        );
       }
       this._lastVote = null;
     }
@@ -471,7 +481,18 @@ class MomentumOrchestrator {
     // resta il comportamento di sempre. Dichiarato in `motivoAstensione`,
     // non nascosto.
     const ABSTAIN_CONFIDENCE = 55; // ripiego finche' non c'e' calibrazione
-    const ALPHA_CONFORME = 0.1;
+    // ── α DI LAVORO ADATTIVO (Gibbs & Candès, conformal.js) ──
+    // `updateAdaptive` era scritto e testato ma mai chiamato in produzione
+    // (audit 2026-09-13): l'α restava fisso a 0,1 anche quando la copertura
+    // reale misurata diceva il contrario. Ora l'α di lavoro insegue la
+    // copertura OSSERVATA sulle conferme dell'utente: se l'insieme ha mancato
+    // la categoria vera più spesso del promesso, α cala (insiemi più larghi);
+    // se ha mancato meno, sale. L'obiettivo resta 0,1; il lavoro si muove in
+    // [0,03, 0,3] perché sotto 0,03 la garanzia richiederebbe più conferme di
+    // quante una persona ne dà in mesi, e sopra 0,3 l'insieme perde senso.
+    const ALPHA_OBIETTIVO = 0.1;
+    const aci = this.vault.state.mlData?.conformalAdaptive || null;
+    const ALPHA_CONFORME = Math.min(0.3, Math.max(0.03, aci?.alpha ?? ALPHA_OBIETTIVO));
     const distribuzione = probsFinali;
     const cal = { tipo: 'classificazione', scores: this.vault.state.mlData?.conformalScores || [] };
     const qc = conformalQuantile(cal.scores, ALPHA_CONFORME);
@@ -504,6 +525,9 @@ class MomentumOrchestrator {
       // alla conferma dell'utente non si potrebbe piu' sapere quanto il
       // modello era scomodo su quel caso.
       this._lastVote.distribuzione = distribuzione;
+      // L'insieme proposto ADESSO: alla conferma si saprà se conteneva la
+      // categoria vera — l'unico dato che fa muovere l'α adattivo.
+      this._lastVote.insiemeConforme = insiemeConforme ? insiemeConforme.insieme : null;
     }
 
     return {

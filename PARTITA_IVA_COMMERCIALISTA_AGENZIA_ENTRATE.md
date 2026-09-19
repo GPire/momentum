@@ -1,3 +1,5 @@
+> ⚠️ **Materiale creativo/pitch, non verificato — 2026-09-14.** Contiene numeri di competitor e stime non riscontrati con fonte reale (in contrasto con la regola d'oro del progetto, vedi `AGENTS.md`). Utile come brainstorming/ispirazione, **mai da citare come fatto verso investitori/partner**: per la tabella 16 prodotti P.IVA verificata su 6 mercati vedi `ANALISI_COMPETITOR.md` §6.
+
 # MOMENTUM — Infrastruttura Fiscale Italia: P.IVA, Commercialista, Agenzia Entrate
 ## Da app privata a piattaforma di stato (Innovativa, semplice, usabile da bambino di 8 anni)
 **Data**: 2026-07-31 · **Corretto con dati reali il 2026-08-24**  

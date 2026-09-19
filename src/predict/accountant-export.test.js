@@ -42,40 +42,6 @@ test('buildAccountantReport: filtra SOLO le fatture dell\'anno richiesto', () =>
   assert.equal(report.fatture[0].cliente, 'Beta');
 });
 
-test('buildAccountantReport: un incasso dell’anno paga anche una fattura emessa a dicembre precedente', () => {
-  const report = buildAccountantReport(
-    [fattura(9, 'Cliente storico', 2400, '2025-12-20')],
-    { '2026-01': [entrata('2026-01-10', 2400, 'bonifico Cliente storico', 'p9')] },
-    2026,
-    'forfettario',
-    { now: new Date(Date.UTC(2026, 1, 1)) },
-  );
-  assert.equal(report.fatturato, 0, 'la fattura resta nel suo anno di competenza');
-  assert.equal(report.incassato, 2400, 'la cassa segue la data dell’incasso');
-  assert.equal(report.posizione.baseStima, 'incassi-abbinati-alle-fatture');
-  assert.equal(report.posizione.stato, 'needs-confirmation');
-});
-
-test('buildAccountantReport: le rate sono leggibili e il report mostra solo il residuo aperto', () => {
-  const report = buildAccountantReport(
-    [fattura(4, 'Studio Rate', 1000, '2026-03-10')],
-    { '2026-03': [
-      { ...entrata('2026-03-25', 300, 'prima rata', 'r1'), invoiceNumber: 4, invoiceYear: 2026 },
-      { ...entrata('2026-04-25', 400, 'seconda rata', 'r2'), invoiceNumber: 4, invoiceYear: 2026 },
-    ] },
-    2026,
-    'forfettario',
-    { now: new Date(Date.UTC(2026, 4, 1)) },
-  );
-  const invoiceRow = report.fatture[0];
-  assert.equal(report.incassato, 700);
-  assert.equal(invoiceRow.stato, 'parziale');
-  assert.equal(invoiceRow.importoIncassato, 700);
-  assert.equal(invoiceRow.residuo, 300);
-  assert.equal(report.fattureNonIncassate[0].imponibile, 300);
-  assert.match(renderAccountantReportHTML(report), /Parziale: 700,00/);
-});
-
 test('buildAccountantReport: entrate ambigue non confermate segnalate come anomalia, non tassate d\'ufficio', () => {
   const transactions = { '2026-04': [{ id: 'x', type: 'entrata', date: '2026-04-01', amount: 800, description: 'bonifico ricevuto', category: 'stipendio' }] };
   const report = buildAccountantReport([], transactions, 2026, 'forfettario');
@@ -95,5 +61,4 @@ test('renderAccountantReportHTML: documento valido, dati presenti, input escapat
   assert.doesNotMatch(html, /Cliente <XSS>/);
   assert.match(html, /non un documento fiscale ufficiale/);
   assert.match(html, /Incassata/);
-  assert.match(html, /Base della stima/);
 });

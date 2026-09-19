@@ -30,6 +30,14 @@ function tag(xml, name) {
   return m ? decodeEntities(m[1].trim()) : null;
 }
 
+// La valuta di <Amt> è un ATTRIBUTO XML ("Ccy"), non testo dentro il tag —
+// `tag()` non può leggerla. Standard ISO 20022: OGNI <Amt> ha Ccy, quindi
+// null qui significa un file malformato, mai un vero CAMT.053 senza valuta.
+function tagAttr(xml, name, attr) {
+  const m = xml.match(new RegExp(`<(?:\\w+:)?${name}\\s+[^>]*${attr}="([^"]+)"[^>]*>`));
+  return m ? m[1] : null;
+}
+
 function block(xml, name) {
   const m = xml.match(new RegExp(`<(?:\\w+:)?${name}[^>]*>([\\s\\S]*?)<\\/(?:\\w+:)?${name}>`));
   return m ? m[1] : null;
@@ -104,6 +112,11 @@ export function parseCamt053(xmlString) {
 
     const importo = parseFloat(tag(entry, 'Amt') || '');
     if (!Number.isFinite(importo) || importo === 0) continue;
+    // BUG REALE trovato dal vivo (2026-09-19): un CAMT.053 estero (CHF/USD/
+    // GBP...) veniva importato come se fosse sempre EUR — la valuta è un
+    // campo esplicito dello standard (Ccy su <Amt>), non serve indovinarla
+    // come nel CSV bank-agnostico.
+    const currency = tagAttr(entry, 'Amt', 'Ccy') || tagAttr(entry, 'InstdAmt', 'Ccy');
 
     const verso = tag(entry, 'CdtDbtInd'); // CRDT = entrata, DBIT = uscita
     if (verso !== 'CRDT' && verso !== 'DBIT') continue; // campo obbligatorio nello standard: se manca, non si indovina
@@ -121,6 +134,7 @@ export function parseCamt053(xmlString) {
     out.push({
       date, amount: Math.abs(importo), type: verso === 'CRDT' ? 'entrata' : 'uscita',
       description, externalId: externalId ? `camt:${externalId}` : '',
+      ...(currency ? { currency } : {}),
     });
   }
   return out;

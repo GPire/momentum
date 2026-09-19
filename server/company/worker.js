@@ -10,18 +10,53 @@ import { workspacePage } from './workspace-page.js';
 import { reportRequest } from './reports.js';
 import { attachmentRequest } from './attachments.js';
 import { inboxPage } from './inbox-page.js';
+import { VALUTE_ISO4217 } from '../../src/core/iso4217.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
 const amount = n => typeof n === 'number' && Number.isFinite(n) && n >= 0 && Number.isSafeInteger(Math.round(n * 100)) && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
+// Una tariffa al km/miglio NON è un importo assoluto: le tariffe reali hanno
+// spesso il terzo decimale (IRS USA 2026: $0,725/miglio — bocciata da
+// amount() sopra, che richiede centesimi interi, verificato scrivendo
+// questo stesso test). Stessa disciplina di amount() ma a 3 decimali, non 2.
+const tariffaUnitaria = n => typeof n === 'number' && Number.isFinite(n) && n > 0 && n < 1000 && Math.abs(n * 1000 - Math.round(n * 1000)) < 1e-6;
+// perDiem/mileage sono OPZIONALI: una policy pubblicata prima che esistessero
+// resta valida senza (retrocompatibile) — mai una rottura per un'azienda che
+// ha già pubblicato solo receiptThreshold/limiti. Quando presenti, decidono
+// la diaria/il rimborso chilometrico per OGNI dipendente della trasferta —
+// prima non c'era alcun modo per un responsabile di fissarli, ogni
+// dipendente inseriva un numero a piacere sulla propria trasferta (bug
+// architetturale reale, segnalato dall'utente 2026-09-18: "le quote vengono
+// definite da altri uffici, mica da dove compila il dipendente").
+function validaOpzionale(rules, chiave, valida) {
+  return !(chiave in rules) || valida(rules[chiave]);
+}
 export function validateCompanyRules(rules) {
-  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits'].includes(k))) return false;
-  // The current application editor is denominated in EUR. Do not silently
-  // publish other currencies until its import/edit path supports them.
-  if (rules.currency !== 'EUR' || !amount(rules.receiptThreshold)) return false;
-  return ['expenseLimits', 'dailyLimits'].every(name => {
+  if (!rules || typeof rules !== 'object' || Array.isArray(rules) || Object.keys(rules).some(k => !['currency', 'receiptThreshold', 'expenseLimits', 'dailyLimits', 'perDiem', 'mileage', 'secondApprover'].includes(k))) return false;
+  // Fino al 2026-09-19 solo EUR era ammessa: l'editor (workspace-page.js)
+  // non aveva un campo valuta, pubblicare qualunque altra cosa avrebbe
+  // significato un valore mai scelto da nessuno. Ora che l'editor esiste
+  // ed espone il campo, qualunque valuta ISO 4217 reale è ammessa — mai
+  // una sigla inventata (un'azienda a Londra/Oslo/Mumbai deve poter
+  // pubblicare una policy nella propria valuta, non solo in euro).
+  if (typeof rules.currency !== 'string' || !VALUTE_ISO4217.has(rules.currency) || !amount(rules.receiptThreshold)) return false;
+  if (!['expenseLimits', 'dailyLimits'].every(name => {
     const limits = rules[name];
     return limits && typeof limits === 'object' && !Array.isArray(limits) && Object.entries(limits).every(([key, value]) => categories.includes(key) && amount(value));
-  });
+  })) return false;
+  if (!validaOpzionale(rules, 'perDiem', (p) => p && typeof p === 'object' && !Array.isArray(p) && Object.keys(p).every(k => ['piena', 'ridotta'].includes(k)) && amount(p.piena) && amount(p.ridotta) && p.ridotta <= p.piena)) return false;
+  if (!validaOpzionale(rules, 'mileage', (m) => m && typeof m === 'object' && !Array.isArray(m) && Object.keys(m).every(k => ['tariffa', 'unita'].includes(k)) && tariffaUnitaria(m.tariffa) && ['km', 'mi'].includes(m.unita))) return false;
+  // secondApprover (opzionale, ricerca 2026-09-19): quando impostato, OGNI
+  // resoconto richiede una SECONDA approvazione da qualcuno con questo
+  // ruolo, sempre una persona diversa da chi ha dato la prima — pattern
+  // reale più comune trovato (Expensify "Advanced Approval": il
+  // responsabile approva e inoltra, la finance dà l'ultima parola). Sempre
+  // 'owner' per ora (unico ruolo con autorità gerarchica sopra 'reviewer'
+  // nello schema esistente) — mai 'reviewer' due volte, sarebbe lo stesso
+  // livello travestito da due. Nessuna soglia di importo in questa prima
+  // versione (limite dichiarato: sempre 2 stadi se attivo, non solo sopra
+  // un importo — richiederebbe sommare l'archivio in SQL, cantiere a parte).
+  if (!validaOpzionale(rules, 'secondApprover', (s) => s === 'owner')) return false;
+  return true;
 }
 export const json = (body, status = 200, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers } });
 export async function readBody(request, limit = 8192) {
@@ -52,7 +87,34 @@ export async function companyRequest(request, env, subject) {
     const cursor = url.searchParams.get('after') || '';
     if (cursor && !/^[a-zA-Z0-9_-]{1,80}$/.test(cursor)) return json({ error: 'invalid_cursor' }, 400);
     const db = env.COMPANY_DB.withSession ? env.COMPANY_DB.withSession('first-primary') : env.COMPANY_DB;
-    const result = await db.prepare(`SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion
+    // pendingCount: quanti resoconti aspettano UNA decisione dalla persona
+    // che sta guardando — SOLO per chi può decidere (owner/reviewer),
+    // consapevole degli stadi (vedi report_decisions.stage/secondApprover
+    // sotto): un 'reviewer' vede solo i resoconti al primo stadio, un
+    // 'owner' vede anche quelli in attesa della seconda approvazione
+    // finale. Gap reale trovato il 2026-09-19: un reviewer scopriva una
+    // richiesta pendente solo se ricordava di riaprire l'inbox di sua
+    // iniziativa — nessuna notifica esisteva. Non è ancora una notifica
+    // push/email (richiederebbe un servizio esterno, stesso blocco dei
+    // pagamenti), ma almeno il numero è visibile SUBITO aprendo l'elenco
+    // aziende, non sepolto dentro l'inbox di ciascuna. Semplificazione
+    // dichiarata: non esclude chi ha già dato la prima approvazione dal
+    // conteggio della seconda (lo fa invece la vera porta in reports.js,
+    // questo è solo un numero indicativo, non un controllo di sicurezza).
+    const result = await db.prepare(`WITH pending_reports AS (
+        SELECT r.id, r.company_id,
+          (SELECT COUNT(*) FROM report_decisions d WHERE d.report_id=r.id AND d.decision='approved') AS approved_stages,
+          EXISTS(SELECT 1 FROM report_decisions d WHERE d.report_id=r.id AND d.decision='changes_requested') AS rejected,
+          (SELECT json_extract(p.rules,'$.secondApprover') FROM policies p WHERE p.company_id=r.company_id AND p.version=r.policy_version) AS second_approver
+        FROM reports r
+        WHERE r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+      )
+      SELECT c.id,c.name,m.role,(SELECT MAX(version) FROM policies p WHERE p.company_id=c.id) AS policyVersion,
+      (CASE
+        WHEN m.role='reviewer' THEN (SELECT COUNT(*) FROM pending_reports pr WHERE pr.company_id=c.id AND NOT pr.rejected AND pr.approved_stages=0)
+        WHEN m.role='owner' THEN (SELECT COUNT(*) FROM pending_reports pr WHERE pr.company_id=c.id AND NOT pr.rejected AND (pr.approved_stages=0 OR (pr.approved_stages=1 AND pr.second_approver='owner')))
+        ELSE NULL
+      END) AS pendingCount
       FROM companies c JOIN memberships m ON m.company_id=c.id WHERE m.subject=? AND m.active=1 AND c.id>? ORDER BY c.id LIMIT 51`).bind(subject, cursor).all();
     const rows = result.results || [];
     return json({ companies: rows.slice(0, 50), nextCursor: rows.length > 50 ? rows[49].id : null });

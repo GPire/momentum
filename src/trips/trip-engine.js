@@ -73,11 +73,90 @@ export function needsReceipt(expense, policy) {
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 
-// Crea un viaggio di lavoro (solo metadati: nome, date indicative, e le
-// voci OFFERTE — vedi addOfferedItem sotto. Le spese pagate dal dipendente
-// vivono nel Vault, mai duplicate qui).
-export function createTrip({ name = 'Trasferta', startDate, endDate } = {}) {
-  return { id: genId(), name, startDate: startDate || null, endDate: endDate || null, createdAt: Date.now(), offeredItems: [] };
+// Crea un viaggio di lavoro (solo metadati: nome, date indicative, Paese —
+// vedi TRACCIABILITÀ PAGAMENTI sotto — e le voci OFFERTE, vedi addOfferedItem
+// sotto. Le spese pagate dal dipendente vivono nel Vault, mai duplicate qui).
+export function createTrip({ name = 'Trasferta', startDate, endDate, country = null } = {}) {
+  return { id: genId(), name, startDate: startDate || null, endDate: endDate || null, country: country || null, createdAt: Date.now(), offeredItems: [] };
+}
+
+// ── TRACCIABILITÀ PAGAMENTI (Circolare Agenzia delle Entrate n. 15/E del
+// 22/12/2025, testo ufficiale: agenziaentrate.gov.it) ──
+// Dal 2025 le spese di trasferta pagate in CONTANTI per vitto, alloggio e
+// trasporto (taxi/NCC) sostenute IN ITALIA non sono più deducibili: il
+// rimborso diventa reddito imponibile per chi lo riceve. Eccezioni dichiarate
+// dalla circolare stessa: (1) biglietti di treno/aereo/bus DI LINEA restano
+// deducibili anche in contanti; (2) piccole spese accessorie fino a
+// 15,49€/giorno restano deducibili anche in contanti; (3) le trasferte
+// ESTERE restano esenti anche in contanti (difficoltà reale di POS in alcuni
+// Paesi), TRANNE le spese di rappresentanza (tracciabilità richiesta anche
+// all'estero — non gestite qui, vedi limite dichiarato sotto).
+//
+// LIMITI DICHIARATI (onestà, non un calcolo esatto della norma):
+//  - La soglia (2) è applicata QUI per singola spesa, non aggregata per
+//    giorno come dice la circolare ("fino a 15,49€/giorno"): sommare le
+//    spese accessorie di una giornata richiederebbe sapere quali voci
+//    contano come "accessorie", distinzione che la circolare non elenca in
+//    modo esaustivo. Può quindi mancare un avviso quando più piccole spese
+//    nello stesso giorno superano insieme la soglia pur restando sotto una
+//    per una — mai il contrario (mai un falso "va bene" su una spesa singola
+//    sopra soglia).
+//  - L'eccezione (1) richiede di sapere se il 'trasporto' è un biglietto di
+//    linea o una corsa taxi/NCC — TRIP_CATEGORIES non lo distingue ancora
+//    (serve un sotto-tipo dedicato, come mealType per 'vitto'). Qui il campo
+//    opzionale `transportMode` lo permette (`'pubblico'` = biglietto di
+//    linea, sempre esente); se non dichiarato, la scelta è CONSERVATIVA
+//    (si avvisa) — mai assumere "è un biglietto di linea" su un dato
+//    mancante, l'errore ammesso va sempre nella direzione di avvisare in
+//    più, mai di tacere un problema reale.
+//  - Le spese di rappresentanza (tracciabili anche all'estero) non sono una
+//    categoria distinta in TRIP_CATEGORIES oggi: nessuna trasferta estera
+//    genera un avviso, per nessuna categoria — limite dichiarato, non un
+//    calcolo che finge di coprirle.
+export const SOGLIA_CONTANTI_ACCESSORIE = 15.49;
+
+// La regola vale solo per le trasferte in Italia. Paese non dichiarato →
+// nessun avviso: un dato mancante non diventa mai un "sì" o un "no" inventato.
+export function isCashTraceabilityRuleApplicable(trip) {
+  return !!(trip && trip.country === 'IT');
+}
+
+// Un singolo avviso, pensato per essere mostrato SUBITO (stesso principio di
+// needsReceipt sopra): mai bloccare il salvataggio della spesa, solo
+// dichiarare che quel rimborso rischia di diventare reddito imponibile.
+export function expenseNeedsTraceabilityWarning(expense, trip) {
+  if (!expense || expense.paymentMethod !== 'contanti') return false;
+  if (!isCashTraceabilityRuleApplicable(trip)) return false;
+  if (!['vitto', 'alloggio', 'trasporto'].includes(expense.tripCategory)) return false;
+  if (!(expense.amount > SOGLIA_CONTANTI_ACCESSORIE)) return false;
+  if (expense.tripCategory === 'trasporto' && expense.transportMode === 'pubblico') return false;
+  return true;
+}
+
+// ── SPAGNA — Real Decreto 439/2007, art. 9.A.3.a) del Reglamento IRPF
+// (fonte primaria: sede.agenciatributaria.gob.es, verificato 2026-09-14) ──
+// I "gastos de manutención" (vitto) per un autonomo in regime di estimación
+// directa richiedono pagamento ELETTRONICO sempre: i contanti sono esclusi
+// esplicitamente ("cualquier medio electrónico de pago"), SENZA la soglia
+// per piccole spese che esiste in Italia. Diversa anche la portata
+// geografica: si applica sia alle trasferte in Spagna sia all'estero (cambia
+// solo l'importo massimo deducibile, non SE il contante è ammesso) — quindi
+// il segnale giusto non è il Paese della trasferta (come per l'Italia) ma il
+// regime fiscale ATTIVO di chi dichiara (VaultDAO.state.taxActiveCountry nel
+// chiamante, mai letto qui: modulo puro, nessun accesso al Vault).
+//
+// LIMITE DICHIARATO: questa funzione segnala SOLO che il pagamento in
+// contanti rende la spesa non deducibile — non calcola l'importo massimo
+// deducibile (26,67€/53,34€ in Spagna, 48,08€/91,35€ all'estero, secondo
+// pernotto sì/no), perché quel calcolo richiede sapere se OGNI notte della
+// trasferta è fuori dal proprio comune, un dato che trip-engine.js non
+// traccia oggi (vedi ANALISI_COMPETITOR.md, sezione Spagna). Dire "non è
+// deducibile" è corretto in ogni caso quando c'è contante; dire "sarebbe
+// deducibile fino a X€" richiederebbe quel dato mancante — non lo si inventa.
+export function expenseNeedsSpainCashWarning(expense, taxActiveCountry) {
+  if (!expense || expense.paymentMethod !== 'contanti') return false;
+  if (taxActiveCountry !== 'es') return false;
+  return expense.tripCategory === 'vitto';
 }
 
 // SPESA "OFFERTA" — ricerca reale (policy standard di trasferta/per diem):
@@ -283,7 +362,7 @@ export function tripOfferedTotals(trip) {
 // Dati pronti per l'export (CSV o riepilogo stampabile) — righe ordinate per
 // data, mai un formato ERP specifico promesso: un CSV/HTML leggibile
 // ovunque, dichiarato come tale (vedi commento in testa al file).
-export function exportTripData(trip, allTransactions) {
+export function exportTripData(trip, allTransactions, { taxActiveCountry = null } = {}) {
   const expenses = [...tripExpenses(trip, allTransactions)]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .map(t => ({
@@ -294,6 +373,8 @@ export function exportTripData(trip, allTransactions) {
       importo: t.amount,
       scontrino: t.receiptImage || null,
       giustificativoMancante: needsReceipt(t, trip.receiptPolicy),
+      avvisoTracciabilita: expenseNeedsTraceabilityWarning(t, trip),
+      avvisoSpagna: expenseNeedsSpainCashWarning(t, taxActiveCountry),
       ...(t.tripRevisionConflict ? { revisionConflict: true } : {}),
     }));
   const offerti = [...(trip.offeredItems || [])]
@@ -307,5 +388,10 @@ export function exportTripData(trip, allTransactions) {
   // (CSV e stampa) lo rende visibile SUBITO a chi approva, prima di scorrere
   // l'intero elenco — mai un blocco, solo un avviso di sintesi.
   const numeroGiustificativiMancanti = expenses.filter(e => e.giustificativoMancante).length;
-  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti };
+  // Stesso principio: un conteggio in cima, non scoperto riga per riga —
+  // qui per la tracciabilità pagamenti (Circolare 15/E, vedi commento sopra
+  // expenseNeedsTraceabilityWarning), non per il giustificativo mancante.
+  const numeroAvvisiTracciabilita = expenses.filter(e => e.avvisoTracciabilita).length;
+  const numeroAvvisiSpagna = expenses.filter(e => e.avvisoSpagna).length;
+  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna };
 }

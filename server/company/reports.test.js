@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
 import { reportRequest } from './reports.js';
+import { companyRequest } from './worker.js';
 import { storageAuditRequest } from './storage-audit.js';
 import { cleanupAttachmentRequest,lockAttachment,attachmentKey } from './attachment-lifecycle.js';
 import { attachmentRecoveryRequest } from './attachment-recovery.js';
@@ -345,4 +346,76 @@ test('batch attachment check requires active membership and trusted origin',asyn
  sql.exec("UPDATE memberships SET active=0 WHERE subject='employee'");
  assert.equal((await attachmentRequest(req(),env,'employee')).status,403);assert.equal(calls,1);
  }finally{sql.close()}
+});
+
+// ── Approvazione a due stadi (2026-09-19): pattern reale più comune
+// trovato in Expensify "Advanced Approval" — il responsabile approva e
+// inoltra, la finance dà l'ultima parola. Fixture dedicata: policy con
+// secondApprover:'owner', un reviewer e un owner distinti.
+function fixtureDueStadi(){
+ const rulesDueStadi={...rules,secondApprover:'owner'};
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ sql.exec("INSERT INTO companies VALUES('a','A'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('a','boss','owner',1),('a','boss2','owner',1)");
+ sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rulesDueStadi),'admin','2026-09-19');
+ const env={APP_ORIGIN:'https://momentum.test',COMPANY_DB:{prepare(query){return{bind(...args){return{async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){return{meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}}}}};
+ const archive={format:'momentum-trip-archive',version:1,trip:{id:'t',companyPolicy:{companyId:'a',version:1},receiptPolicy:rulesDueStadi},transactions:[{id:'uuid',businessTripId:'t',type:'uscita',tripCategory:'vitto',amount:10,date:'2026-09-19'}]};
+ const call=(path='',body=archive,subject='employee',version='0',method='POST')=>reportRequest(new Request('https://momentum.test/v1/companies/a/reports'+path,{method,headers:{Origin:env.APP_ORIGIN,'Content-Type':'application/json','If-Match':`"${version}"`},...(method==='POST'?{body:JSON.stringify(body)}:{})}),env,subject);
+ return{sql,archive,call,env};
+}
+
+test('approvazione a due stadi: la prima da reviewer non basta, serve una seconda da owner — mai la stessa persona per entrambe',async()=>{
+ const{sql,call}=fixtureDueStadi();try{
+ const report=await(await call()).json();
+ // Dopo la prima approvazione (reviewer), il resoconto NON è ancora finale.
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'manager',report.fingerprint)).status,201);
+ const afterStage1=await(await call('/'+report.reportId,null,'employee','0','GET')).json();
+ assert.equal(afterStage1.decision,null);
+ assert.equal(afterStage1.requiredStages,2);
+ // Lo stesso reviewer non può dare anche la seconda approvazione.
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'manager',report.fingerprint)).status,409);
+ // Un secondo reviewer (non owner) non può dare la seconda approvazione: serve il ruolo owner.
+ sql.exec("INSERT INTO memberships VALUES('a','manager2','reviewer',1)");
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'manager2',report.fingerprint)).status,409);
+ // L'owner dà la seconda approvazione: ORA il resoconto è finale.
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'boss',report.fingerprint)).status,201);
+ const final=await(await call('/'+report.reportId,null,'employee','0','GET')).json();
+ assert.equal(final.decision,'approved');
+ assert.equal(final.decisions.length,2);
+ assert.deepEqual(final.decisions.map(d=>d.stage),[1,2]);
+ }finally{sql.close()}
+});
+
+test('approvazione a due stadi: un rifiuto a QUALUNQUE stadio è sempre terminale, mai serve completare il secondo',async()=>{
+ const{sql,call}=fixtureDueStadi();try{
+ const report=await(await call()).json();
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'changes_requested',note:'Manca il giustificativo'},'manager',report.fingerprint)).status,201);
+ const state=await(await call('/'+report.reportId,null,'employee','0','GET')).json();
+ assert.equal(state.decision,'changes_requested');
+ // Anche l'owner non può più decidere: è già terminale.
+ assert.equal((await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'boss',report.fingerprint)).status,409);
+ }finally{sql.close()}
+});
+
+test('approvazione a due stadi: pendingCount conta correttamente per reviewer (solo stadio 1) e owner (stadio 1 e 2)',async()=>{
+ const{sql,call,env}=fixtureDueStadi();try{
+ const report=await(await call()).json();
+ const listFor=async subject=>{const r=await(await companyRequest(new Request('https://momentum.test/v1/me/companies'),env,subject)).json();return r.companies.find(c=>c.id==='a').pendingCount};
+ assert.equal(await listFor('manager'),1); // stadio 1 pendente
+ assert.equal(await listFor('boss'),1); // owner vede anche lo stadio 1
+ await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'manager',report.fingerprint);
+ assert.equal(await listFor('manager'),0); // stadio 1 già dato, reviewer non vede lo stadio 2
+ assert.equal(await listFor('boss'),1); // owner vede lo stadio 2 pendente
+ await call('/'+report.reportId+'/decision',{decision:'approved',note:''},'boss',report.fingerprint);
+ assert.equal(await listFor('boss'),0); // tutto approvato
+ }finally{sql.close()}
+});
+
+test('inbox page: nessun carattere corrotto nelle traduzioni, e mostra un avviso quando il primo stadio è approvato ma manca il secondo', async () => {
+  const { inboxPage } = await import('./inbox-page.js');
+  const response = inboxPage();
+  const html = await response.text();
+  assert.ok(!html.includes('�'), 'nessun carattere di sostituzione (encoding corrotto)');
+  assert.ok(html.includes('prüfen'));
+  assert.ok(html.includes('vérifiés'));
+  assert.ok(html.includes("report.requiredStages>1"));
 });

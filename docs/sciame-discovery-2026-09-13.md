@@ -36,6 +36,17 @@ terzi".
 | Rendezvous pubblico (relay Nostr effimeri, più relay) | PWA + nativo | Terzi, non nostri | Da provare; NIP-01 kind 20000–29999 non conservati | Il relay vede che due chiavi si sono cercate; contenuto cifrato |
 | DHT Mainline | Nativo | No | UDP via plugin non ufficiali; nessuna libreria JS pronta per WebView | Batteria; solo come esperimento misurato |
 | Relay fra pari (al posto di TURN) | Desktop/PWA installata/telefono in carica, opt-in | No | `relay-election.js` esiste | iPhone in background: ~30 s poi sospeso → mai relay; Android FGS `dataSync` max 6 h/24 h |
+| BLE come **trasporto dati** (non solo scoperta) | Nativo, app aperta | No | `frame-stream.js` (frammentazione/ack/ritrasmissione, 7 test); Capgo espone entrambi i ruoli; 20–50 KB/s stimati telefono↔telefono (**nessuna misura pubblica**, da misurare) | ≤ ~100 KB per messaggio; iPhone in background invisibile ad Android; L2CAP (più veloce) senza plugin: fase 2 |
+| NFC a contatto | Nativo | No | Android emula un tag NDEF (HCE), iPhone lo legge con Core NFC: porta i 28 byte dell'impegno | **Da verificare su telefoni fisici**; iOS non emula tag (solo lettura); un solo verso |
+| QR animato (sequenza di codici) | PWA + nativo | No | Da costruire sopra il QR già esistente: più banda per l'SDP intero senza rete | Serve fotocamera; luce/riflessi |
+| Wi-Fi Direct / Wi-Fi Aware | Solo Android↔Android | No | Standard Android (`NEARBY_WIFI_DEVICES`); iOS non lo espone (AWDL è privato) | Acceleratore stesso-OS, come Nearby |
+| Link via qualunque app (Web Share) | PWA + nativo | L'app scelta dall'utente | Già oggi (codice/QR incollato in chat); l'impegno da 38 caratteri lo rende più corto | Passa per WhatsApp/Telegram ecc.: canale non segreto, per questo l'impegno non contiene segreti |
+| Hotspot personale guidato | Nativo | No | iOS non ha API per accenderlo: istruzione a schermo, poi DNS-SD + WebRTC locale | Un gesto manuale; utile per allegati grandi |
+
+Un solo principio per tutti: **qualunque canale trasporta solo l'impegno pubblico**
+(`pairing-commitment.js`) o, se non c'è altra strada, l'SDP compatto; la
+fiducia si chiude sempre con le tre parole. Aggiungere un canale = un
+adattatore, mai una nuova logica di sicurezza.
 
 Fonti: report di ricerca del 2026-09-13 (quattro fork, URL nei commenti dei
 moduli e in fondo a questo file).

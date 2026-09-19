@@ -467,3 +467,42 @@ test('PDF senza alcun importo riconoscibile (solo boilerplate): mai un crash, ri
   ]);
   assert.deepEqual(txs, []);
 });
+
+// ---- BUG REALE (2026-09-19): una conferma/ricevuta PDF in valuta diversa
+// dall'euro veniva importata come se fosse sempre EUR — `currency` non
+// veniva mai letto in questo parser, solo in quello CSV a colonne. ----
+
+test('CONFERMA ricevuta semplice in valuta estera (CHF): currency rilevata sull\'intero documento', () => {
+  const txs = extractTransactionsFromItems([
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Hotel Baur au Lac Zurich', x: 50, y: 750 },
+    { text: 'Data: 11/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 350,00 CHF', x: 50, y: 690 },
+  ]);
+  assert.equal(txs.length, 1);
+  assert.equal(txs[0].amount, 350);
+  assert.equal(txs[0].currency, 'CHF');
+});
+
+test('CONFERMA ricevuta semplice in EUR: currency comunque rilevata, non solo per le valute estere', () => {
+  const items = [
+    { text: 'Ricevuta di pagamento', x: 50, y: 780 },
+    { text: 'Hotel Marriott Milano', x: 50, y: 750 },
+    { text: 'Data: 11/09/2026', x: 50, y: 720 },
+    { text: 'Totale: 120,00 EUR', x: 50, y: 690 },
+  ];
+  const txs = extractTransactionsFromItems(items);
+  assert.equal(txs[0].currency, 'EUR');
+});
+
+test('estratto conto tabellare: currency rilevata PER RIGA dalla cella importo (bug reale: sempre EUR anche con colonne in valuta estera)', () => {
+  const items = [
+    { text: 'Data', x: 10, y: 800 }, { text: 'Descrizione', x: 100, y: 800 }, { text: 'Importo', x: 400, y: 800 },
+    { text: '01/09/2026', x: 10, y: 770 }, { text: 'Coffee Shop London', x: 100, y: 770 }, { text: '-4,50 GBP', x: 400, y: 770 },
+    { text: '02/09/2026', x: 10, y: 750 }, { text: 'Supermercato Milano', x: 100, y: 750 }, { text: '-25,00', x: 400, y: 750 },
+  ];
+  const txs = extractTransactionsFromItems(items);
+  assert.equal(txs.length, 2);
+  assert.equal(txs[0].currency, 'GBP');
+  assert.equal(txs[1].currency, undefined); // nessun indizio: mai una valuta indovinata
+});

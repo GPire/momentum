@@ -6,6 +6,8 @@ import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
+import { detectTripAmountAnomalies } from './trips/trip-anomaly.js';
+import { MOMENTUM_EXPORT_FIELDS, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripAttachmentCopy } from './i18n/trip-attachment.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
@@ -57,11 +59,15 @@ import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } 
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
-import { periodoTrasferta, giorniScoperti, diariaSpettante, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
+import { periodoTrasferta, giorniScoperti, diariaSpettante, diariaRegnoUnito, giorniDelPeriodo, speseFuoriPeriodo } from './trips/trip-period.js';
+import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026, TARIFFE_REGNO_UNITO_2026 } from './trips/trip-perdiem-rates.js';
+import { TARIFFA_KM_PER_PAESE } from './trips/trip-mileage-rates.js';
+import { rimborsoChilometrico } from './trips/trip-mileage.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
+import { reconcileCardStatement } from './trips/card-reconciliation.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
-import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
+import { VoiceCore, linguaVoceAttiva, VoiceParser, SPEECH_LOCALE } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
@@ -155,7 +161,6 @@ function translateRegionLabel(region) {
   return isItalianDevice() ? (REGION_LABELS_IT[region] || region) : region;
 }
 import { taxSetAsideForPeriod, classifyIncome, learnIncomeType, projectAnnualTax, taxAdvice, REGIMI, parseInvoiceLine, simulateNewPartitaIva, ATECO_COEFFICIENTI, CASSE_PROFESSIONALI, searchAtecoComuni, ATECO_UFFICIALE_URL, CAUSE_ESCLUSIONE_FORFETTARIO, verificaEsclusioneForfettario } from './predict/tax.js';
-import { buildItalianTaxPosition } from './predict/tax-position.js';
 import { computeAvsIndipendente, ivaObbligatoriaCh, AVS_SOGLIA_ALIQUOTA_PIENA, IVA_CH_SOGLIA_OBBLIGO, AVS_CALCOLATORE_UFFICIALE_URL, AVS_SOGLIA_ACCESSORIA_OBBLIGO, AVS_SOGLIA_ACCESSORIA_FACOLTATIVA } from './predict/tax-ch.js';
 import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predict/tax-es.js';
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
@@ -176,6 +181,20 @@ const __uiLangParam = (() => {
 })();
 const __uiLang = resolveUiLanguage({ override: UI_LANGS.includes(__uiLangParam) ? __uiLangParam : null });
 document.documentElement.lang = __uiLang;
+// Bug reale segnalato dall'utente (2026-09-15): al primo avvio si vedeva
+// per un istante il testo statico di index.html (italiano, la lingua
+// sorgente) prima che la traduzione scattasse — perché applyUiTranslations()
+// veniva chiamata solo dentro initApp(), a sua volta bloccata da
+// `Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()])`
+// (lettura IndexedDB + micro-benchmark hardware). __uiLang è già calcolato
+// qui in cima, in modo sincrono, PRIMA di qualunque promise — non c'è
+// nessun motivo reale per aspettare l'inizializzazione del Vault solo per
+// tradurre testo statico che non dipende affatto dai dati dell'utente.
+// `applyUiTranslations()` è dichiarata più sotto nel file ma le
+// dichiarazioni di funzione sono hoistate: chiamarla qui è sicuro. La
+// chiamata dentro initApp() resta invariata come rete di sicurezza per il
+// markup del genesis inserito dinamicamente dopo questo punto.
+try { applyUiTranslations(); } catch (_) {}
 // Locale reale per Intl/toLocaleDateString: senza questa mappa i nomi di
 // mese/giorno (es. "agosto", "lun") restavano in italiano anche a
 // interfaccia tradotta — una traduzione di UI che si fermava all'ultimo
@@ -198,7 +217,7 @@ import { rulesForYear, setActiveTaxRules } from './predict/tax-rules.js';
 import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
 import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
-import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML } from './invoice/fatturapa-xml.js';
+import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML, buildFatturaPaAnnualExport } from './invoice/fatturapa-xml.js';
 import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa-import.js';
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
@@ -218,7 +237,8 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
-import { simulaEstinzione, confrontaStrategie, testoConfronto } from './predict/debt-payoff.js';
+import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
+import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
 import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
@@ -294,8 +314,10 @@ import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exp
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
 import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
-import { extractTransactionsFromItems } from './import/pdf-parser.js';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips } from './trips/trip-engine.js';
+import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
+import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
+import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
+import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
 import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
 import { reviewConflictCopy } from './i18n/review-conflict.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
@@ -309,7 +331,8 @@ import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './impo
 // una sola mappa scritta una volta, riusata in ogni punto che osserva.
 const SOURCE_TO_CANALE = { screenshot_ocr: 'screenshot', csv: 'csv', pdf: 'pdf' };
 import { NeuroSym } from './ai/neurosym.js';
-import { importFiles, reconcileModelsWithHistory, learnInBackground } from './import/multi-import.js';
+import { importFiles, reconcileModelsWithHistory, learnInBackground, readCsvText } from './import/multi-import.js';
+import { parseGenericCsv } from './import/csv-parser.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
 const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
@@ -5224,12 +5247,12 @@ let __taxCardUrgent = false;
 // usato dal chiamante per un piccolo segnale visivo discreto sulla card
 // esistente, mai un popup o una nuova schermata. Niente allarme per il solo
 // fatto di avere una scadenza futura tranquilla: sarebbe rumore, non un segnale.
-function renderTaxCashBlocks(proj, regime, taxPosition = null) {
+function renderTaxCashBlocks(proj, regime) {
   let html = '';
   let urgent = false;
   try {
     const invoices = VaultDAO.state.invoices || [];
-    const anno = taxPosition?.year || new Date().getFullYear();
+    const anno = new Date().getFullYear();
 
     // 1 + 2: servono le fatture emesse. Senza, questi blocchi non hanno
     // materia — e non si inventa nulla.
@@ -5278,14 +5301,14 @@ function renderTaxCashBlocks(proj, regime, taxPosition = null) {
     // versato" viene dai versamenti che l'utente ha dichiarato
     // (tax-payments.js): mai dare per scontato che non abbia pagato nulla.
     const versamenti = VaultDAO.state.taxPayments || [];
-    const riserva = taxPosition?.estimate?.reserve || taxReserveStatus(proj.estimatedAnnualTax, versamenti);
-    const deadlines = taxPosition?.estimate?.deadlines || upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti);
+    const deadlines = upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
 
     // SCADENZE SALTATE (colma un vuoto reale): prima una scadenza non
     // versata spariva semplicemente dalla lista al giorno dopo, come se non
     // fosse mai esistita. Ora si vede, col ravvedimento operoso già calcolato
     // — il momento più delicato per chi non ha un commercialista.
-    const overdue = taxPosition?.estimate?.overdue || overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
+    const overdue = overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
     if (overdue.length) {
       const o = overdue[0];
       const rav = calcolaRavvedimento(o.importo, o.giorniDiRitardo);
@@ -5549,7 +5572,7 @@ window.exportAccountantReportEs = async () => {
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
   if (win) {
-    win.document.write(renderAccountantReportHTMLIntl(report, { emitter }));
+    win.document.write(renderAccountantReportHTMLIntl(report, { emitter, lang: __uiLang }));
     win.document.close();
     win.addEventListener('load', () => setTimeout(() => win.print(), 250));
     showToast(tCh('esExportAccountantToast', __esLang), 'success');
@@ -6017,25 +6040,7 @@ function renderTax(monthK) {
     return;
   }
 
-  // Il riepilogo mensile deve usare lo stesso anno/regole/cassa della
-  // posizione annuale: prima questo punto chiamava il motore con i soli
-  // `regime`, quindi una cassa professionale o un aggiornamento normativo
-  // potevano mostrare un accantonamento diverso nella stessa schermata.
-  const meseDate = /^\d{4}-\d{2}$/.test(String(monthK || ''))
-    ? new Date(`${monthK}-01T12:00:00`)
-    : new Date();
-  const meseYear = Number.isFinite(meseDate.getTime()) ? meseDate.getFullYear() : new Date().getFullYear();
-  const r = taxSetAsideForPeriod(monthTxs, {
-    regime: regime || 'forfettario',
-    learned,
-    model: incomeModel,
-    year: meseYear,
-    rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
-    cassaPropria: VaultDAO.state.taxCassaPropria || null,
-    altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
-    taxUncertain: VaultDAO.state.taxUncertain === true,
-  });
-  const taxPosition = readItalianTaxPosition(new Date());
+  const r = taxSetAsideForPeriod(monthTxs, { regime: regime || 'forfettario', learned, model: incomeModel });
   if (r.count > 0) {
     setEl.textContent = formatMoney(r.daAccantonare);
     noteEl.textContent = r.note;
@@ -6051,35 +6056,19 @@ function renderTax(monthK) {
     html += renderTaxVaultBar(r);
     // ── PROIEZIONE ANNUALE + CONSIGLI (come un commercialista, onesto) ──
     if (regime && everInvoice) {
-      // Quando esistono fatture importate, la posizione unica abbina gli
-      // incassi anche a fatture di un anno precedente e usa quella cassa per
-      // la proiezione forfettaria. Il fallback mantiene compatibilità con
-      // archivi storici privi del formato atteso.
-      const proj = taxPosition?.estimate?.projection
-        || projectAnnualTax(allFlat, {
-          regime,
-          referenceDate: new Date(),
-          learned,
-          model: incomeModel,
-          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
-          cassaPropria: VaultDAO.state.taxCassaPropria || null,
-          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
-        });
+      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model: incomeModel });
       if (proj.invoicedYTD > 0) {
         html += `<div class="flex items-start gap-1.5 text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0 mt-0.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 3v3M16 3v3"/></svg><span>${proj.note}</span></div>`;
         // Consigli prioritizzati con neurocolori: high=ambra (attenzione),
         // info positivo=verde (rinforzo). Regole dell'anno pertinente.
         const { advice } = taxAdvice({
           regime, annualizedRevenue: proj.annualizedRevenue, invoicedYTD: proj.invoicedYTD,
-          estimatedAnnualTax: proj.estimatedAnnualTax, year: proj.year || new Date().getFullYear(),
-          cassaPropria: VaultDAO.state.taxCassaPropria || null,
-          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
-          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
+          estimatedAnnualTax: proj.estimatedAnnualTax, year: new Date().getFullYear(),
         });
         for (const a of advice) {
           html += renderTaxAdviceCard(a);
         }
-        html += renderTaxCashBlocks(proj, regime, taxPosition);
+        html += renderTaxCashBlocks(proj, regime);
       }
     }
     // ── CONFERMA APPRESA: le entrate incerte diventano un tap "è una fattura?" ──
@@ -6339,36 +6328,7 @@ function hasInvoiceIncome() {
   const learned = VaultDAO.state.taxLearned || {};
   const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
   const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
-  // Una fattura già creata/importata è già un segnale sufficiente per aprire
-  // la sezione: prima si guardavano solo le descrizioni dei movimenti e un
-  // utente con fatture senza un accredito ancora arrivato vedeva la card
-  // sparire. Nessun numero viene calcolato senza un regime confermato.
-  return (VaultDAO.state.invoices || []).length > 0
-    || allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
-}
-
-// Composizione unica della posizione P.IVA usata da Analisi, Impostazioni ed
-// export. Il fallback resta il vecchio proiettore se un archivio storico ha
-// una forma inattesa: la UI non deve bloccarsi per un campo opzionale.
-function readItalianTaxPosition(now = new Date()) {
-  try {
-    return buildItalianTaxPosition({
-      invoices: VaultDAO.state.invoices || [],
-      transactions: VaultDAO.state.transactions || {},
-      taxPayments: VaultDAO.state.taxPayments || [],
-      regime: VaultDAO.state.taxRegime || null,
-      learned: VaultDAO.state.taxLearned || {},
-      model: (typeof window !== 'undefined' && window.__incomeModel) || null,
-      ateco: VaultDAO.state.taxAteco || VaultDAO.state.taxAtecoSettore || null,
-      cassaPropria: VaultDAO.state.taxCassaPropria || null,
-      altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
-      forfettarioAnswers: VaultDAO.state.taxForfettarioAnswers || null,
-      rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
-      now,
-    });
-  } catch (_) {
-    return null;
-  }
+  return allFlat.some(t => t.type === 'entrata' && classifyIncome(t, learned, incomeModel).kind === 'invoice');
 }
 
 // CASA PERMANENTE della Partita IVA in Impostazioni. Prima l'unico accesso a
@@ -6398,17 +6358,7 @@ function renderTaxSettings() {
       const learned = VaultDAO.state.taxLearned || {};
       const model = (typeof window !== 'undefined' && window.__incomeModel) || null;
       const allFlat = Object.values(VaultDAO.state.transactions || {}).flat();
-      const taxPosition = readItalianTaxPosition(new Date());
-      const proj = taxPosition?.estimate?.projection
-        || projectAnnualTax(allFlat, {
-          regime,
-          referenceDate: new Date(),
-          learned,
-          model,
-          rulesOverride: VaultDAO.state.dataOverrides?.taxRules || null,
-          cassaPropria: VaultDAO.state.taxCassaPropria || null,
-          altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura,
-        });
+      const proj = projectAnnualTax(allFlat, { regime, referenceDate: new Date(), learned, model });
       if (proj && proj.invoicedYTD > 0) {
         const eur = (n) => `${Math.round(n).toLocaleString('it-IT')}€`;
         predLine = `<div class="grid grid-cols-2 gap-2 mb-3">
@@ -6770,7 +6720,7 @@ window.exportAccountantReportCh = async (reddito) => {
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
   if (win) {
-    win.document.write(renderAccountantReportHTMLIntl(report, { emitter }));
+    win.document.write(renderAccountantReportHTMLIntl(report, { emitter, lang: __uiLang }));
     win.document.close();
     win.addEventListener('load', () => setTimeout(() => win.print(), 250));
     showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
@@ -7070,6 +7020,13 @@ window.openTaxLevel1Simulate = () => {
           [{ value: '', label: 'Nessun albo/cassa propria (INPS Gestione Separata)' },
            ...Object.entries(CASSE_PROFESSIONALI).map(([k, v]) => ({ value: k, label: `${k.replace(/_/g, '/')} — ${v}` }))],
           '')}</div>
+        <!-- Solo ENPAM (medici/odontoiatri) ha bisogno dell'età: Quota A è
+             fissa per fascia d'età, non una % sul reddito come le altre
+             casse — nascosto per chiunque altro, mai un campo in più senza
+             un motivo reale (contributoEnpam in tax.js). -->
+        <div id="tl1-eta-wrap" class="hidden mt-2">
+          <input type="number" id="tl1-eta" inputmode="numeric" min="18" max="100" placeholder="La tua età (serve per la Quota A ENPAM)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-eta" aria-label="La tua età" />
+        </div>
         <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
           <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" name="tl1-dipendente" />
           Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria) — INPS al 24% invece di 26,07%
@@ -7151,14 +7108,22 @@ window.openTaxLevel1Simulate = () => {
   stepDownBtn?.addEventListener('click', () => step(-1, stepDownBtn));
   const go = () => {
     const val = parseFloat(String(input.value).replace(',', '.')) || 0;
+    const cassaScelta = document.getElementById('tl1-cassa')?.dataset.value || null;
+    const etaVal = parseInt(document.getElementById('tl1-eta')?.value, 10);
     window.openTaxLevel1Result(periodo === 'mese' ? val * 12 : val, document.getElementById('tl1-ateco')?.dataset.value, {
-      cassaPropria: document.getElementById('tl1-cassa')?.dataset.value || null,
+      cassaPropria: cassaScelta,
       altraCoperturaPrevidenziale: !!document.getElementById('tl1-dipendente')?.checked,
       atecoCode: document.getElementById('tl1-ateco')?.dataset.atecoCode || null,
+      ...(cassaScelta === 'medici_odontoiatri' && Number.isFinite(etaVal) ? { eta: etaVal } : {}),
     });
   };
   document.getElementById('tl1-go')?.addEventListener('click', go);
   input?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  // Il campo età appare SOLO scegliendo ENPAM — nessun altro calcolo ne ha
+  // bisogno (vedi commento nel markup sopra).
+  document.getElementById('tl1-cassa')?.addEventListener('change', (e) => {
+    document.getElementById('tl1-eta-wrap')?.classList.toggle('hidden', e.target.dataset.value !== 'medici_odontoiatri');
+  });
 };
 
 // Passo 3: il risultato, in parole — mai un numero orfano senza spiegazione,
@@ -7173,7 +7138,7 @@ const TL1_STRATEGY_ICONS = {
 };
 window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
   if (!(fatturato > 0)) { showToast('Inserisci una stima di fatturato per continuare.', 'error'); return; }
-  const s = simulateNewPartitaIva(fatturato, { ateco, cassaPropria: extra.cassaPropria, altraCoperturaPrevidenziale: extra.altraCoperturaPrevidenziale });
+  const s = simulateNewPartitaIva(fatturato, { ateco, cassaPropria: extra.cassaPropria, altraCoperturaPrevidenziale: extra.altraCoperturaPrevidenziale, eta: extra.eta });
   // Strategie legittime (mai trucchi inventati): ogni voce è verificata su
   // fonte ufficiale e posta come domanda da fare al commercialista, non come
   // fatto certo — l'eleggibilità reale dipende dalla storia dell'utente, che
@@ -9131,9 +9096,40 @@ window.setNotifyPref = (category, attiva) => {
   VaultDAO.state.notifyPrefs = { ...(VaultDAO.state.notifyPrefs || {}), [category]: !!attiva };
   VaultDAO.save();
 };
+// Avviso "resoconti aziendali da approvare" (2026-09-19, ricerca reale:
+// il 19% dei viaggiatori d'affari aspetta oltre 3 mesi il rimborso, il 47%
+// incolpa processi di approvazione lenti — un responsabile che dimentica
+// di controllare è una causa vera, non ipotetica). Sistema PROPRIETARIO,
+// non push server-side: stesso meccanismo già in uso per gli avvisi di
+// prezzo (Notification API locale via notifyUser, mai un servizio esterno
+// come SendGrid/Resend — evita lo stesso blocco strutturale già dichiarato
+// per i pagamenti automatici). Un controllo silenzioso all'avvio, mai
+// bloccante: se il fetch fallisce (nessuna sessione Better Auth in questo
+// browser — la stragrande maggioranza degli utenti personali) si tace
+// senza errori, `credentials:'same-origin'` sfrutta la sessione se esiste
+// già (stesso principio di company-policy.js, mai un secondo login qui).
+async function checkCompanyApprovals() {
+  try {
+    const response = await fetch('/v1/me/companies', { credentials: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return;
+    const data = await response.json();
+    const totale = (data.companies || []).reduce((somma, c) => somma + (Number.isFinite(c.pendingCount) ? c.pendingCount : 0), 0);
+    const ultimoAvvisato = VaultDAO.state.companyApprovalsLastNotified || 0;
+    if (totale > 0 && totale !== ultimoAvvisato) {
+      const msg = totale === 1 ? tCh('companyApprovalsPendingOne', __uiLang) : tCh('companyApprovalsPendingMany', __uiLang, totale);
+      showToast(msg, 'info');
+      notifyUser(tCh('companyApprovalsNotifyTitle', __uiLang), msg, 'aziendale');
+      VaultDAO.state.companyApprovalsLastNotified = totale;
+      VaultDAO.save();
+    } else if (totale === 0 && ultimoAvvisato > 0) {
+      VaultDAO.state.companyApprovalsLastNotified = 0;
+      VaultDAO.save();
+    }
+  } catch (_) {}
+}
 function renderNotifyPrefs() {
   const prefs = VaultDAO.state.notifyPrefs || {};
-  ['fiscale', 'normativa', 'prezzi'].forEach((cat) => {
+  ['fiscale', 'normativa', 'prezzi', 'aziendale'].forEach((cat) => {
     const el = document.getElementById(`notify-pref-${cat}`);
     if (el) el.checked = prefs[cat] !== false;
   });
@@ -10713,50 +10709,129 @@ window.openDebiti = () => {
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const debiti = () => VaultDAO.state.debiti || [];
   const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
-  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '' };
+  const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false, hasPromo: false, promoFino: '', tassoPostPromo: '', avanzate: false };
   let strategia = 'valanga';
   let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
   const dataFraMesi = (n) => {
     if (n === null || n === undefined) return '—';
     const o = new Date();
-    return new Date(o.getFullYear(), o.getMonth() + n, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+    return new Date(o.getFullYear(), o.getMonth() + n, 1).toLocaleDateString(__uiLocale, { month: 'long', year: 'numeric' });
+  };
+  const TIPI = [
+    ['carta', () => tCh('debtTypeCard', __uiLang)],
+    ['prestito', () => tCh('debtTypeLoan', __uiLang)],
+    ['mutuo', () => tCh('debtTypeMortgage', __uiLang)],
+    ['altro', () => tCh('debtTypeOther', __uiLang)],
+  ];
+
+  // Blocco "risultato" isolato in un contenitore con id proprio: digitare
+  // nell'input extra deve SOLO ricalcolare questo pezzo, mai richiamare
+  // l'openModal completo — altrimenti l'input viene ricreato da zero a ogni
+  // tasto, la tastiera mobile perde il focus e si chiude (bug reale
+  // segnalato dall'utente, 2026-09-15: "ogni volta che digito un numero si
+  // chiude la tastiera").
+  const calcolaRisultato = (ds) => {
+    if (!ds.length) return '';
+    const confronto = confrontaStrategie(ds, extraMensile, __uiLang);
+    const sim = strategia === 'valanga' ? confronto.valanga : confronto.pallaDiNeve;
+    const stratLabel = strategia === 'valanga' ? tCh('debtStratAvalancheLabel', __uiLang) : tCh('debtStratSnowballLabel', __uiLang);
+    const ordineRighe = sim.debiti.map((d, i) => `
+      <div class="flex items-center justify-between gap-2 py-1.5 text-[12.5px] ${d.mesePagato ? '' : 'opacity-50'} border-b border-[var(--outline)] last:border-0">
+        <span><b>${i + 1}.</b> ${esc(d.nome)}</span>
+        <span class="text-[var(--on-surface-secondary)]">${d.mesePagato ? esc(tCh('debtPaidOffOn', __uiLang, dataFraMesi(d.mesePagato))) : '—'}</span>
+      </div>`).join('');
+    // Baseline "senza fare nulla in più" (2026-09-15, richiesto esplicitamente):
+    // mostrata SOLO quando la strategia scelta è davvero risolvibile — mai
+    // un confronto in euro fra due scenari che non arrivano a una fine.
+    const testoBase = !sim.irrisolvibile ? testoBaseline(sim, confronto.baseline, __uiLang) : null;
+    return `
+      <div id="dt-risultato" class="card p-3">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('debtOrderTitle', __uiLang, stratLabel)}</div>
+        ${sim.irrisolvibile ? `<p class="text-[12px] text-amber-400 font-bold leading-snug">${esc(sim.motivo)}</p>` : `
+          ${ordineRighe}
+          <p class="text-[12px] mt-2"><b>${tCh('debtFreeFromLabel', __uiLang)}</b> ${dataFraMesi(sim.mesiTotali)} · <b>${tCh('debtTotalInterestLabel', __uiLang)}</b> ${eur(sim.interesseTotale)}</p>
+        `}
+        <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(testoConfronto(confronto, __uiLang))}</p>
+        ${testoBase ? `<p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-1.5">${esc(testoBase)}</p>` : ''}
+      </div>`;
+  };
+  const aggiornaRisultato = () => {
+    const ds = debiti();
+    const el = document.getElementById('dt-risultato-wrap');
+    if (el) el.innerHTML = calcolaRisultato(ds);
   };
 
   const render = () => {
     const ds = debiti();
-    const righeForm = ds.length ? '' : `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun debito ancora. Aggiungine uno: carta di credito, prestito, un prestito fra amici — qualunque cosa con un saldo e un tasso (anche 0%).</p>`;
+    const righeForm = ds.length ? '' : `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('debtEmptyHint', __uiLang)}</p>`;
+    // Stress test tasso variabile (2026-09-16): SOLO per i debiti dichiarati
+    // a tasso variabile, mai calcolato per gli altri (nessun allarme su un
+    // tasso fisso, che per definizione non ha questo rischio). Il primo
+    // scenario davvero grave (irrisolvibile) vince sempre sulla media —
+    // vedi testoStressTasso in debt-payoff.js.
+    const noteStress = {};
+    for (const d of ds) {
+      if (!d.tassoVariabile) continue;
+      try {
+        const testo = testoStressTasso(stressTestTasso(d, [1, 2, 3], __uiLang), __uiLang);
+        if (testo) noteStress[d.id] = testo;
+      } catch (_) {}
+    }
+    // Tasso promozionale in scadenza (2026-09-16, dato CFPB): due note
+    // separate e complementari — QUANDO (il conto alla rovescia, mostrato
+    // sempre entro 45 giorni) e QUANTO (l'impatto in euro/mesi, mostrato
+    // solo se l'utente ha anche dichiarato il tasso post-promo).
+    const notePromo = {};
+    for (const d of ds) {
+      if (!d.promoFino && d.tassoPostPromo == null) continue;
+      try {
+        const giorni = promoScadeTraGiorni(d);
+        const testoScadenza = testoPromoScadenza(giorni, __uiLang);
+        const testoImpatto = d.tassoPostPromo != null ? testoImpattoFinePromo(impattoFinePromo(d, __uiLang), __uiLang) : null;
+        if (testoScadenza || testoImpatto) notePromo[d.id] = [testoScadenza, testoImpatto].filter(Boolean);
+      } catch (_) {}
+    }
     const listaRighe = ds.map(d => `
-      <div class="split-row flex items-center justify-between gap-2 py-1.5 border-b border-[var(--outline)] last:border-0">
-        <span class="min-w-0"><b>${esc(d.nome)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(d.saldo)} al ${d.tasso}% · min ${eur(d.pagamentoMinimo)}/mese</span></span>
-        <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
+      <div class="split-row flex flex-col gap-1 py-1.5 border-b border-[var(--outline)] last:border-0">
+        <div class="flex items-center justify-between gap-2">
+          <span class="min-w-0"><b>${esc(d.nome)}</b> · <span class="text-[var(--on-surface-secondary)]">${esc(tCh('debtRowSummary', __uiLang, eur(d.saldo), d.tasso, eur(d.pagamentoMinimo)))}</span></span>
+          <button data-deldebito="${d.id}" class="shrink-0 text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">${tCh('debtDeleteBtn', __uiLang)}</button>
+        </div>
+        ${noteStress[d.id] ? `<p class="text-[11px] text-amber-400 leading-snug">${esc(noteStress[d.id])}</p>` : ''}
+        ${(notePromo[d.id] || []).map(t => `<p class="text-[11px] text-amber-400 leading-snug">${esc(t)}</p>`).join('')}
+        <!-- Gap competitor reale trovato il 2026-09-16 (Tally chiuso 2024,
+             Undebt.it/Debt Payoff Planner richiedono tracciamento manuale):
+             un tocco solo per registrare il pagamento del mese, mai un
+             ricalcolo a mano — vedi window.openRegistraPagamento sotto. -->
+        <button data-regpay="${d.id}" class="self-start text-[11px] font-bold text-[var(--primary)] underline">${tCh('debtRegisterPaymentBtn', __uiLang)}</button>
       </div>`).join('');
 
-    let risultato = '';
+    // Rapporto debito/reddito (2026-09-16, richiesto esplicitamente: "capire
+    // come e quando ottenere un prestito", non solo estinguerlo) — usa lo
+    // STESSO stipendio rilevato/dichiarato del resto dell'app (resolveSalary,
+    // mai un secondo posto dove l'utente deve reinserirlo). Mostrato solo con
+    // almeno un debito: senza debiti il rapporto è banalmente 0%, rumore.
+    let dtiHtml = '';
     if (ds.length) {
-      const confronto = confrontaStrategie(ds, extraMensile);
-      const sim = strategia === 'valanga' ? confronto.valanga : confronto.pallaDiNeve;
-      const ordineRighe = sim.debiti.map((d, i) => `
-        <div class="flex items-center justify-between gap-2 py-1.5 text-[12.5px] ${d.mesePagato ? '' : 'opacity-50'} border-b border-[var(--outline)] last:border-0">
-          <span><b>${i + 1}.</b> ${esc(d.nome)}</span>
-          <span class="text-[var(--on-surface-secondary)]">${d.mesePagato ? `estinto ${dataFraMesi(d.mesePagato)}` : '—'}</span>
-        </div>`).join('');
-      risultato = `
+      const salario = resolveSalary(VaultDAO.state, allTransactionsFlat());
+      const dtiInfo = calcolaDTI(ds, salario?.amount || 0);
+      const extra = capacitaExtraPrestito(ds, salario?.amount || 0);
+      dtiHtml = `
         <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>Ordine di estinzione — ${strategia === 'valanga' ? 'valanga (priorità al tasso)' : 'palla di neve (priorità al saldo)'}</div>
-          ${sim.irrisolvibile ? `<p class="text-[12px] text-amber-400 font-bold leading-snug">${esc(sim.motivo)}</p>` : `
-            ${ordineRighe}
-            <p class="text-[12px] mt-2"><b>Libero da debiti:</b> ${dataFraMesi(sim.mesiTotali)} · <b>Interessi totali pagati:</b> ${eur(sim.interesseTotale)}</p>
-          `}
-          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(testoConfronto(confronto))}</p>
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-6 3 3 5-8"/></svg>${tCh('debtDtiTitle', __uiLang)}</div>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mb-1.5">${tCh('debtDtiSub', __uiLang)}</p>
+          <p class="text-[12.5px] font-bold leading-snug">${esc(testoDTI(dtiInfo, __uiLang))}</p>
+          ${dtiInfo.dti != null ? `<p class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mt-1">${esc(testoCapacitaExtra(extra, __uiLang))}</p>` : ''}
         </div>`;
     }
 
     openModal(`
       <div class="debt-planner-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Debiti e prestiti</h3><p class="card-sub !mb-0">Il quadro, mai un consiglio: i numeri di entrambe le strategie, decidi tu.</p></div>
+        <div><h3 class="text-base font-black">${tCh('debtScreenTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtScreenSub', __uiLang)}</p></div>
         <div class="card p-3">${righeForm}${listaRighe}</div>
+        ${dtiHtml}
         <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Aggiungi un debito</div>
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${tCh('debtAddSectionTitle', __uiLang)}</div>
           <div class="flex flex-col gap-2">
             <label class="task-field"><span>${tCh('debtNameLabel', __uiLang)}</span><input id="dt-nome" value="${esc(form.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${tCh('debtNameExample',__uiLang)}" name="dt-nome" /></label>
             <div class="task-field-pair">
@@ -10764,40 +10839,247 @@ window.openDebiti = () => {
               <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input id="dt-tasso" type="number" inputmode="decimal" value="${esc(form.tasso)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="5" name="dt-tasso" /></label>
             </div>
             <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input id="dt-min" type="number" inputmode="decimal" value="${esc(form.pagamentoMinimo)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="50" name="dt-min" /></label>
-            <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">Aggiungi</button>
+            <div class="task-field"><span>${tCh('debtTypeLabel', __uiLang)}</span>
+              <div class="flex flex-wrap gap-1.5 mt-1">${TIPI.map(([k, lbl]) => `<button type="button" data-debttipo="${k}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.tipo === k ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(lbl())}</button>`).join('')}</div>
+            </div>
+            <!-- Percorso base: 4 campi + tipo + Aggiungi, punto. Tutto il
+                 resto (tasso variabile/promo/penale mutuo — 3 feature reali
+                 aggiunte il 2026-09-16, vedi debt-payoff.js) dietro un
+                 accordion "Opzioni avanzate": segnalato dall'utente che il
+                 form si era riempito di campi sempre visibili, in diretto
+                 conflitto con "deve essere semplicissimo da utilizzare"
+                 ripetuto più volte nella stessa sessione — nessuna feature
+                 rimossa, solo nascosta finché non serve. -->
+            <button type="button" id="dt-toggle-avanzate" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline self-start">${form.avanzate ? tCh('debtAdvancedHide', __uiLang) : tCh('debtAdvancedShow', __uiLang)}</button>
+            ${form.avanzate ? `
+            <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
+              <input id="dt-tasso-var" type="checkbox" ${form.tassoVariabile ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
+              <span>${tCh('debtVariableRateLabel', __uiLang)}</span>
+            </label>
+            ${form.tassoVariabile ? `<p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtVariableRateHint', __uiLang)}</p>` : ''}
+            <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
+              <input id="dt-promo" type="checkbox" ${form.hasPromo ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
+              <span>${tCh('debtPromoLabel', __uiLang)}</span>
+            </label>
+            ${form.hasPromo ? `
+            <p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtPromoHint', __uiLang)}</p>
+            <div class="task-field-pair">
+              <label class="task-field"><span>${tCh('debtPromoUntilLabel', __uiLang)}</span><input id="dt-promo-fino" type="date" value="${esc(form.promoFino)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" name="dt-promo-fino" /></label>
+              <label class="task-field"><span>${tCh('debtPromoRateAfterLabel', __uiLang)}</span><input id="dt-promo-tasso" type="number" inputmode="decimal" value="${esc(form.tassoPostPromo)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="24" name="dt-promo-tasso" /></label>
+            </div>` : ''}
+            ${form.tipo === 'mutuo' ? `
+            <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
+              <input id="dt-penale" type="checkbox" ${form.penaleEstinzione ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
+              <span>${tCh('debtMortgagePenaltyLabel', __uiLang)}</span>
+            </label>
+            <p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtMortgagePenaltyHint', __uiLang)}</p>` : ''}
+            ` : ''}
+            <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('debtAddBtn', __uiLang)}</button>
           </div>
         </div>
         ${ds.length ? `
         <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>Extra mensile disponibile</div>
-          <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="Oltre i pagamenti minimi, € al mese" name="dt-extra" aria-label="Oltre i pagamenti minimi, € al mese" />
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>${tCh('debtExtraTitle', __uiLang)}</div>
+          <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="${tCh('debtExtraPlaceholder', __uiLang)}" name="dt-extra" aria-label="${tCh('debtExtraPlaceholder', __uiLang)}" />
           <div class="flex gap-2 mt-2">
-            <button data-strat="valanga" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Valanga (meno interessi)</button>
-            <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">Palla di neve (vittorie rapide)</button>
+            <button data-strat="valanga" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratAvalancheBtn', __uiLang)}</button>
+            <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratSnowballBtn', __uiLang)}</button>
           </div>
         </div>
-        ${risultato}` : ''}
-      </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">Chiudi</button>`);
+        <div id="dt-risultato-wrap">${calcolaRisultato(ds)}</div>
+        ${ds.length >= 2 ? `<button onclick="window.openConsolidamento()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtConsolidationBtn', __uiLang)}</button>` : ''}
+        <button onclick="window.openConfrontaOfferte()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtOffersTitle', __uiLang)}</button>` : ''}
+      </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
 
     $('#dt-close')?.addEventListener('click', () => closeModal());
+    $('#dt-toggle-avanzate')?.addEventListener('click', () => { form.avanzate = !form.avanzate; render(); });
     $('#dt-nome')?.addEventListener('input', (e) => { form.nome = e.target.value; });
     $('#dt-saldo')?.addEventListener('input', (e) => { form.saldo = e.target.value; });
     $('#dt-tasso')?.addEventListener('input', (e) => { form.tasso = e.target.value; });
     $('#dt-min')?.addEventListener('input', (e) => { form.pagamentoMinimo = e.target.value; });
+    $('#dt-penale')?.addEventListener('change', (e) => { form.penaleEstinzione = e.target.checked; });
+    $('#dt-tasso-var')?.addEventListener('change', (e) => { form.tassoVariabile = e.target.checked; render(); });
+    $('#dt-promo')?.addEventListener('change', (e) => { form.hasPromo = e.target.checked; render(); });
+    $('#dt-promo-fino')?.addEventListener('input', (e) => { form.promoFino = e.target.value; });
+    $('#dt-promo-tasso')?.addEventListener('input', (e) => { form.tassoPostPromo = e.target.value; });
+    document.querySelectorAll('[data-debttipo]').forEach(b => b.addEventListener('click', () => { form.tipo = b.dataset.debttipo; render(); }));
     $('#dt-add')?.addEventListener('click', () => {
       const saldo = parseFloat(String(form.saldo).replace(',', '.'));
       const tasso = parseFloat(String(form.tasso).replace(',', '.'));
       const pagamentoMinimo = parseFloat(String(form.pagamentoMinimo).replace(',', '.'));
       if (!form.nome.trim() || !(saldo > 0) || !(pagamentoMinimo > 0) || !(tasso >= 0)) {
-        showToast('Servono nome, saldo e pagamento minimo (il tasso può essere 0).', 'error'); return;
+        showToast(tCh('debtFormError', __uiLang), 'error'); return;
       }
-      persist([...debiti(), { id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo }]);
-      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = '';
+      const tassoPostPromo = form.hasPromo ? parseFloat(String(form.tassoPostPromo).replace(',', '.')) : null;
+      persist([...debiti(), {
+        id: `d${Date.now().toString(36)}`, nome: form.nome.trim(), saldo, tasso, pagamentoMinimo, tipo: form.tipo,
+        penaleEstinzione: form.tipo === 'mutuo' && form.penaleEstinzione, tassoVariabile: form.tassoVariabile,
+        promoFino: form.hasPromo && form.promoFino ? form.promoFino : null,
+        tassoPostPromo: Number.isFinite(tassoPostPromo) ? tassoPostPromo : null,
+      }]);
+      form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false; form.tassoVariabile = false; form.hasPromo = false; form.promoFino = ''; form.tassoPostPromo = '';
       render();
     });
-    $('#dt-extra')?.addEventListener('input', (e) => { extraMensile = parseFloat(String(e.target.value).replace(',', '.')) || 0; VaultDAO.state.debitiExtraMensile = extraMensile; VaultDAO.save(); render(); });
-    document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; render(); }));
+    // Solo aggiornaRisultato() qui, MAI render(): vedi commento su
+    // calcolaRisultato sopra — questo è il fix del bug tastiera.
+    $('#dt-extra')?.addEventListener('input', (e) => { extraMensile = parseFloat(String(e.target.value).replace(',', '.')) || 0; VaultDAO.state.debitiExtraMensile = extraMensile; VaultDAO.save(); aggiornaRisultato(); });
+    document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; aggiornaRisultato(); document.querySelectorAll('[data-strat]').forEach(x => { const on = x.dataset.strat === strategia; x.classList.toggle('border-[var(--gold)]', on); x.classList.toggle('text-[var(--gold)]', on); x.classList.toggle('border-[var(--outline)]', !on); x.classList.toggle('text-[var(--on-surface-secondary)]', !on); }); }));
     document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
+    document.querySelectorAll('[data-regpay]').forEach(b => b.addEventListener('click', () => window.openRegistraPagamento(b.dataset.regpay)));
+  };
+  render();
+};
+
+// Registra un pagamento (src/predict/debt-payoff.js, 2026-09-16) — modale
+// separato da openDebiti (stesso pattern di openConsolidamento): dopo il
+// salvataggio richiama openDebiti() per mostrare l'elenco aggiornato, mai
+// un secondo posto dove il saldo è tenuto (VaultDAO.state.debiti resta
+// l'unica fonte di verità).
+window.openRegistraPagamento = (debtId) => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const debito = (VaultDAO.state.debiti || []).find(d => d.id === debtId);
+  if (!debito) return;
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('debtRegisterPaymentTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtRegisterPaymentSub', __uiLang)}</p></div>
+      <div class="card p-3">
+        <p class="text-[12.5px] font-bold mb-2">${esc(debito.nome)} · ${eur(debito.saldo)}</p>
+        <label class="task-field"><span>${tCh('debtRegisterPaymentAmountLabel', __uiLang)}</span><input id="rp-importo" type="number" inputmode="decimal" value="${debito.pagamentoMinimo || ''}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="${debito.pagamentoMinimo || 50}" name="rp-importo" /></label>
+      </div>
+    </div>`, `<button id="rp-confirm" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('debtRegisterPaymentConfirm', __uiLang)}</button>`);
+  $('#rp-confirm')?.addEventListener('click', () => {
+    const importo = parseFloat(String($('#rp-importo')?.value).replace(',', '.'));
+    if (!(importo > 0)) { showToast(tCh('debtFormError', __uiLang), 'error'); return; }
+    const aggiornato = registraPagamento(debito, importo);
+    VaultDAO.state.debiti = (VaultDAO.state.debiti || []).map(d => d.id === debtId ? aggiornato : d);
+    VaultDAO.save();
+    showToast(aggiornato.saldo <= 0 ? tCh('debtRegisterPaymentPaidOff', __uiLang, debito.nome) : tCh('debtRegisterPaymentDone', __uiLang, debito.nome, eur(aggiornato.saldo)), 'success');
+    closeModal();
+    window.openDebiti();
+  });
+};
+
+// Valuta un consolidamento (src/predict/debt-payoff.js, 2026-09-16) —
+// ricerca di mercato: la trappola più comune è fidarsi della rata mensile
+// più bassa come prova automatica del vantaggio, quando può in realtà
+// costare di più (tasso più basso ma termine molto più lungo). Modale
+// separato da openDebiti (stesso pattern di openExpenseChat/openSplitGroup):
+// legge i debiti esistenti dal Vault, non li duplica.
+window.openConsolidamento = () => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const debitiEsistenti = () => VaultDAO.state.debiti || [];
+  const proposta = { tasso: '', pagamentoMinimo: '', commissioneApertura: '' };
+  let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
+
+  const calcolaEsito = () => {
+    const tasso = parseFloat(String(proposta.tasso).replace(',', '.'));
+    const pagamentoMinimo = parseFloat(String(proposta.pagamentoMinimo).replace(',', '.'));
+    const commissioneApertura = parseFloat(String(proposta.commissioneApertura).replace(',', '.')) || 0;
+    if (!(tasso >= 0) || !(pagamentoMinimo > 0)) return '';
+    const c = confrontaConsolidamento(debitiEsistenti(), { tasso, pagamentoMinimo, commissioneApertura }, { extraMensile, lang: __uiLang });
+    const testo = testoConsolidamento(c, __uiLang);
+    const tono = (c.differenzaInteresse > 0.01 || c.differenzaMesi > 0) ? 'text-amber-400' : (c.differenzaInteresse < -0.01 ? 'text-emerald-400' : 'text-[var(--on-surface-secondary)]');
+    return `<p class="text-[12.5px] leading-snug ${tono} font-bold">${esc(testo)}</p>`;
+  };
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const aggiornaEsito = () => { const el = document.getElementById('dc-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('debtConsolidationTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtConsolidationSub', __uiLang)}</p></div>
+      <div class="card p-3">
+        <div class="flex flex-col gap-2">
+          <div class="task-field-pair">
+            <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input id="dc-tasso" type="number" inputmode="decimal" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="8" name="dc-tasso" /></label>
+            <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input id="dc-min" type="number" inputmode="decimal" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="300" name="dc-min" /></label>
+          </div>
+          <label class="task-field"><span>${tCh('debtConsolidationFeeLabel', __uiLang)}</span><input id="dc-fee" type="number" inputmode="decimal" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="0" name="dc-fee" /></label>
+        </div>
+      </div>
+      <div id="dc-esito">${calcolaEsito()}</div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+  $('#dc-tasso')?.addEventListener('input', (e) => { proposta.tasso = e.target.value; aggiornaEsito(); });
+  $('#dc-min')?.addEventListener('input', (e) => { proposta.pagamentoMinimo = e.target.value; aggiornaEsito(); });
+  $('#dc-fee')?.addEventListener('input', (e) => { proposta.commissioneApertura = e.target.value; aggiornaEsito(); });
+};
+
+// Confronta più offerte di prestito (src/predict/debt-payoff.js,
+// confrontaOfferte — 2026-09-16, scritto e testato ma mai agganciato a
+// nessuna UI fino ad ora). Generalizza openConsolidamento a N offerte
+// contemporanee: stesso principio di onestà (classifica per costo reale
+// totale, mai per rata/tasso nominale), ma qui l'utente sta VALUTANDO fra
+// alternative concorrenti, non un singolo consolidamento contro lo status
+// quo. Ogni offerta ha il proprio blocco di campi; "aggiungi un'altra
+// offerta" ricrea il modale (azione discreta, non digitazione), mentre
+// digitare in un campo aggiorna SOLO #co-esito — stesso fix del bug
+// tastiera già documentato su calcolaRisultato/aggiornaRisultato sopra.
+window.openConfrontaOfferte = () => {
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const debitiEsistenti = () => VaultDAO.state.debiti || [];
+  const extraMensile = VaultDAO.state.debitiExtraMensile || 0;
+  let offerte = [{ nome: '', tasso: '', pagamentoMinimo: '', commissioneApertura: '' }];
+
+  const valide = () => offerte
+    .map(o => ({
+      nome: o.nome.trim(),
+      tasso: parseFloat(String(o.tasso).replace(',', '.')),
+      pagamentoMinimo: parseFloat(String(o.pagamentoMinimo).replace(',', '.')),
+      commissioneApertura: parseFloat(String(o.commissioneApertura).replace(',', '.')) || 0,
+    }))
+    .filter(o => o.nome && o.pagamentoMinimo > 0 && o.tasso >= 0);
+
+  const calcolaEsito = () => {
+    const ov = valide();
+    if (ov.length < 2) return '';
+    const c = confrontaOfferte(debitiEsistenti(), ov, { extraMensile, lang: __uiLang });
+    const righe = c.classifica.map((r, i) => `
+      <div class="flex flex-col gap-0.5 py-1.5 text-[12.5px] border-b border-[var(--outline)] last:border-0">
+        <div class="flex items-center justify-between gap-2">
+          <span><b>${i + 1}.</b> ${esc(r.nome)}</span>
+          <span class="text-[var(--on-surface-secondary)]">${r.consolidato.irrisolvibile ? '—' : eur(r.consolidato.interesseTotale)}</span>
+        </div>
+        <span class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(testoOfferta(r, c.attuale, __uiLang))}</span>
+      </div>`).join('');
+    const verdetto = testoMigliorOfferta(c.classifica, __uiLang);
+    return `
+      <div class="card p-3">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('debtOffersRankTitle', __uiLang)}</div>
+        ${righe}
+        ${verdetto ? `<p class="text-[12px] font-bold leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(verdetto)}</p>` : ''}
+      </div>`;
+  };
+  const aggiornaEsito = () => { const el = document.getElementById('co-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  const render = () => {
+    const campiOfferte = offerte.map((o, i) => `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('debtOffersOfferLabel', __uiLang, i + 1))}</div>
+        <div class="flex flex-col gap-2">
+          <label class="task-field"><span>${tCh('debtOffersNameLabel', __uiLang)}</span><input data-co-nome="${i}" value="${esc(o.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" name="co-nome-${i}" /></label>
+          <div class="task-field-pair">
+            <label class="task-field"><span>${tCh('debtRateLabel', __uiLang)}</span><input data-co-tasso="${i}" type="number" inputmode="decimal" value="${esc(o.tasso)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="8" name="co-tasso-${i}" /></label>
+            <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input data-co-min="${i}" type="number" inputmode="decimal" value="${esc(o.pagamentoMinimo)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="300" name="co-min-${i}" /></label>
+          </div>
+          <label class="task-field"><span>${tCh('debtConsolidationFeeLabel', __uiLang)}</span><input data-co-fee="${i}" type="number" inputmode="decimal" value="${esc(o.commissioneApertura)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="0" name="co-fee-${i}" /></label>
+        </div>
+      </div>`).join('');
+
+    openModal(`
+      <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+        <div><h3 class="text-base font-black">${tCh('debtOffersTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtOffersSub', __uiLang)}</p></div>
+        ${campiOfferte}
+        <button id="co-add" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${tCh('debtOffersAddAnother', __uiLang)}</button>
+        <div id="co-esito">${calcolaEsito()}</div>
+      </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+    $('#co-add')?.addEventListener('click', () => { offerte.push({ nome: '', tasso: '', pagamentoMinimo: '', commissioneApertura: '' }); render(); });
+    document.querySelectorAll('[data-co-nome]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coNome].nome = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-tasso]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coTasso].tasso = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-min]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coMin].pagamentoMinimo = e.target.value; aggiornaEsito(); }));
+    document.querySelectorAll('[data-co-fee]').forEach(el => el.addEventListener('input', (e) => { offerte[+el.dataset.coFee].commissioneApertura = e.target.value; aggiornaEsito(); }));
   };
   render();
 };
@@ -10830,6 +11112,51 @@ function categoriaTripDaReale(catId, desc) {
   return CATEGORIA_REALE_TO_TRIP[catId] || 'altro';
 }
 function allTransactionsFlat() { return Object.values(VaultDAO.state.transactions || {}).flat(); }
+
+// Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16) — solo lettura,
+// nessun form: il dato esiste già nelle transazioni reali dell'utente, qui
+// si mostra soltanto. Confronto anno corrente/precedente SOLO se esistono
+// davvero transazioni nell'anno precedente (mai un confronto con zero dati
+// travestito da "hai risparmiato tutto l'anno scorso").
+window.openBankFees = () => {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const txs = allTransactionsFlat();
+  const annoCorrente = new Date().getFullYear();
+  const sCorrente = bankFeesSummary(txs, { year: annoCorrente });
+  const sPrecedente = bankFeesSummary(txs, { year: annoCorrente - 1 });
+  const haDatiAnnoPrec = txs.some(t => String(t.date || '').startsWith(String(annoCorrente - 1)));
+
+  const righeTipo = sCorrente.perTipo.map(t => `
+    <div class="flex items-center justify-between gap-2 py-1.5 text-[12.5px] border-b border-[var(--outline)] last:border-0">
+      <span>${esc(t.label)} <span class="text-[var(--on-surface-secondary)]">×${t.conteggio}</span></span>
+      <span class="font-mono">${eur(t.totale)}</span>
+    </div>`).join('');
+
+  const confrontoHtml = haDatiAnnoPrec ? `<p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(tCh('bankFeesYearCompare', __uiLang, annoCorrente - 1, eur(sPrecedente.totaleCommissioni)))}</p>` : '';
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('bankFeesModalTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('bankFeesModalSub', __uiLang)}</p></div>
+      ${sCorrente.conteggioCommissioni === 0 ? `
+        <p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('bankFeesEmptyHint', __uiLang)}</p>
+      ` : `
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6"/></svg>${tCh('bankFeesTotalLabel', __uiLang, annoCorrente)}</div>
+          <p class="text-2xl font-black font-mono">${eur(sCorrente.totaleCommissioni)}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('bankFeesCountLabel', __uiLang, sCorrente.conteggioCommissioni)}</p>
+          ${confrontoHtml}
+        </div>
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('bankFeesBreakdownTitle', __uiLang)}</div>
+          ${righeTipo}
+        </div>
+      `}
+      ${sCorrente.totaleTasseStato > 0 ? `<div class="rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3.5">
+        <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(tCh('bankFeesStateTaxNote', __uiLang, eur(sCorrente.totaleTasseStato)))}</p>
+      </div>` : ''}
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+};
 // Parsing manuale (mai `new Date('yyyy-mm-dd')`, che legge la stringa come
 // UTC mezzanotte e in fusi orari indietro rispetto a UTC mostra il giorno
 // PRIMA — stesso bug già risolto altrove in questa sessione per #tx-date-input).
@@ -11047,6 +11374,62 @@ function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month:
   return new Date(yy, mm - 1, dd).toLocaleDateString(__uiLocale, opts);
 }
 
+// Trasparenza OCR scontrino di trasferta (ricerca competitor 2026-09-19:
+// Expensify blocca la spesa a zero SENZA nessun errore visibile quando OCR
+// non legge data/totale — il difetto più lamentato dagli utenti reali). Ogni
+// campo letto va dichiarato con la sua confidenza, ogni campo mancante va
+// dichiarato come tale, mai un fallimento silenzioso né un dato indovinato
+// spacciato per certo. Vedi src/trips/receipt-ocr-transparency.js (puro).
+const OCR_CONF_COLOR = { alta: 'text-emerald-400', media: 'text-amber-400', bassa: 'text-[var(--on-surface-secondary)]' };
+function receiptOcrReportHtml(report, lang) {
+  if (!report) return '';
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const fieldLabel = (f) => tCh('tripOcrField_' + f, lang);
+  const foundLine = (f) => `<span class="inline-flex items-center gap-1 ${OCR_CONF_COLOR[f.confidence] || OCR_CONF_COLOR.bassa}"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>${esc(fieldLabel(f.field))}: <b>${esc(f.field === 'date' ? formatDataLocale(f.value) : f.value)}</b> (${esc(tCh('tripOcrConf_' + f.confidence, lang))})</span>`;
+  const missingLine = (name) => `<span class="inline-flex items-center gap-1 text-[var(--on-surface-secondary)] opacity-70"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>${esc(tCh('tripOcrMissing', lang, fieldLabel(name)))}</span>`;
+  const dateWarn = report.warnings.find(w => w.type === 'date-differs');
+  const currWarn = report.warnings.find(w => w.type === 'currency-mismatch');
+  return `<div class="p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] flex flex-col gap-1.5">
+    <div class="font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide text-[9px]">${esc(tCh('tripOcrReportTitle', lang, tCh('tripOcrSource_' + report.source, lang)))}</div>
+    <div class="flex flex-col gap-1">${report.found.map(foundLine).join('')}${report.missing.map(missingLine).join('')}</div>
+    ${!report.ok ? `<div class="text-rose-400 font-bold">${esc(tCh('tripOcrNoAmount', lang))}</div>` : ''}
+    ${dateWarn ? `<button type="button" data-trip-use-ocr-date="${esc(dateWarn.ocrDate)}" class="text-left text-[var(--primary)] font-bold underline underline-offset-2">${esc(tCh('tripOcrUseDate', lang, formatDataLocale(dateWarn.ocrDate)))}</button>` : ''}
+    ${currWarn ? `<div class="text-amber-400 font-bold">${esc(tCh('tripOcrCurrencyMismatch', lang, currWarn.receiptCurrency, currWarn.tripCurrency))}</div>` : ''}
+    ${report.rawText ? `<details><summary class="cursor-pointer text-[var(--on-surface-secondary)] underline underline-offset-2">${esc(tCh('tripOcrShowRaw', lang))}</summary><pre class="whitespace-pre-wrap break-words mt-1 text-[10px] text-[var(--on-surface-secondary)] max-h-24 overflow-y-auto">${esc(report.rawText)}</pre></details>` : ''}
+  </div>`;
+}
+
+// Selettore esplicito di lingua/alfabeto per l'OCR (vedi src/import/ocr-
+// languages.js): l'euristica automatica (Paese trasferta/lingua interfaccia)
+// non può indovinare uno scontrino in cirillico/arabo/CJK/thai/hindi — mai
+// un OCR sull'alfabeto sbagliato in silenzio, l'utente lo dichiara.
+function ocrLangPickerHtml(state, lang) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const active = NON_LATIN_OCR_LANGUAGES.find(l => l.code === state.ocrLangOverride);
+  const chip = (code, label, selected) => `<button type="button" data-ocrlang="${esc(code)}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${selected ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(label)}</button>`;
+  return `<div class="mb-2">
+    <button type="button" id="trip-ocrlang-toggle" class="text-[11px] font-bold text-[var(--primary)] underline underline-offset-2">${esc(active ? tCh('tripOcrLangActive', lang, tCh(active.labelKey, lang)) : tCh('tripOcrLangToggle', lang))}</button>
+    ${state.ocrLangPickerOpen ? `<div class="flex flex-wrap gap-1.5 mt-2">
+      ${chip('', tCh('tripOcrLangAuto', lang), !state.ocrLangOverride)}
+      ${NON_LATIN_OCR_LANGUAGES.map(l => chip(l.code, tCh(l.labelKey, lang), state.ocrLangOverride === l.code)).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+// Spese fuori dalla propria norma storica (src/trips/trip-anomaly.js) — MAI
+// un'accusa, un fatto statistico dichiarato: il revisore decide, la spesa
+// resta comunque esportabile/approvabile. Colore ambra (avviso), non rosso:
+// coerente con la stessa cautela già usata per policy_daily/duplicate_receipt.
+function tripAnomalyHtml(anomalies, lang) {
+  if (!anomalies?.length) return '';
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const righe = anomalies.map(a => `<li>${esc(a.tx.description || '—')}: <b>${esc(formatMoney(a.tx.amount, a.tx.currency || 'EUR'))}</b> (${esc(tCh('tripAnomalyUsual', lang, formatMoney(a.average, a.tx.currency || 'EUR')))})</li>`).join('');
+  return `<div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3 text-[11px]">
+    <div class="font-bold text-amber-400 mb-1">${esc(tCh('tripAnomalyTitle', lang))}</div>
+    <ul class="flex flex-col gap-1 list-disc pl-4">${righe}</ul>
+  </div>`;
+}
+
 window.openBusinessTrips = () => {
   const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -11088,6 +11471,25 @@ window.openBusinessTrips = () => {
       <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('tripListIntro', __uiLang))}</p>
       ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${esc(tCh('tripEmpty', __uiLang))}</p>`}
       <label class="task-field"><span>${tCh('tripNameLabel', __uiLang)}</span><input id="trip-newname" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('tripNameShortExample', __uiLang))}" name="trip-newname" /></label>
+      <!-- Due interruttori indipendenti, non un menu di Paesi: la trasferta
+           può andare ovunque nel mondo (il nome libero sopra lo copre già),
+           ciascuno attiva SOLO la cosa specifica che dichiara — mai un
+           elenco di Paesi "supportati" che farebbe credere più copertura di
+           quella reale (vedi trip-engine.js per l'avviso contanti IT,
+           trip-perdiem-rates.js per la diaria DE). Entrambi spenti di
+           default, mutuamente esclusivi (una trasferta è in un posto solo),
+           modificabili anche dopo dentro la trasferta. -->
+      <div class="flex flex-wrap gap-1.5 mb-1">
+        <button id="trip-newitaly-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2.5 rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)]">
+          <span class="w-4 h-4 rounded-md border-2 border-[var(--outline)] inline-flex items-center justify-center shrink-0"></span>
+          ${esc(tCh('tripItalyToggle', __uiLang))}
+        </button>
+        <button id="trip-newgermany-toggle" type="button" class="flex-1 flex items-center gap-2 text-[12px] font-bold px-3 py-2.5 rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)]">
+          <span class="w-4 h-4 rounded-md border-2 border-[var(--outline)] inline-flex items-center justify-center shrink-0"></span>
+          ${esc(tCh('tripGermanyToggle', __uiLang))}
+        </button>
+      </div>
+      <p id="trip-newcountry-hint" class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripItalyToggleHint', __uiLang))}</p>
       <button id="trip-new" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(tCh('tripNewBtn', __uiLang))}</button>
       ${requestedCompany ? `<p id="trip-company-status" role="status">${esc(companyTripCopy(__uiLang, 0))}</p>` : ''}
       <button id="trip-review-history" class="btn-action w-full py-3 rounded-xl">${esc(reviewHistoryCopy(__uiLang, 0))}</button>
@@ -11095,11 +11497,32 @@ window.openBusinessTrips = () => {
 
   document.querySelectorAll('[data-trip]').forEach(b => b.addEventListener('click', () => window.openBusinessTrip(b.dataset.trip)));
   $('#trip-review-history')?.addEventListener('click', () => window.openTripReviewHistory());
+  let nuovaTrasfertaPaese = null;
+  const bIT = $('#trip-newitaly-toggle'), bDE = $('#trip-newgermany-toggle'), hint = $('#trip-newcountry-hint');
+  const aggiornaToggleNuovoPaese = () => {
+    for (const [btn, code, hintKey] of [[bIT, 'IT', 'tripItalyToggleHint'], [bDE, 'DE', 'tripGermanyToggleHint']]) {
+      if (!btn) continue;
+      const attivo = nuovaTrasfertaPaese === code;
+      const check = btn.querySelector('span');
+      btn.classList.toggle('border-[var(--gold)]', attivo);
+      btn.classList.toggle('text-[var(--gold)]', attivo);
+      if (check) {
+        check.classList.toggle('border-[var(--gold)]', attivo);
+        check.classList.toggle('bg-[var(--gold)]', attivo);
+        check.innerHTML = attivo ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : '';
+      }
+      if (attivo && hint) hint.textContent = tCh(hintKey, __uiLang);
+    }
+    if (!nuovaTrasfertaPaese && hint) hint.textContent = tCh('tripItalyToggleHint', __uiLang);
+  };
+  bIT?.addEventListener('click', () => { nuovaTrasfertaPaese = nuovaTrasfertaPaese === 'IT' ? null : 'IT'; aggiornaToggleNuovoPaese(); });
+  bDE?.addEventListener('click', () => { nuovaTrasfertaPaese = nuovaTrasfertaPaese === 'DE' ? null : 'DE'; aggiornaToggleNuovoPaese(); });
   $('#trip-new')?.addEventListener('click', async () => {
     const name = $('#trip-newname')?.value?.trim();
     if (!name) { showToast(tCh('tripNameRequired', __uiLang), 'error'); return; }
     const button = $('#trip-new');
-    let t = createTrip({ name });
+    const extra = nuovaTrasfertaPaese === 'DE' ? { perDiemFull: TARIFFE_GERMANIA_2026.piena, perDiemReduced: TARIFFE_GERMANIA_2026.ridotta } : {};
+    let t = { ...createTrip({ name, country: nuovaTrasfertaPaese }), ...extra };
     if (requestedCompany) {
       button.disabled = true;
       const status = $('#trip-company-status');
@@ -11150,13 +11573,21 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, offerto: false, mealType: null, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, voiceBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
     const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
     const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
+    // Anomalie di importo (src/trips/trip-anomaly.js): confronto contro la
+    // PROPRIA media storica di trasferta, mai contro quella di altri — lo
+    // storico serve su TUTTE le trasferte della persona (altrimenti pochi
+    // punti nella sola trasferta aperta non darebbero mai un segnale
+    // statisticamente onesto), il risultato si mostra SOLO per le spese di
+    // QUESTA trasferta.
+    const tripAnomalies = detectTripAmountAnomalies(allTx.filter(tx => tx?.businessTripId))
+      .filter(a => a.tx.businessTripId === trip.id);
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
@@ -11248,11 +11679,27 @@ window.openBusinessTrip = (tripId) => {
       </div>` : `<div class="text-[10px] text-emerald-400 font-bold mt-1">${esc(tCh('tripPeriodNoGaps', __uiLang))}</div>`;
       // La diaria è un PLUS informativo: senza tariffe impostate non si mostra
       // un numero — mai un rimborso stimato su un dato che l'utente non ha dato.
-      const dia = (trip.perDiemFull > 0 && trip.perDiemReduced != null)
-        ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced })
-        : null;
+      // riduzionePasto segue il Paese della trasferta (RIDUZIONE_USA_2026 per
+      // gli USA, altrimenti il default tedesco di diariaSpettante) — mai la
+      // percentuale sbagliata applicata a dollari solo perché non passata.
+      // UK usa una formula diversa (diariaRegnoUnito, tre fasce orarie per
+      // giorno, non {piena,ridotta}) — vedi trip-period.js — ma torna la
+      // stessa forma {calcolabile,totale}, quindi rigaDiaria sotto non deve
+      // distinguere i due casi.
+      // AZIENDA (2026-09-18, bug architetturale reale segnalato dall'utente:
+      // "le quote le decidono altri uffici, non chi compila"): se la
+      // trasferta è legata a un'azienda, la SUA policy vince sempre — il
+      // Paese scelto dal dipendente non c'entra più, vedi il blocco più giù
+      // che nasconde del tutto i toggle Paese per una trasferta aziendale.
+      const dia = trip.companyPolicy
+        ? (trip.receiptPolicy?.perDiem ? diariaSpettante(trip, trip.receiptPolicy.perDiem) : null)
+        : trip.country === 'UK'
+          ? diariaRegnoUnito(trip, TARIFFE_REGNO_UNITO_2026)
+          : (trip.perDiemFull > 0 && trip.perDiemReduced != null)
+            ? diariaSpettante(trip, { piena: trip.perDiemFull, ridotta: trip.perDiemReduced, ...(trip.country === 'US' ? { riduzionePasto: RIDUZIONE_USA_2026 } : {}) })
+            : null;
       const rigaDiaria = dia?.calcolabile
-        ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${eur(dia.totale)}</span></div>`
+        ? `<div class="flex items-center justify-between text-[11px] mt-1.5 pt-1.5 border-t border-[var(--outline)]"><span class="text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodPerDiem', __uiLang))}</span><span class="font-mono font-bold">${esc(formatMoney(dia.totale, trip.receiptPolicy?.currency || 'EUR'))}</span></div>`
         : '';
       const outside = speseFuoriPeriodo(trip, expenses);
       return `<div class="text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('tripPeriodHours', __uiLang, p.ore))}</div>${righeBuchi}
@@ -11353,6 +11800,83 @@ window.openBusinessTrip = (tripId) => {
           ${['startTime', 'endTime'].includes(state.periodoCampoAperto) ? periodoOrarioPannelloHtml(trip, state.periodoCampoAperto) : ''}
           ${periodoInfoHtml}
         </div>
+        <!-- Toggle Paese (2026-09-14/15): la card "totale" gemella che stava
+             qui prima è stata sostituita dalla nuova sezione trip-summary
+             sopra (redesign del cantiere company, già mostra totale+
+             breakdown) — tenuto solo il toggle Italia/Germania, che non ha
+             equivalente altrove. -->
+        ${trip.companyPolicy ? `
+        <!-- Trasferta aziendale (2026-09-18, bug architetturale reale
+             segnalato dall'utente: "le quote le decidono altri uffici, non
+             chi compila"): niente toggle Paese, niente numero digitato dal
+             dipendente — SOLO ciò che l'azienda ha pubblicato nella sua
+             policy (trip.receiptPolicy.perDiem/mileage, propagati da
+             company-policy.js). Se l'azienda non ha impostato nulla, nessun
+             numero appare — mai un fallback al Paese/tariffa personale. -->
+        <div class="card p-3">
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>${esc(tCh('tripCompanyRatesTitle', __uiLang))}</div>
+          ${trip.receiptPolicy?.perDiem
+            ? `<p class="text-[12px]">${esc(tCh('tripCompanyPerDiemSet', __uiLang, formatMoney(trip.receiptPolicy.perDiem.piena, trip.receiptPolicy?.currency || 'EUR'), formatMoney(trip.receiptPolicy.perDiem.ridotta, trip.receiptPolicy?.currency || 'EUR')))}</p>`
+            : `<p class="text-[11px] text-[var(--on-surface-secondary)]">${esc(tCh('tripCompanyPerDiemNotSet', __uiLang))}</p>`}
+          ${trip.receiptPolicy?.mileage
+            ? `<p class="text-[12px] mt-1">${esc(tCh('tripCompanyMileageSet', __uiLang, formatMoney(trip.receiptPolicy.mileage.tariffa, trip.receiptPolicy?.currency || 'EUR'), trip.receiptPolicy.mileage.unita))}</p>`
+            : `<p class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${esc(tCh('tripCompanyMileageNotSet', __uiLang))}</p>`}
+        </div>
+        ` : `
+        <div class="card p-3">
+          <!-- Griglia 2×2 esplicita, non flex-wrap: con 4 Paesi il testo
+               andava a capo in modo illeggibile dentro ogni pulsante (bug
+               reale trovato dal vivo in Chrome, 2026-09-18) — stesso
+               principio già applicato al mapping export (griglia invece di
+               flex quando lo spazio per elemento è stretto). -->
+          <div class="grid grid-cols-2 gap-1.5">
+            <button id="trip-italy-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'IT' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'IT' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'IT' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripItalyToggle', __uiLang))}
+            </button>
+            <button id="trip-germany-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'DE' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'DE' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'DE' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripGermanyToggle', __uiLang))}
+            </button>
+            <!-- USA (2026-09-18): stessa formula giorniPieni/giorniRidotti già
+                 scritta per la Germania (trip-period.js), solo tariffe e
+                 riduzione pasto diverse (GSA CONUS standard, vedi
+                 trip-perdiem-rates.js) — nessuna modifica alla formula. -->
+            <button id="trip-usa-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'US' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'US' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'US' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripUsaToggle', __uiLang))}
+            </button>
+            <!-- Regno Unito (2026-09-18): formula diversa (diariaRegnoUnito,
+                 tre fasce per giorno) — nessun perDiemFull/perDiemReduced da
+                 impostare, i valori HMRC sono fissi e letti sempre da
+                 TARIFFE_REGNO_UNITO_2026 in base a trip.country, mai salvati
+                 sulla trasferta (a differenza di DE/US). -->
+            <button id="trip-uk-toggle" type="button" class="w-full flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'UK' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'UK' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'UK' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripUkToggle', __uiLang))}
+            </button>
+            <!-- "Altro Paese" (2026-09-18, richiesto esplicitamente: chi
+                 lavora in un'azienda italiana ma viaggia ovunque — Lussemburgo,
+                 Norvegia, India... — non deve restare senza nulla solo perché
+                 Momentum non ha ancora ricercato quel Paese specifico).
+                 Riusa la STESSA diariaSpettante di DE/US (span 2 colonne:
+                 è l'unica opzione dove l'utente digita i propri numeri, merita
+                 più risalto delle 4 scorciatoie sopra). -->
+            <button id="trip-custom-toggle" type="button" class="w-full col-span-2 flex items-center gap-2 text-[12px] font-bold px-3 py-2 rounded-xl border ${trip.country === 'ALTRO' ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+              <span class="w-4 h-4 rounded-md border-2 ${trip.country === 'ALTRO' ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${trip.country === 'ALTRO' ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+              ${esc(tCh('tripCustomToggle', __uiLang))}
+            </button>
+          </div>
+          <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${esc(trip.country === 'DE' ? tCh('tripGermanyToggleHint', __uiLang) : trip.country === 'US' ? tCh('tripUsaToggleHint', __uiLang) : trip.country === 'UK' ? tCh('tripUkToggleHint', __uiLang) : trip.country === 'ALTRO' ? tCh('tripCustomToggleHint', __uiLang) : tCh('tripItalyToggleHint', __uiLang))}</p>
+          ${trip.country === 'ALTRO' ? `
+          <div class="grid grid-cols-3 gap-2 mt-2" style="grid-template-columns:1fr 1fr 4.5rem">
+            <label class="task-field"><span>${esc(tCh('tripCustomFullLabel', __uiLang))}</span><input id="trip-custom-full" type="number" inputmode="decimal" value="${esc(trip.perDiemFull ?? '')}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-custom-full" /></label>
+            <label class="task-field"><span>${esc(tCh('tripCustomReducedLabel', __uiLang))}</span><input id="trip-custom-reduced" type="number" inputmode="decimal" value="${esc(trip.perDiemReduced ?? '')}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-custom-reduced" /></label>
+            <label class="task-field"><span>${esc(tCh('tripCustomCurrencyLabel', __uiLang))}</span><input id="trip-custom-currency" value="${esc(trip.receiptPolicy?.currency || '')}" maxlength="3" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px] uppercase" name="trip-custom-currency" /></label>
+          </div>
+          ${trip.receiptPolicy?.currency && !VALUTE_ISO4217.has(String(trip.receiptPolicy.currency).toUpperCase()) ? `<p class="text-[10px] text-amber-400 mt-1">${esc(tCh('tripCustomCurrencyInvalid', __uiLang))}</p>` : ''}` : ''}
+        </div>
+        `}
         ${expenses.length ? `<div class="card p-3"><div id="trip-rows" class="trip-in">${rows}</div></div>` : ''}
         ${offerti.length ? `<div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('tripOfferedSectionTitle', __uiLang))}</div>
@@ -11367,8 +11891,14 @@ window.openBusinessTrip = (tripId) => {
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
             <input id="trip-receipt" type="file" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf" class="hidden" name="trip-receipt" />
           </label>
+          ${(typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition)) ? `<button type="button" id="trip-voice-btn" ${state.voiceBusy ? 'disabled' : ''} class="w-full flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-2.5 mb-2 text-[12px] font-bold ${state.voiceBusy ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4"/></svg>
+            ${state.voiceBusy ? esc(tCh('voiceListening', __uiLang)) : esc(tCh('tripVoiceButton', __uiLang))}
+          </button>` : ''}
+          ${String(state.receiptDataUrl || '').startsWith('data:application/pdf') ? '' : ocrLangPickerHtml(state, __uiLang)}
           ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
+          ${receiptOcrReportHtml(state.ocrReport, __uiLang)}
           <div class="flex gap-2 mb-2">
             <input id="trip-amt" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
             <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
@@ -11399,6 +11929,75 @@ window.openBusinessTrip = (tripId) => {
           ${state.tripCategory === 'vitto' ? `
           <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripMealTypeLabel', __uiLang))}</div>
           <div class="flex flex-wrap gap-1.5 mb-2">${MEAL_SUBTYPES.map(mt => `<button data-tripmeal="${mt}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.mealType === mt ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('trip_meal_' + mt, __uiLang))}</button>`).join('')}</div>` : ''}
+          ${state.tripCategory === 'trasporto' ? `
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripTransportModeLabel', __uiLang))}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            <button data-triptransport="pubblico" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'pubblico' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportPublic', __uiLang))}</button>
+            <button data-triptransport="taxi_ncc" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'taxi_ncc' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportTaxi', __uiLang))}</button>
+            <!-- Auto propria (2026-09-18): gap reale trovato — Momentum non
+                 aveva NESSUNA voce per l'uso dell'auto propria, una delle
+                 spese di trasferta più comuni. Calcolatore separato sotto
+                 (src/trips/trip-mileage.js), mai un importo scritto qui
+                 senza che l'utente lo confermi. -->
+            <button data-triptransport="auto_propria" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.transportMode === 'auto_propria' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripTransportOwnCar', __uiLang))}</button>
+          </div>
+          ${state.transportMode === 'auto_propria' ? (() => {
+            // Trasferta aziendale senza tariffa km pubblicata: niente input
+            // personalizzato, mai il dipendente che si inventa un numero —
+            // stesso principio già applicato alla diaria sopra.
+            const mileageBloccato = trip.companyPolicy && !trip.receiptPolicy?.mileage;
+            const tariffaPaese = (trip.companyPolicy && trip.receiptPolicy?.mileage) || (!trip.companyPolicy ? TARIFFA_KM_PER_PAESE[trip.country] : null) || null;
+            if (mileageBloccato) return `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${esc(tCh('tripKmCompanyNotSet', __uiLang))}</p>`;
+            const distanza = parseFloat(String(state.kmDistanza).replace(',', '.'));
+            const tariffaPersonalizzata = parseFloat(String(state.kmTariffaPersonalizzata).replace(',', '.'));
+            const tariffaAttiva = tariffaPaese ? tariffaPaese.tariffa : (Number.isFinite(tariffaPersonalizzata) && tariffaPersonalizzata > 0 ? tariffaPersonalizzata : null);
+            const unitaAttiva = tariffaPaese ? tariffaPaese.unita : state.kmUnita;
+            const importo = rimborsoChilometrico(distanza, tariffaAttiva);
+            return `
+            <div class="rounded-xl border border-[var(--outline)] p-2.5 mb-2">
+              <div class="flex gap-2 items-end">
+                <label class="task-field flex-1"><span>${esc(tCh(unitaAttiva === 'mi' ? 'tripKmDistanceLabelMi' : 'tripKmDistanceLabelKm', __uiLang))}</span><input id="trip-km-distanza" type="number" inputmode="decimal" value="${esc(state.kmDistanza)}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-km-distanza" /></label>
+                ${!tariffaPaese ? `
+                <label class="task-field w-20 shrink-0"><span>${esc(tCh('tripKmUnitLabel', __uiLang))}</span>
+                  <select id="trip-km-unita" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]">
+                    <option value="km" ${state.kmUnita === 'km' ? 'selected' : ''}>km</option>
+                    <option value="mi" ${state.kmUnita === 'mi' ? 'selected' : ''}>mi</option>
+                  </select>
+                </label>` : ''}
+              </div>
+              ${tariffaPaese
+                ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${esc(tCh('tripKmRateKnown', __uiLang, formatMoney(tariffaPaese.tariffa, trip.receiptPolicy?.currency || 'EUR'), unitaAttiva))}</p>`
+                : `<label class="task-field mt-1.5"><span>${esc(tCh('tripKmRateCustomLabel', __uiLang))}</span><input id="trip-km-tariffa" type="number" inputmode="decimal" value="${esc(state.kmTariffaPersonalizzata)}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-km-tariffa" /></label>`}
+              ${importo != null ? `
+              <div class="flex items-center justify-between mt-2 pt-2 border-t border-[var(--outline)]">
+                <span class="text-[12px] font-bold">${esc(formatMoney(importo, trip.receiptPolicy?.currency || 'EUR'))}</span>
+                <button type="button" id="trip-km-usa-importo" class="text-[11px] font-bold text-[var(--primary)] underline">${esc(tCh('tripKmUseAmountBtn', __uiLang))}</button>
+              </div>` : ''}
+            </div>`;
+          })() : ''}` : ''}
+          <!-- Metodo di pagamento — serve SOLO all'avviso di tracciabilità
+               (expenseNeedsTraceabilityWarning, trip-engine.js), mai a un
+               calcolo diverso: chi non lo dichiara semplicemente non riceve
+               l'avviso (mai un dato inventato, vedi commento nel motore). -->
+          <div class="text-[10px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('tripPaymentMethodLabel', __uiLang))}</div>
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            <button data-trippay="contanti" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.paymentMethod === 'contanti' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripPaymentCash', __uiLang))}</button>
+            <button data-trippay="carta" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.paymentMethod === 'carta' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripPaymentCard', __uiLang))}</button>
+          </div>
+          ${expenseNeedsTraceabilityWarning({ paymentMethod: state.paymentMethod, amount: parseFloat(String(state.amount).replace(',', '.')) || 0, tripCategory: state.tripCategory, transportMode: state.transportMode }, trip) ? `
+          <div class="flex items-start gap-2 text-[11px] font-bold px-3 py-2.5 rounded-xl border border-[color-mix(in_srgb,var(--red)_40%,transparent)] text-[var(--red)] bg-[color-mix(in_srgb,var(--red)_10%,transparent)] mb-2">
+            <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+            <span>${esc(tCh('tripTraceabilityWarning', __uiLang))}</span>
+          </div>` : ''}
+          <!-- Regime fiscale attivo (VaultDAO.state.taxActiveCountry), non il
+               Paese della trasferta: la regola spagnola vale per chi
+               dichiara in Spagna, ovunque vada — vedi commento in
+               expenseNeedsSpainCashWarning (trip-engine.js). -->
+          ${expenseNeedsSpainCashWarning({ paymentMethod: state.paymentMethod, tripCategory: state.tripCategory }, VaultDAO.state.taxActiveCountry) ? `
+          <div class="flex items-start gap-2 text-[11px] font-bold px-3 py-2.5 rounded-xl border border-[color-mix(in_srgb,var(--red)_40%,transparent)] text-[var(--red)] bg-[color-mix(in_srgb,var(--red)_10%,transparent)] mb-2">
+            <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+            <span>${esc(tCh('tripSpainCashWarning', __uiLang))}</span>
+          </div>` : ''}
           <!-- "Offerto" — ricerca reale su policy di trasferta standard
                ("meals provided"): quando paga un cliente o l'azienda stessa
                invece del dipendente, la spesa va dichiarata ma MAI
@@ -11419,6 +12018,8 @@ window.openBusinessTrip = (tripId) => {
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
+        <button onclick="window.openCompanyExportMapping('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyExportBtn', __uiLang))}</button>
+        <button onclick="window.openCardReconciliation('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileBtn', __uiLang))}</button>
         <details class="trip-company">
           <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
           <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
@@ -11441,6 +12042,7 @@ window.openBusinessTrip = (tripId) => {
         <div class="trip-company">
           <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
           <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
+          ${tripAnomalyHtml(tripAnomalies, __uiLang)}
           <section id="trip-preflight" tabindex="-1" class="trip-preflight">
             <h4>${esc(tripReadinessCopy(__uiLang, 0))}</h4>
             <p>${exportChecks.blockingCount ? esc(tripReadinessCopy(__uiLang, 1)) + ': ' + exportChecks.blockingCount : esc(tripReadinessCopy(__uiLang, 3))}</p>
@@ -11470,8 +12072,8 @@ window.openBusinessTrip = (tripId) => {
       $('#trip-period-panel')?.scrollIntoView({ block: 'start', behavior: 'instant' });
       document.querySelector('[data-periodopill="startDate"]')?.focus({ preventScroll: true });
     });
-    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; e.target.removeAttribute('aria-invalid'); });
-    $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; state.amountFromOcr = false; e.target.removeAttribute('aria-invalid'); });
+    $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; state.descriptionFromOcr = false; });
     // Selettore data di Momentum: apre/chiude il calendario disegnato.
     // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
     // il campo sembrava rotto, ed era la segnalazione da cui è nato tutto.)
@@ -11537,14 +12139,109 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-desc')?.addEventListener('change', suggerisciCategoriaTrip);
     $('#trip-amt')?.addEventListener('change', suggerisciCategoriaTrip);
     document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
+    document.querySelectorAll('[data-triptransport]').forEach(b => b.addEventListener('click', () => { state.transportMode = state.transportMode === b.dataset.triptransport ? null : b.dataset.triptransport; render(); }));
+    // Calcolatore chilometrico: `change` non `input` — un render() completo
+    // a ogni tasto chiuderebbe la tastiera mobile (stesso bug già
+    // documentato per il modulo debiti/consolidamento).
+    $('#trip-km-distanza')?.addEventListener('change', (e) => { state.kmDistanza = e.target.value; render(); });
+    $('#trip-km-unita')?.addEventListener('change', (e) => { state.kmUnita = e.target.value; render(); });
+    $('#trip-km-tariffa')?.addEventListener('change', (e) => { state.kmTariffaPersonalizzata = e.target.value; render(); });
+    // "Usa questo importo": mai una scrittura automatica silenziosa in
+    // state.amount — un tocco esplicito, coerente col principio del
+    // progetto (nessun numero calcolato che appare senza conferma).
+    $('#trip-km-usa-importo')?.addEventListener('click', () => {
+      const tariffaPaese = (trip.companyPolicy && trip.receiptPolicy?.mileage) || (!trip.companyPolicy ? TARIFFA_KM_PER_PAESE[trip.country] : null) || null;
+      const distanza = parseFloat(String(state.kmDistanza).replace(',', '.'));
+      const tariffaPersonalizzata = parseFloat(String(state.kmTariffaPersonalizzata).replace(',', '.'));
+      const tariffaAttiva = tariffaPaese ? tariffaPaese.tariffa : (Number.isFinite(tariffaPersonalizzata) && tariffaPersonalizzata > 0 ? tariffaPersonalizzata : null);
+      const unitaAttiva = tariffaPaese ? tariffaPaese.unita : state.kmUnita;
+      const importo = rimborsoChilometrico(distanza, tariffaAttiva);
+      if (importo == null) return;
+      state.amount = String(importo).replace('.', ',');
+      if (!state.description.trim()) state.description = tCh('tripKmAutoDescription', __uiLang, distanza, unitaAttiva);
+      render();
+    });
+    document.querySelectorAll('[data-trippay]').forEach(b => b.addEventListener('click', () => { state.paymentMethod = state.paymentMethod === b.dataset.trippay ? null : b.dataset.trippay; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
     $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
-    $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; render(); });
+    $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; state.ocrReport = null; render(); });
+    $('[data-trip-use-ocr-date]')?.addEventListener('click', (e) => { state.data = e.currentTarget.dataset.tripUseOcrDate; render(); });
+    $('#trip-ocrlang-toggle')?.addEventListener('click', () => { state.ocrLangPickerOpen = !state.ocrLangPickerOpen; render(); });
+    document.querySelectorAll('[data-ocrlang]').forEach(b => b.addEventListener('click', async () => {
+      if (state.ocrBusy) return;
+      state.ocrLangOverride = b.dataset.ocrlang || null;
+      state.ocrLangPickerOpen = false;
+      // Scontrino-immagine già allegato: ri-leggo con la lingua scelta SOLO se
+      // importo/descrizione sono ancora quelli letti dall'OCR (mai un rilancio
+      // che scavalca una correzione fatta a mano dall'utente).
+      if (state.receiptDataUrl && !String(state.receiptDataUrl).startsWith('data:application/pdf')) {
+        state.ocrBusy = true; render();
+        try {
+          const blob = await (await fetch(state.receiptDataUrl)).blob();
+          const parsed = await scanScreenshot(blob, { tripCountry: trip.country, uiLang: __uiLang, override: state.ocrLangOverride });
+          if (parsed?.amount > 0 && (state.amountFromOcr || !state.amount)) { state.amount = String(parsed.amount); state.amountFromOcr = true; }
+          if (parsed?.description && (state.descriptionFromOcr || !state.description)) { state.description = parsed.description; state.descriptionFromOcr = true; }
+          state.ocrReport = buildReceiptOcrReport(parsed, { tripCurrency: trip.receiptPolicy?.currency || 'EUR', source: 'image', currentDate: state.data });
+          try {
+            const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
+            const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
+            if (pred?.cat) { state.catReale = pred.cat; if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(pred.cat, state.description); }
+          } catch (_) {}
+        } catch (_) { /* rilettura fallita: i valori precedenti restano, mai persi */ }
+        state.ocrBusy = false;
+      }
+      render();
+    }));
+    // Voice-to-expense: riusa lo stesso motore di comprensione già in
+    // produzione per le spese personali (VoiceParser, src/voice/voice.js) —
+    // nessun secondo interprete scritto da zero. A differenza del microfono
+    // globale (continuous, sempre in ascolto, gestisce anche promemoria/
+    // split/domande), qui basta UNA frase singola con un solo esito: la
+    // spesa da inserire in QUESTA trasferta, mai un altro intento.
+    $('#trip-voice-btn')?.addEventListener('click', () => {
+      if (state.voiceBusy) return;
+      const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRec) return; // bottone comunque non renderizzato in questo caso, difesa in profondità
+      const rec = new SpeechRec();
+      rec.continuous = false;
+      rec.interimResults = false;
+      const lingua = linguaVoceAttiva();
+      rec.lang = SPEECH_LOCALE[lingua] || 'it-IT';
+      state.voiceBusy = true; render();
+      rec.onresult = (e) => {
+        const testo = e.results?.[0]?.[0]?.transcript || '';
+        // Stesso motore delle spese personali, ma qui interessa SOLO il primo
+        // intento di tipo spesa — promemoria/split/domande non hanno senso
+        // dentro il form di una singola spesa di trasferta, si ignorano.
+        const risultati = VoiceParser.parse(testo) || [];
+        const spesa = risultati.find(r => r.intent === 'transaction');
+        if (!spesa || spesa.amountMissing) {
+          showToast(tCh('tripVoiceNoTransaction', __uiLang), 'error');
+          return;
+        }
+        if (!state.amount) state.amount = String(spesa.amount);
+        if (!state.description) state.description = spesa.description;
+        if (!state.tripCategory) state.tripCategory = categoriaTripDaReale(spesa.category, spesa.description);
+        state.catReale = spesa.category;
+        showToast(tCh('tripVoiceFilled', __uiLang, spesa.description, formatMoney(spesa.amount, trip.receiptPolicy?.currency || 'EUR')), 'success');
+      };
+      rec.onerror = (e) => {
+        const MESSAGGI = {
+          'not-allowed': tCh('voiceErrNotAllowed', lingua), 'service-not-allowed': tCh('voiceErrNotAllowed', lingua),
+          'no-speech': tCh('voiceErrNoSpeech', lingua), 'audio-capture': tCh('voiceErrNoMic', lingua),
+          'network': tCh('voiceErrNetwork', lingua), 'aborted': null,
+        };
+        if (MESSAGGI[e.error]) showToast(MESSAGGI[e.error], 'error');
+      };
+      rec.onend = () => { state.voiceBusy = false; render(); };
+      try { rec.start(); } catch (_) { state.voiceBusy = false; render(); }
+    });
     $('#trip-receipt')?.addEventListener('change', (e) => {
       const f = e.target.files?.[0];
       if (!f) return;
       if (f.size > 4 * 1024 * 1024) { showToast(tCh('tripReceiptTooBig', __uiLang), 'error'); return; }
-      state.ocrBusy = true; render();
+      state.ocrBusy = true; state.ocrReport = null; render();
+      const tripCurrency = trip.receiptPolicy?.currency || 'EUR';
       const reader = new FileReader();
       reader.onload = async () => {
         if (!isReviewAttachment(reader.result)) { state.ocrBusy = false; render(); showToast(tripAttachmentCopy(__uiLang, 0), 'error'); return; }
@@ -11558,8 +12255,13 @@ window.openBusinessTrip = (tripId) => {
         // "conferma"/fattura oltre alle tabelle a colonne — nessun
         // secondo parser PDF scritto da zero. Se il PDF è una scansione
         // pura (raro per una fattura ricevuta via email) non c'è testo da
-        // leggere: l'utente compila a mano, mai un blocco.
+        // leggere: l'utente compila a mano, mai un blocco — MA lo dichiara
+        // (report onesto), non lascia il vuoto senza spiegazione (bug
+        // Expensify #101420 trovato in ricerca: spesa bloccata a zero senza
+        // nessun errore visibile).
         if (f.type === 'application/pdf') {
+          let txs = [];
+          let currency = null;
           try {
             if (typeof pdfjsLib !== 'undefined') {
               const buf = await f.arrayBuffer();
@@ -11567,13 +12269,18 @@ window.openBusinessTrip = (tripId) => {
               const page = await pdf.getPage(1);
               const tc = await page.getTextContent();
               const items = tc.items.map(i => ({ text: i.str, x: i.transform[4], y: i.transform[5], width: i.width }));
-              const txs = extractTransactionsFromItems(items);
+              txs = extractTransactionsFromItems(items);
+              currency = detectCurrency(items.map(i => i.text).join(' '));
               if (txs.length) {
-                if (txs[0].amount > 0 && !state.amount) state.amount = String(txs[0].amount);
-                if (txs[0].description && !state.description) state.description = txs[0].description;
+                if (txs[0].amount > 0 && !state.amount) { state.amount = String(txs[0].amount); state.amountFromOcr = true; }
+                if (txs[0].description && !state.description) { state.description = txs[0].description; state.descriptionFromOcr = true; }
               }
             }
           } catch (_) { /* PDF scansionato o non riconosciuto: l'utente compila a mano, mai un blocco */ }
+          state.ocrReport = buildReceiptOcrReport(
+            { ...(txs[0] || {}), currency },
+            { tripCurrency, source: 'pdf', currentDate: state.data }
+          );
           try {
             const amt = parseFloat(String(state.amount).replace(',', '.')) || 0;
             const pred = window.momentumOrchestrator ? window.momentumOrchestrator.classify(state.description, amt, new Date()) : NeuralNexus.predict(state.description, amt, new Date());
@@ -11582,13 +12289,19 @@ window.openBusinessTrip = (tripId) => {
           state.ocrBusy = false; render(); return;
         }
         // OCR reale (Tesseract, già in uso per l'import screenshot) legge
-        // importo/descrizione dallo scontrino — SOLO un suggerimento, mai
-        // salvato senza conferma: l'utente vede e corregge prima di salvare.
+        // importo/descrizione/data/valuta dallo scontrino — SOLO un
+        // suggerimento, mai salvato senza conferma: l'utente vede e corregge
+        // prima di salvare. Lingua di lettura scelta sul Paese della
+        // trasferta se noto (vedi src/import/ocr-languages.js): uno
+        // scontrino tedesco letto con 'ita+eng' fisso perdeva accenti e
+        // vocabolario locale, in silenzio.
+        let parsed = null;
         try {
-          const parsed = await scanScreenshot(f);
-          if (parsed?.amount > 0 && !state.amount) state.amount = String(parsed.amount);
-          if (parsed?.description && !state.description) state.description = parsed.description;
+          parsed = await scanScreenshot(f, { tripCountry: trip.country, uiLang: __uiLang, override: state.ocrLangOverride });
         } catch (_) { /* OCR non disponibile o scontrino illeggibile: l'utente compila a mano, mai un blocco */ }
+        if (parsed?.amount > 0 && !state.amount) { state.amount = String(parsed.amount); state.amountFromOcr = true; }
+        if (parsed?.description && !state.description) { state.description = parsed.description; state.descriptionFromOcr = true; }
+        state.ocrReport = buildReceiptOcrReport(parsed, { tripCurrency, source: 'image', currentDate: state.data });
         // Categoria REALE proposta dall'ensemble proprietario di Momentum
         // (lo stesso di ogni altra spesa, mai un modello a parte) — mappata
         // sulla macro-voce standard di trasferta.
@@ -11604,14 +12317,14 @@ window.openBusinessTrip = (tripId) => {
       reader.readAsDataURL(f);
     });
     const resetEdit = () => {
-      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', receiptDataUrl: null, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
       render();
     };
     $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
     document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
       const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
       if (!tx) return;
-      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, mealType: tx.mealType || null, offerto: false });
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, mealType: tx.mealType || null, offerto: false });
       render();
       $('#trip-amt')?.focus();
     }));
@@ -11658,7 +12371,7 @@ window.openBusinessTrip = (tripId) => {
           const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
           persistTrip(nuovoTrip);
         } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
-        state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.offerto = false; state.mealType = null;
+        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
         render();
         return;
       }
@@ -11683,6 +12396,8 @@ window.openBusinessTrip = (tripId) => {
         type: 'uscita', amount: Math.round((amt + Number.EPSILON) * 100) / 100, category: catReale, description: state.description,
         date: oggi, businessTripId: trip.id, tripCategory: state.tripCategory,
         ...(state.mealType ? { mealType: state.mealType } : {}),
+        ...(state.paymentMethod ? { paymentMethod: state.paymentMethod } : {}),
+        ...(state.transportMode ? { transportMode: state.transportMode } : {}),
         ...(state.receiptDataUrl ? { receiptImage: state.receiptDataUrl } : {}),
       };
       // Bug reale trovato dal vivo TESTANDO "duplica spesa": senza restringere
@@ -11698,7 +12413,7 @@ window.openBusinessTrip = (tripId) => {
       VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
       try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
       VaultDAO.save();
-      state.amount = ''; state.description = ''; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.offerto = false; state.mealType = null;
+      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
       // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
       // incidere sul budget), ma la Dashboard sottostante restava con lo
       // snapshot di quando il modale si era aperto — chiudendo il modale
@@ -11726,11 +12441,18 @@ window.openBusinessTrip = (tripId) => {
       state.editingId = null; state.editingDigest = '';
       state.amount = String(orig.amount);
       state.description = orig.description || '';
+      state.amountFromOcr = false;
+      state.descriptionFromOcr = false;
       state.tripCategory = TRIP_CATEGORIES.includes(orig.tripCategory) ? orig.tripCategory : null;
       state.tripCategoryManuale = true;
       state.catReale = orig.category || null;
       state.mealType = MEAL_SUBTYPES.includes(orig.mealType) ? orig.mealType : null;
+      state.paymentMethod = orig.paymentMethod === 'contanti' || orig.paymentMethod === 'carta' ? orig.paymentMethod : null;
+      state.transportMode = orig.transportMode === 'pubblico' || orig.transportMode === 'taxi_ncc' ? orig.transportMode : null;
       state.receiptDataUrl = null;
+      state.ocrReport = null;
+      state.ocrLangOverride = null;
+      state.ocrLangPickerOpen = false;
       state.offerto = false;
       showToast(tCh('tripDuplicated', __uiLang), 'success');
       render();
@@ -11784,6 +12506,83 @@ window.openBusinessTrip = (tripId) => {
     // Periodo: pillole DATA/ORA di Momentum (non più input nativi). Ogni
     // scelta salva subito, senza un pulsante "conferma" separato.
     const salvaCampoPeriodo = (campo, valore) => { persistTrip(touchTrip({ ...trip, [campo]: valore })); };
+    // Selezionare un Paese pulisce sempre le tariffe diaria precedenti
+    // (mai una tariffa tedesca che resta agganciata a una trasferta ormai
+    // segnata come italiana, o viceversa): solo la Germania oggi ha una
+    // tariffa nota, l'Italia non ne imposta nessuna (l'avviso contanti non
+    // c'entra con la diaria).
+    // Le tre valute-Paese si escludono a vicenda esplicitamente: passare da
+    // USA a Germania senza toccare receiptPolicy.currency lascerebbe la
+    // diaria tedesca etichettata in dollari (bug reale trovato dal vivo in
+    // Chrome, 2026-09-18) — ogni toggle imposta SEMPRE la propria valuta,
+    // mai solo quando si attiva, altrimenti resta agganciata a quella del
+    // Paese precedente.
+    $('#trip-italy-toggle')?.addEventListener('click', () => {
+      const nuovo = trip.country === 'IT' ? null : 'IT';
+      persistTrip(touchTrip({ ...trip, country: nuovo, perDiemFull: null, perDiemReduced: null, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: 'EUR' } }));
+      render();
+    });
+    $('#trip-germany-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'DE';
+      persistTrip(touchTrip({ ...trip, country: attivare ? 'DE' : null, perDiemFull: attivare ? TARIFFE_GERMANIA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_GERMANIA_2026.ridotta : null, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: 'EUR' } }));
+      render();
+    });
+    // Le tariffe GSA sono in USD: mostrarle etichettate "€" sarebbe disonesto
+    // quanto il numero sbagliato. receiptPolicy.currency esisteva già (serve
+    // anche a inspectTripArchive per il confronto valuta), non un campo nuovo.
+    $('#trip-usa-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'US';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'US' : null,
+        perDiemFull: attivare ? TARIFFE_USA_2026.piena : null, perDiemReduced: attivare ? TARIFFE_USA_2026.ridotta : null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'USD' : 'EUR' },
+      }));
+      render();
+    });
+    // UK: nessun perDiemFull/perDiemReduced (la formula HMRC non li usa,
+    // vedi diariaRegnoUnito) — solo country+valuta, gli importi restano
+    // sempre TARIFFE_REGNO_UNITO_2026 letta al volo in periodoInfoHtml.
+    $('#trip-uk-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'UK';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'UK' : null, perDiemFull: null, perDiemReduced: null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? 'GBP' : 'EUR' },
+      }));
+      render();
+    });
+    // "Altro Paese": riusa perDiemFull/perDiemReduced esattamente come
+    // DE/US (diariaSpettante non distingue una tariffa nota da una
+    // digitata dall'utente), ma qui i NUMERI li fornisce l'utente — mai
+    // un valore precompilato che sembri "ufficiale" quando non lo è.
+    // `change` (non `input`): aggiornare a ogni tasto richiederebbe un
+    // render() completo che chiude la tastiera mobile (stesso bug già
+    // documentato per il modulo debiti) — qui basta aggiornare quando si
+    // esce dal campo, la diaria non è qualcosa che si osserva mentre si
+    // digita cifra per cifra.
+    $('#trip-custom-toggle')?.addEventListener('click', () => {
+      const attivare = trip.country !== 'ALTRO';
+      persistTrip(touchTrip({
+        ...trip, country: attivare ? 'ALTRO' : null,
+        perDiemFull: attivare ? trip.perDiemFull : null, perDiemReduced: attivare ? trip.perDiemReduced : null,
+        receiptPolicy: { ...(trip.receiptPolicy || {}), currency: attivare ? (trip.receiptPolicy?.currency || 'EUR') : 'EUR' },
+      }));
+      render();
+    });
+    $('#trip-custom-full')?.addEventListener('change', (e) => {
+      const v = parseFloat(String(e.target.value).replace(',', '.'));
+      persistTrip(touchTrip({ ...trip, perDiemFull: Number.isFinite(v) && v > 0 ? v : null }));
+      render();
+    });
+    $('#trip-custom-reduced')?.addEventListener('change', (e) => {
+      const v = parseFloat(String(e.target.value).replace(',', '.'));
+      persistTrip(touchTrip({ ...trip, perDiemReduced: Number.isFinite(v) && v >= 0 ? v : null }));
+      render();
+    });
+    $('#trip-custom-currency')?.addEventListener('change', (e) => {
+      const code = String(e.target.value).trim().toUpperCase().slice(0, 3);
+      persistTrip(touchTrip({ ...trip, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: code || 'EUR' } }));
+      render();
+    });
     document.querySelectorAll('[data-periodopill]').forEach(b => b.addEventListener('click', () => {
       const campo = b.dataset.periodopill;
       state.periodoCampoAperto = state.periodoCampoAperto === campo ? null : campo;
@@ -11976,7 +12775,7 @@ window.exportTripArchive = (tripId, expectedSnapshot) => {
 window.exportTripCsv = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
-  const { expenses, totale, offerti, offertiTotale, numeroGiustificativiMancanti } = exportTripData(trip, allTransactionsFlat());
+  const { expenses, totale, offerti, offertiTotale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna } = exportTripData(trip, allTransactionsFlat(), { taxActiveCountry: VaultDAO.state.taxActiveCountry });
   if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const etichettaVoce = (e) => e.mealType ? `${tCh('trip_' + e.categoria, __uiLang)} · ${tCh('trip_meal_' + e.mealType, __uiLang)}` : tCh('trip_' + e.categoria, __uiLang);
   // Colonna "giustificativo": il problema reale non è solo del dipendente
@@ -11990,6 +12789,16 @@ window.exportTripCsv = (tripId) => {
   // rende visibile SUBITO, prima ancora di aprire la tabella riga per riga.
   if (numeroGiustificativiMancanti > 0) {
     righe.push([tCh('tripMissingReceiptsSummary', __uiLang, numeroGiustificativiMancanti)]);
+    righe.push([]);
+  }
+  // Stesso principio, per l'avviso di tracciabilità (Circolare 15/E) —
+  // conseguenze fiscali reali, non solo un giustificativo mancante.
+  if (numeroAvvisiTracciabilita > 0) {
+    righe.push([tCh('tripTraceabilitySummary', __uiLang, numeroAvvisiTracciabilita)]);
+    righe.push([]);
+  }
+  if (numeroAvvisiSpagna > 0) {
+    righe.push([tCh('tripSpainCashSummary', __uiLang, numeroAvvisiSpagna)]);
     righe.push([]);
   }
   righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
@@ -12012,6 +12821,179 @@ window.exportTripCsv = (tripId) => {
   link.click();
   URL.revokeObjectURL(link.href);
   showToast(tCh('tripExportDone', __uiLang), 'success');
+};
+
+// Export mappato verso il sistema aziendale — punto 3 di
+// docs/trip-market-and-interoperability-2026-09-13.md ("Primo collegamento
+// verificabile": anteprima, errori per riga, mapping salvato, nessuna
+// perdita silenziosa di campi). Generico per qualunque Paese/gestionale per
+// costruzione (src/trips/company-export-mapping.js): qui non c'è nessuna
+// regola fiscale/normativa, solo la corrispondenza campo→colonna che
+// l'utente sceglie una volta e riusa. Resta un export LOCALE (Blob +
+// download), nessuna credenziale, nessun upload automatico — quello è il
+// connettore autorizzato (punto 4 dello stesso documento), non questo.
+// Mappatura SALVATA in VaultDAO.state.companyExportMapping: un profilo
+// condiviso fra tutte le trasferte (un'azienda ha un solo formato
+// d'importazione), non uno diverso per ogni trasferta.
+const CAMPO_EXPORT_LABEL_KEY = {
+  localId: 'companyExportFieldLocalId', date: 'vaultExportCsvColDate', category: 'tripCsvColCategory',
+  mealType: 'companyExportFieldMealType', description: 'vaultExportCsvColDesc', amount: 'vaultExportCsvColAmount',
+  currency: 'companyExportFieldCurrency', attachmentName: 'companyExportFieldAttachment',
+  revisionFlag: 'companyExportFieldRevision', provenance: 'companyExportFieldProvenance',
+};
+window.openCompanyExportMapping = (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const records = tripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
+  if (!records.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : defaultMapping();
+  // Un salvataggio precedente potrebbe non coprire un campo aggiunto dopo:
+  // mai un crash su una chiave mancante, retrocompatibile per costruzione.
+  for (const f of MOMENTUM_EXPORT_FIELDS) if (!mapping[f]) mapping[f] = { column: '', required: false };
+
+  const calcolaEsito = () => {
+    const preview = buildMappedExportPreview(records, mapping);
+    const errRighe = preview.mappingErrors.map(e => {
+      const campoLbl = tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang);
+      return `<p class="text-[11px] text-amber-400 leading-snug">${esc(e.code === 'missing_column' ? tCh('companyExportMappingErrorMissing', __uiLang, campoLbl) : tCh('companyExportMappingErrorDuplicate', __uiLang, e.column))}</p>`;
+    }).join('');
+    // Anteprima capata alle prime 50 righe per non appesantire il DOM su una
+    // trasferta lunga — l'export scaricato copre invece SEMPRE tutte le righe pronte.
+    const righeTabella = preview.rows.slice(0, 50).map(r => `
+      <div class="flex flex-col gap-0.5 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0 ${r.errors.length ? 'opacity-70' : ''}">
+        <div class="flex items-center justify-between gap-2">
+          <span class="min-w-0 truncate">${esc(r.record.date || '—')} · ${esc(r.record.description || '')}</span>
+          <span class="text-[var(--on-surface-secondary)] shrink-0">${Number.isFinite(r.record.amount) ? r.record.amount.toFixed(2) : '—'}</span>
+        </div>
+        ${r.errors.map(e => `<span class="text-[10.5px] text-amber-400">${esc(tCh('companyExportRowErrorMissing', __uiLang, tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang)))}</span>`).join('')}
+      </div>`).join('');
+    return `
+      <div class="card p-3">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('companyExportPreviewTitle', __uiLang)}</div>
+        ${errRighe}
+        <p class="text-[12px] font-bold mt-1">${esc(tCh('companyExportRowsReady', __uiLang, preview.readyCount))} · ${esc(tCh('companyExportRowsError', __uiLang, preview.errorCount))}</p>
+        ${righeTabella}
+      </div>`;
+  };
+  const aggiornaEsito = () => { const el = document.getElementById('cem-esito'); if (el) el.innerHTML = calcolaEsito(); };
+
+  // Riga a griglia esplicita, non flex: la regola globale `.task-editor
+  // input{width:100%}` (financial-workspace.css) ha la STESSA specificità di
+  // `.w-32` e vince per ordine del CSS — in un flex avrebbe schiacciato
+  // l'etichetta a larghezza zero (bug reale trovato dal vivo in Chrome).
+  // Con una colonna di griglia a larghezza fissa, width:100% dell'input
+  // resta comunque contenuto nella colonna — stesso principio già in uso
+  // per .task-field-pair.
+  const campiForm = MOMENTUM_EXPORT_FIELDS.map(f => `
+    <div class="grid items-center gap-2 py-1.5 border-b border-[var(--outline)] last:border-0" style="grid-template-columns:1fr 8rem auto">
+      <span class="text-[12.5px] font-bold min-w-0 truncate">${esc(tCh(CAMPO_EXPORT_LABEL_KEY[f], __uiLang))}</span>
+      <input data-cem-col="${f}" value="${esc(mapping[f].column)}" placeholder="${esc(tCh('companyExportColumnPlaceholder', __uiLang))}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[11.5px]" name="cem-col-${f}" />
+      <label class="flex items-center gap-1" title="${esc(tCh('companyExportRequiredLabel', __uiLang))}">
+        <input data-cem-req="${f}" type="checkbox" ${mapping[f].required ? 'checked' : ''} class="w-3.5 h-3.5 accent-[var(--gold)]" />
+      </label>
+    </div>`).join('');
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${tCh('companyExportTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('companyExportSub', __uiLang)}</p></div>
+      <div class="card p-3">${campiForm}</div>
+      <div id="cem-esito">${calcolaEsito()}</div>
+      <div class="flex gap-2">
+        <button id="cem-save" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm">${tCh('companyExportSaveMappingBtn', __uiLang)}</button>
+        <button id="cem-download" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm">${tCh('companyExportDownloadBtn', __uiLang)}</button>
+      </div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+
+  document.querySelectorAll('[data-cem-col]').forEach(el => el.addEventListener('input', (e) => { mapping[el.dataset.cemCol].column = e.target.value; aggiornaEsito(); }));
+  document.querySelectorAll('[data-cem-req]').forEach(el => el.addEventListener('change', (e) => { mapping[el.dataset.cemReq].required = e.target.checked; aggiornaEsito(); }));
+  $('#cem-save')?.addEventListener('click', () => {
+    VaultDAO.state.companyExportMapping = mapping;
+    VaultDAO.save();
+    showToast(tCh('companyExportMappingSaved', __uiLang), 'success');
+  });
+  $('#cem-download')?.addEventListener('click', () => {
+    const preview = buildMappedExportPreview(records, mapping);
+    const csv = mappedExportToCsv(preview, mapping);
+    if (!csv) { showToast(tCh('companyExportDownloadBlocked', __uiLang), 'error'); return; }
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `momentum-export-${(trip.name || 'trasferta').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    showToast(tCh('tripExportDone', __uiLang), 'success');
+  });
+};
+
+// Riconciliazione estratto conto carta aziendale (gap reale trovato in
+// ricerca: 30-45 minuti/mese/persona di incrocio a mano — vedi
+// src/trips/card-reconciliation.js per la formula e le fonti). Riusa il
+// parser CSV bank-agnostico già esistente (mai un secondo parser) e la
+// stessa lettura file (UTF-8/windows-1252) già collaudata per l'import.
+window.openCardReconciliation = (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const spese = tripExpenses(trip, allTransactionsFlat());
+  if (!spese.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const dataLabel = (d) => { try { const dt = d instanceof Date ? d : new Date(d); return isNaN(dt) ? String(d ?? '') : dt.toLocaleDateString(__uiLocale); } catch (_) { return String(d ?? ''); } };
+
+  const rigaVoce = (tx, nota = '') => `
+    <div class="flex items-center justify-between gap-2 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0">
+      <span class="min-w-0 truncate">${esc(dataLabel(tx.date))} · ${esc(tx.description || '')}${nota}</span>
+      <span class="text-[var(--on-surface-secondary)] shrink-0">${eur(tx.amount)}</span>
+    </div>`;
+
+  const renderEsito = (esito) => {
+    const nessunaDiscrepanza = !esito.unmatchedCharges.length && !esito.expensesWithoutCharge.length;
+    return `
+      <div class="card p-3 flex flex-col gap-1">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('companyReconcileMatchedSummary', __uiLang, esito.matched.length))}</div>
+        ${nessunaDiscrepanza ? `<p class="text-[11.5px] text-[var(--on-surface-secondary)]">${esc(tCh('companyReconcileAllClear', __uiLang))}</p>` : ''}
+      </div>
+      ${esito.unmatchedCharges.length ? `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('companyReconcileUnmatchedChargesTitle', __uiLang))}</div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileUnmatchedChargesHint', __uiLang))}</p>
+        ${esito.unmatchedCharges.map(u => rigaVoce(u.carta)).join('')}
+      </div>` : ''}
+      ${esito.expensesWithoutCharge.length ? `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('companyReconcileMissingChargesTitle', __uiLang))}</div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileMissingChargesHint', __uiLang))}</p>
+        ${esito.expensesWithoutCharge.map(s => rigaVoce(s)).join('')}
+      </div>` : ''}
+      ${esito.matched.filter(m => m.altriCandidati > 0).length ? `
+      <div class="card p-3">
+        ${esito.matched.filter(m => m.altriCandidati > 0).map(m => rigaVoce(m.carta, esc(tCh('companyReconcileAltCandidate', __uiLang, m.altriCandidati)))).join('')}
+      </div>` : ''}`;
+  };
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${esc(tCh('companyReconcileTitle', __uiLang))}</h3><p class="card-sub !mb-0">${esc(tCh('companyReconcileSub', __uiLang))}</p></div>
+      <button id="crec-upload" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileUploadBtn', __uiLang))}</button>
+      <input id="crec-file" type="file" accept=".csv,text/csv" class="hidden" name="crec-file" />
+      <div id="crec-esito"></div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('trustCenterClose', __uiLang))}</button>`);
+
+  $('#crec-upload')?.addEventListener('click', () => $('#crec-file')?.click());
+  $('#crec-file')?.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const testo = await readCsvText(file);
+      const cardTransactions = parseGenericCsv(testo);
+      if (!cardTransactions.length) { showToast(tCh('companyReconcileFileEmpty', __uiLang), 'error'); return; }
+      const esito = reconcileCardStatement(cardTransactions, spese);
+      const el = document.getElementById('crec-esito');
+      if (el) el.innerHTML = renderEsito(esito);
+    } catch (_) {
+      showToast(tCh('companyReconcileFileEmpty', __uiLang), 'error');
+    }
+  });
 };
 
 // Riepilogo stampabile CON gli scontrini incorporati (stesso pattern già
@@ -12050,7 +13032,7 @@ const renderPdfReceiptToImage = async (dataUrl) => {
 window.printTripSummary = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
-  const { expenses, totale, perCategoria, offerti, offertiTotale, numeroGiustificativiMancanti } = exportTripData(trip, allTransactionsFlat());
+  const { expenses, totale, perCategoria, offerti, offertiTotale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna } = exportTripData(trip, allTransactionsFlat(), { taxActiveCountry: VaultDAO.state.taxActiveCountry });
   if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -12068,7 +13050,7 @@ window.printTripSummary = async (tripId) => {
   const svgWarn = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="3" stroke-linecap="round" style="vertical-align:-1px;margin-right:3px"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>`;
   const svgClip = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4338ca" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
   const righeSpese = expenses.map((e, i) => `
-    <tr${e.giustificativoMancante ? ' style="background:#fff3cd"' : ''}><td>${esc(e.data)}</td><td>${etichettaVoce(e)}</td><td>${esc(e.descrizione)}${e.giustificativoMancante ? ` <b style="color:#92400e">${svgWarn}${esc(tCh('tripReceiptMissing', __uiLang))}</b>` : ''}</td><td style="text-align:right">${eur(e.importo)}</td></tr>
+    <tr${(e.giustificativoMancante || e.avvisoTracciabilita || e.avvisoSpagna) ? ' style="background:#fff3cd"' : ''}><td>${esc(e.data)}</td><td>${etichettaVoce(e)}</td><td>${esc(e.descrizione)}${e.giustificativoMancante ? ` <b style="color:#92400e">${svgWarn}${esc(tCh('tripReceiptMissing', __uiLang))}</b>` : ''}${e.avvisoTracciabilita ? ` <b style="color:#92400e">${svgWarn}${esc(tCh('tripTraceabilityWarning', __uiLang))}</b>` : ''}${e.avvisoSpagna ? ` <b style="color:#92400e">${svgWarn}${esc(tCh('tripSpainCashWarning', __uiLang))}</b>` : ''}</td><td style="text-align:right">${eur(e.importo)}</td></tr>
     ${e.scontrino ? (pdfImages[i]
         ? `<tr><td colspan="4" style="padding-top:4px;padding-bottom:16px"><div style="font-size:11px;font-weight:700;color:#4338ca;margin-bottom:4px">${svgClip}${esc(tCh('tripReceiptAttached', __uiLang))} (PDF)</div><img src="${pdfImages[i]}" style="max-width:320px;max-height:420px;border:1px solid #ccc;border-radius:6px;page-break-inside:avoid" /></td></tr>`
         : String(e.scontrino).startsWith('data:application/pdf')
@@ -12087,6 +13069,8 @@ window.printTripSummary = async (tripId) => {
     <h1>${esc(trip.name)}</h1>
     <p>${esc(tCh('tripPrintSubtitle', __uiLang))}</p>
     ${numeroGiustificativiMancanti > 0 ? `<div style="display:flex;align-items:center;background:#fff3cd;border:1px solid #f5d98b;color:#92400e;font-weight:700;font-size:13px;padding:10px 14px;border-radius:8px;margin:10px 0">${svgWarn}${esc(tCh('tripMissingReceiptsSummary', __uiLang, numeroGiustificativiMancanti))}</div>` : ''}
+    ${numeroAvvisiTracciabilita > 0 ? `<div style="display:flex;align-items:center;background:#fff3cd;border:1px solid #f5d98b;color:#92400e;font-weight:700;font-size:13px;padding:10px 14px;border-radius:8px;margin:10px 0">${svgWarn}${esc(tCh('tripTraceabilitySummary', __uiLang, numeroAvvisiTracciabilita))}</div>` : ''}
+    ${numeroAvvisiSpagna > 0 ? `<div style="display:flex;align-items:center;background:#fff3cd;border:1px solid #f5d98b;color:#92400e;font-weight:700;font-size:13px;padding:10px 14px;border-radius:8px;margin:10px 0">${svgWarn}${esc(tCh('tripSpainCashSummary', __uiLang, numeroAvvisiSpagna))}</div>` : ''}
     <table>${righeCat}</table>
     <div class="tot">${esc(tCh('itemSplitTotalLabel', __uiLang))}: ${eur(totale)}</div>
     <h3 style="margin-top:24px">${esc(tCh('splitExportCsvSectionExpenses', __uiLang))}</h3>
@@ -12897,6 +13881,11 @@ function getInvoiceFooterHTML() {
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
     <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
+    <!-- Export annuale FatturaPA in blocco: il ponte commercialista universale
+         (qualunque gestionale legge lo standard, non solo B.Point come
+         Fattura24 — vedi ANALISI_COMPETITOR.md §6). Solo per fatture italiane
+         già emesse, mai un pulsante attivo se non ce n'è nessuna. -->
+    <button id="inv-export-annuale" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm mt-2 inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Esporta l'anno per il commercialista (XML)</button>
     <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 mt-2"></p>`;
 }
 
@@ -13372,6 +14361,60 @@ window.openCreateInvoice = (prefillClient) => {
       remittance: `Fattura ${number}/${year}${clientEl.value ? ' - ' + clientEl.value : ''}`.slice(0, 140),
       title: 'Chiedi il pagamento al cliente',
     });
+  });
+
+  // EXPORT ANNUALE PER IL COMMERCIALISTA (XML in blocco) — ricostruisce ogni
+  // fattura italiana dell'anno dal profilo fiscale salvato + dai dati già
+  // registrati per fattura, esattamente come il download singolo sopra (mai
+  // una seconda fonte di verità). Le fatture incomplete (es. un cliente
+  // salvato senza indirizzo fiscale) restano fuori, dichiarate una per una —
+  // mai un XML silenziosamente saltato o inventato.
+  $('#inv-export-annuale')?.addEventListener('click', async () => {
+    const prof = VaultDAO.state.invoiceProfile || {};
+    const emitterFiscal = { ...(prof.fiscale || {}), denominazione: prof.emitter || '', regime: VaultDAO.state.taxRegime || 'forfettario', nazione: 'IT' };
+    const fattureIt = (VaultDAO.state.invoices || []).filter(i => (i.country || 'IT') === 'IT');
+    if (!fattureIt.length) { showToast('Nessuna fattura italiana emessa.', 'info'); return; }
+    // Anno PIÙ RECENTE con fatture, non sempre l'anno corrente: chi esporta
+    // per il commercialista a gennaio/febbraio lo fa quasi sempre per l'anno
+    // appena chiuso — bloccarsi sull'anno corrente avrebbe scaricato zero
+    // fatture proprio nel momento in cui l'export serve di più.
+    const anniConFatture = [...new Set(fattureIt.map(i => i.year))].sort((a, b) => b - a);
+    const year = anniConFatture[0];
+    const fattureAnno = fattureIt.filter(i => i.year === year);
+    const items = fattureAnno.map(i => ({
+      emitter: emitterFiscal,
+      client: { ...(i.clientFiscale || {}), denominazione: i.client || '', nazione: 'IT' },
+      invoice: computeInvoice({ imponibile: i.imponibile, regime: i.regime, country: 'IT' }),
+      meta: { number: i.number, year: i.year, date: i.date, regime: i.regime, description: i.description, ...(i.voci ? { voci: i.voci } : {}) },
+    }));
+    const { pronte, incomplete } = buildFatturaPaAnnualExport(items);
+    // Download in sequenza: un click per file, come fa già l'export singolo —
+    // nessuna libreria ZIP (zero dipendenze runtime, principio del progetto).
+    for (const p of pronte) {
+      const url = URL.createObjectURL(new Blob([p.xml], { type: 'application/xml' }));
+      const a = document.createElement('a'); a.href = url; a.download = p.filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+      await new Promise(r => setTimeout(r, 250)); // il browser può bloccare download troppo ravvicinati
+    }
+    if (incomplete.length) {
+      // Non solo "fattura 2 incompleta": il motivo esatto, riga per riga, preso
+      // dagli stessi controlli che guidano l'export della singola fattura —
+      // così chi legge sa SUBITO cosa completare, senza dover riaprire ognuna.
+      const escLoc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      const righe = incomplete.map(x => {
+        const motivi = x.controls.filter(c => c.level === 'error').map(c => c.message).join('; ');
+        return `<li class="mb-1"><b>Fattura ${escLoc(String(x.number))}</b> — ${escLoc(motivi)}</li>`;
+      }).join('');
+      openModal(`
+        <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+          <h3 class="font-black text-sm">Export ${year}: ${pronte.length} scaricate, ${incomplete.length} da completare</h3>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">Queste fatture non sono state esportate — completa i dati indicati e riprova.</p>
+          <ul class="text-[12px] list-disc pl-4 max-h-64 overflow-y-auto">${righe}</ul>
+          <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">Ho capito</button>
+        </div>`);
+    } else if (pronte.length) {
+      showToast(`${pronte.length} fatture del ${year} scaricate: pronte per il commercialista.`, 'success');
+    }
   });
 
   // FATTURA ELETTRONICA (XML): il file ufficiale per lo SdI. Prima CONTROLLA
@@ -15009,6 +16052,25 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
         severity: 'info',
         title: `Avanzo sicuro: ${formatMoney(ir.verdict.personalSafeSurplus)}`,
         body: ir.verdict.message,
+      });
+    }
+  } catch (_) {}
+
+  // ── Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16) ──
+  // Richiesto esplicitamente dall'utente: non basta che il dato esista in
+  // una schermata da aprire apposta, deve emergere DA SOLO — stesso feed
+  // unificato degli altri insight, mai una superficie nuova da scoprire.
+  // Mostrato solo quando c'è davvero qualcosa (mai "0€ di commissioni" come
+  // insight, sarebbe rumore) — un tocco apre il dettaglio completo.
+  try {
+    const feeSummary = bankFeesSummary(allTransactionsFlat(), { year: new Date().getFullYear() });
+    if (feeSummary.totaleCommissioni > 0) {
+      rawInsights.push({
+        kind: 'bank-fees',
+        severity: 'info',
+        title: tCh('bankFeesTotalLabel', __uiLang, new Date().getFullYear()),
+        body: `${formatMoney(feeSummary.totaleCommissioni)} — ${tCh('bankFeesCountLabel', __uiLang, feeSummary.conteggioCommissioni)}`,
+        action: { label: tCh('bankFeesBtn', __uiLang), handler: 'openBankFees', payload: null },
       });
     }
   } catch (_) {}
@@ -17122,8 +18184,15 @@ renderNeuroSymExplainCard();
 // tax.js/quality-scores.js) — qui SOLO li si rende visibili in un posto
 // solo, mai un secondo calcolo o una nuova verità: ogni riga sotto è già
 // vera nel codice, verificata qui (non a memoria) prima di scriverla:
-// CASSE_CON_REGOLE ha 4 chiavi su 17 di CASSE_PROFESSIONALI (tax.js,
-// aggiornato 2026-09-11 con CIPAG/geometri).
+// CASSE_CON_REGOLE ha 10 chiavi su 17 di CASSE_PROFESSIONALI (tax.js,
+// aggiornato 2026-09-15 con consulenti_lavoro/ENPACL e biologi/ENPAB,
+// entrambe struttura soggettivo/integrativo+contributoFisso come ENPAP;
+// veterinari/ENPAV e periti_industriali/EPPI aggiunte lo stesso giorno,
+// entrambe struttura a due parametri senza contributoFisso — maternità non
+// confermata/definita dalla fonte primaria, mai inclusa);
+// ENPAM (medici) è un'11a cassa coperta ma con una funzione a sé
+// (contributoEnpam, non CASSE_CON_REGOLE, struttura età+reddito diversa
+// dalle altre) — aggiornato 2026-09-14.
 const LIMITI_DICHIARATI = [
   { paese: 'IT', key: 'trustLimitCasse' },
   { paese: 'IT', key: 'trustLimitSdi' },
@@ -17161,6 +18230,18 @@ window.openTrustCenter = () => {
         <div class="text-[13px] font-black mb-1">${tCh('trustDataTitle', __uiLang)}</div>
         <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug mb-2.5">${tCh('trustDataDesc', __uiLang)}</div>
         <button onclick="window.closeModal(); window.exportPlainBackup();" class="btn-action w-full text-xs justify-center py-2">${tCh('vaultSavePlainCopy', __uiLang)}</button>
+      </div>
+      <!-- Aggiunta 2026-09-15, dopo lo studio Saturn (14/09/2026, 18 modelli
+           AI, 57% di risposte finanziarie sbagliate — vedi ANALISI_COMPETITOR.md
+           sezione "Il fallimento strutturale dei chatbot AI generalisti sulla
+           finanza"): l'unica card del Centro Fiducia che cita un dato ESTERNO,
+           non solo un limite di Momentum — mai un attacco a un competitor
+           nominato, solo il confronto architetturale già vero nel codice
+           (tax.js/tax-ch.js/tax-es.js sono tabelle+calcolo deterministico,
+           mai testo generato da un LLM su un'aliquota). -->
+      <div class="rounded-2xl border p-3.5 ${toneDati}">
+        <div class="text-[13px] font-black mb-1">${tCh('trustAiTitle', __uiLang)}</div>
+        <div class="text-[12px] text-[var(--on-surface-secondary)] leading-snug">${tCh('trustAiDesc', __uiLang)}</div>
       </div>
       <div class="rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3.5">
         <div class="text-[13px] font-black mb-1">${tCh('trustCrossBorderTitle', __uiLang)}</div>
@@ -17403,13 +18484,18 @@ controllaTraguardi();
 // Condivide l'ULTIMO livello completato (mai numeri finanziari, mai dati
 // personali — solo il nome del livello, un fatto pubblico sul modello,
 // stesso principio già seguito per gli inviti gruppo-spese: navigator.share
-// con ripiego su copia negli appunti). Nessun link incluso: l'app non ha
-// ancora una pagina pubblica/store da linkare — onestà, non un URL
-// inventato solo per sembrare completo (da aggiungere qui appena esiste).
+// con ripiego su copia negli appunti). Link aggiunto (2026-09-15): la pagina
+// pubblica esiste davvero da tempo (momentum-finance.pages.dev, deploy
+// automatico via Cloudflare Pages, verificato in produzione — sezione 9 di
+// project_momentum.md) — riusa la STESSA formula già in uso per
+// inviteToMomentum (location.origin+pathname, mai un dominio hardcoded che
+// romperebbe un fork/deploy diverso), qui la nota di "nessun link" era
+// diventata stale rispetto al deploy reale, non un URL inventato.
 window.condividiTraguardo = async () => {
   const l = window.__ultimoLivelloCompletato;
   if (!l) return;
-  const msg = tCh('lvlShareMsg', __uiLang, l.numero, l.nome, l.sottotitolo);
+  const link = `${location.origin}${location.pathname}`.replace(/index\.html$/, '');
+  const msg = tCh('lvlShareMsg', __uiLang, l.numero, l.nome, l.sottotitolo, link);
   pingFeature('milestone_shared');
   try {
     if (navigator.share) await navigator.share({ text: msg });
@@ -20933,6 +22019,7 @@ const initApp = () => {
   {
     const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
     quandoLibero(() => renderVegliaMercato());
+    quandoLibero(() => checkCompanyApprovals());
   }
   if (qaInput && qaSend && qaAnswer) {
     const ask = async () => {

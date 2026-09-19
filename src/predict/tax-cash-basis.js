@@ -35,37 +35,6 @@ function clienteNellaDescrizione(cliente, descrizione) {
   return paroleCliente.some((w) => d.includes(w));
 }
 
-function yearOfDate(value) {
-  const d = new Date(value);
-  return Number.isFinite(d.getTime()) ? d.getUTCFullYear() : null;
-}
-
-// Un riferimento strutturato è una prova molto più forte del solo importo.
-// Non leggiamo numeri dalla descrizione libera: "12" può essere qualunque
-// cosa. Accettiamo solo campi che un importatore o il comando vocale ha
-// marcato esplicitamente come riferimento alla fattura.
-function riferimentoFattura(fattura, movimento) {
-  const numero = fattura?.number ?? fattura?.numero;
-  const id = fattura?.id ?? fattura?.invoiceId;
-  const riferimenti = [
-    movimento?.invoiceNumber, movimento?.fatturaNumero, movimento?.numeroFattura,
-    movimento?.invoiceNo, movimento?.riferimentoFattura,
-  ].filter((value) => value != null).map(norm);
-  if (numero != null && riferimenti.includes(norm(numero))) {
-    const annoFattura = fattura?.year ?? yearOfDate(fattura?.date);
-    const annoMovimento = movimento?.invoiceYear ?? movimento?.annoFattura;
-    return annoMovimento == null || annoFattura == null || Number(annoMovimento) === Number(annoFattura);
-  }
-  const idRiferimenti = [movimento?.invoiceId, movimento?.fatturaId].filter((value) => value != null).map(norm);
-  return id != null && idRiferimenti.includes(norm(id));
-}
-
-function chiaveMovimento(movimento, indice) {
-  return movimento?.id != null
-    ? `id:${String(movimento.id)}:${indice}`
-    : `data:${movimento.ms}:${indice}`;
-}
-
 // Abbina ogni fattura emessa a un incasso reale.
 // Regole (dichiarate, non nascoste):
 //  - l'incasso deve arrivare DOPO l'emissione (mai prima: sarebbe un altro
@@ -75,27 +44,21 @@ function chiaveMovimento(movimento, indice) {
 //  - un incasso può pagare UNA sola fattura (nessun doppio conteggio);
 //  - a parità, vince l'incasso più vicino nel tempo all'emissione.
 export function matchInvoicePayments(invoices, allTx, {
-  tolleranza = 0.05, finestraGiorni = 400, allowPartialPayments = false,
+  tolleranza = 0.05, finestraGiorni = 400,
 } = {}) {
   const entrate = [];
-  const liste = Array.isArray(allTx) ? [allTx] : Object.values(allTx || {});
-  let indiceMovimento = 0;
-  for (const lista of liste) {
-    for (const t of Array.isArray(lista) ? lista : []) {
+  for (const lista of Object.values(allTx || {})) {
+    for (const t of lista || []) {
       if (t?.type !== 'entrata') continue;
       const ms = Date.parse(t.date);
       if (!Number.isFinite(ms) || !(+t.amount > 0)) continue;
-      entrate.push({
-        ms, amount: +t.amount, description: t.description || '', id: t.id,
-        tx: t, key: chiaveMovimento({ ...t, ms }, indiceMovimento++),
-      });
+      entrate.push({ ms, amount: +t.amount, description: t.description || '', id: t.id });
     }
   }
   entrate.sort((a, b) => a.ms - b.ms);
   const usati = new Set();
 
   const incassate = [];
-  const parziali = [];
   const nonIncassate = [];
 
   // Le fatture si processano dalla più VECCHIA: se due fatture hanno lo
@@ -104,32 +67,25 @@ export function matchInvoicePayments(invoices, allTx, {
   const fatture = [...(invoices || [])]
     .filter((f) => +f.imponibile > 0 && Number.isFinite(Date.parse(f.date)))
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
-  const clienti = new Map();
-  for (const f of fatture) {
-    const cliente = norm(f.client);
-    if (cliente) clienti.set(cliente, (clienti.get(cliente) || 0) + 1);
-  }
 
   for (const f of fatture) {
     const emessaMs = Date.parse(f.date);
     const atteso = +f.imponibile;
     let migliore = null;
     for (const e of entrate) {
-      if (usati.has(e.key)) continue;
+      if (usati.has(e.id ?? e.ms)) continue;
       if (e.ms < emessaMs) continue;
       if (e.ms > emessaMs + finestraGiorni * DAY_MS) break; // ordinate: oltre non serve cercare
       const scarto = Math.abs(e.amount - atteso) / atteso;
       if (scarto > tolleranza) continue;
       const nomeCombacia = clienteNellaDescrizione(f.client, e.description);
-      const riferimento = riferimentoFattura(f, e.tx);
       // Punteggio: il nome del cliente è il segnale forte (un bonifico può
       // avere per caso lo stesso importo, ma non anche lo stesso nome).
-      const punteggio = (riferimento ? 220 : 0) + (nomeCombacia ? 100 : 0)
-        - scarto * 10 - (e.ms - emessaMs) / DAY_MS / 1000;
-      if (!migliore || punteggio > migliore.punteggio) migliore = { e, punteggio, nomeCombacia, riferimento, scarto };
+      const punteggio = (nomeCombacia ? 100 : 0) - scarto * 10 - (e.ms - emessaMs) / DAY_MS / 1000;
+      if (!migliore || punteggio > migliore.punteggio) migliore = { e, punteggio, nomeCombacia, scarto };
     }
     if (migliore) {
-      usati.add(migliore.e.key);
+      usati.add(migliore.e.id ?? migliore.e.ms);
       incassate.push({
         fattura: f,
         incassoMs: migliore.e.ms,
@@ -139,65 +95,13 @@ export function matchInvoicePayments(invoices, allTx, {
         giorniPerIncassare: Math.round((migliore.e.ms - emessaMs) / DAY_MS),
         // Un abbinamento senza il nome del cliente resta plausibile ma non
         // certo: va detto, non nascosto.
-        confidenza: migliore.riferimento || migliore.nomeCombacia ? 'alta' : 'media',
-        segnali: [
-          'importo',
-          ...(migliore.riferimento ? ['riferimento-fattura'] : []),
-          ...(migliore.nomeCombacia ? ['cliente'] : []),
-        ],
+        confidenza: migliore.nomeCombacia ? 'alta' : 'media',
       });
     } else {
-      // Le rate vengono considerate solo quando il collegamento è verificabile:
-      // riferimento esplicito, oppure nome del cliente e una sola fattura
-      // aperta per quel cliente. In tutti gli altri casi resta "da verificare".
-      const clienteUnico = clienti.get(norm(f.client)) === 1;
-      const candidati = allowPartialPayments ? entrate.filter((e) => {
-        if (usati.has(e.key) || e.ms < emessaMs || e.ms > emessaMs + finestraGiorni * DAY_MS) return false;
-        if (!(e.amount < atteso * (1 - tolleranza))) return false;
-        const riferimento = riferimentoFattura(f, e.tx);
-        const nomeCombacia = clienteNellaDescrizione(f.client, e.description);
-        return riferimento || (clienteUnico && nomeCombacia);
-      }).sort((a, b) => a.ms - b.ms) : [];
-      let totaleParziale = 0;
-      const scelti = [];
-      for (const e of candidati) {
-        if (totaleParziale + e.amount > atteso * (1 + tolleranza)) continue;
-        scelti.push(e);
-        totaleParziale += e.amount;
-        if (totaleParziale >= atteso * (1 - tolleranza)) break;
-      }
-      const sogliaParziale = Math.max(0.01, atteso * 0.2);
-      if (scelti.length && totaleParziale >= sogliaParziale) {
-        for (const e of scelti) usati.add(e.key);
-        const pagamenti = scelti.map((e) => ({
-          id: e.id, amount: e.amount, date: new Date(e.ms).toISOString().slice(0, 10),
-          description: e.description,
-        }));
-        const residuo = Math.max(0, +(atteso - totaleParziale).toFixed(2));
-        const completa = residuo <= atteso * tolleranza;
-        const tuttiConRiferimento = scelti.every((e) => riferimentoFattura(f, e.tx));
-        parziali.push({
-          fattura: f,
-          parziale: true,
-          pagamenti,
-          importoIncassato: +totaleParziale.toFixed(2),
-          residuo,
-          completa,
-          incassoMs: scelti[scelti.length - 1].ms,
-          incassoData: new Date(scelti[scelti.length - 1].ms).toISOString().slice(0, 10),
-          anniIncasso: [...new Set(pagamenti.map((p) => yearOfDate(p.date)).filter(Boolean))],
-          confidenza: tuttiConRiferimento ? 'alta' : 'media',
-          segnali: [
-            'rate',
-            ...(tuttiConRiferimento ? ['riferimento-fattura'] : ['cliente']),
-          ],
-        });
-      } else {
-        nonIncassate.push({ fattura: f, emessaMs, giorniDaEmissione: null });
-      }
+      nonIncassate.push({ fattura: f, emessaMs, giorniDaEmissione: null });
     }
   }
-  return { incassate, parziali, nonIncassate, tolleranza, finestraGiorni };
+  return { incassate, nonIncassate };
 }
 
 // Ricavi PER CASSA di un anno: la somma di ciò che è stato davvero
@@ -205,13 +109,10 @@ export function matchInvoicePayments(invoices, allTx, {
 // fattura. È il numero su cui il forfettario paga le tasse — e su cui si
 // misura il tetto.
 export function cashBasisRevenue(matched, anno) {
-  const intere = (matched?.incassate || [])
+  return +(matched?.incassate || [])
     .filter((m) => m.annoIncasso === anno)
-    .reduce((s, m) => s + (+m.importoIncassato || 0), 0);
-  const rate = (matched?.parziali || []).reduce((s, m) => s + (m.pagamenti || [])
-    .filter((p) => yearOfDate(p.date) === anno)
-    .reduce((tot, p) => tot + (+p.amount || 0), 0), 0);
-  return +(intere + rate).toFixed(2);
+    .reduce((s, m) => s + m.importoIncassato, 0)
+    .toFixed(2);
 }
 
 // Fatturato "per competenza" dello stesso anno (le fatture EMESSE), solo
@@ -269,29 +170,10 @@ export function ceilingStatusByCash(incassato, fatturato, ceiling) {
 // Chi non ti paga, e da quanto. Il problema numero uno di chi lavora in
 // proprio, e Momentum lo vede senza che nessuno debba segnare niente.
 export function unpaidExposure(matched, { now = Date.now(), sogliaRitardoGiorni = 30 } = {}) {
-  const intere = (matched?.nonIncassate || []).map((n) => ({
+  const aperte = (matched?.nonIncassate || []).map((n) => ({
     ...n,
     giorniDaEmissione: Math.round((now - n.emessaMs) / DAY_MS),
   }));
-  const tolleranza = Number.isFinite(Number(matched?.tolleranza)) ? Number(matched.tolleranza) : 0.05;
-  const rateAperte = (matched?.parziali || []).flatMap((p) => {
-    const atteso = Number(p.fattura?.imponibile);
-    const residuo = Number.isFinite(Number(p.residuo))
-      ? Math.max(0, Number(p.residuo))
-      : Math.max(0, atteso - Number(p.importoIncassato || 0));
-    if (!Number.isFinite(atteso) || residuo <= Math.max(0.01, atteso * tolleranza)) return [];
-    const emessaMs = Date.parse(p.fattura?.date);
-    if (!Number.isFinite(emessaMs)) return [];
-    return [{
-      ...p,
-      parziale: true,
-      emessaMs,
-      fattura: { ...p.fattura, imponibile: +residuo.toFixed(2) },
-      importoOriginale: +atteso.toFixed(2),
-      giorniDaEmissione: Math.round((now - emessaMs) / DAY_MS),
-    }];
-  });
-  const aperte = [...intere, ...rateAperte];
   const totale = +aperte.reduce((s, a) => s + +a.fattura.imponibile, 0).toFixed(2);
   const inRitardo = aperte.filter((a) => a.giorniDaEmissione > sogliaRitardoGiorni)
     .sort((a, b) => b.giorniDaEmissione - a.giorniDaEmissione);

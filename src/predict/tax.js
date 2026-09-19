@@ -206,6 +206,100 @@ export const CASSE_CON_REGOLE = {
     minimoSoggettivo: 4205,
     aliquotaIntegrativo: 0.05, minimoIntegrativo: null,
   },
+  // ENPAP (psicologi), 6a cassa coperta (2026-09-15) — fonti concordanti
+  // (centrofiscale.com + fiscoetasse.com): soggettivo 10% del reddito netto
+  // (min 856€, con possibilità di elevare volontariamente fino al 30%, MAI
+  // usata qui per lo stesso motivo di CNPADC — nessuna scelta volontaria che
+  // Momentum non conosce), integrativo 2% del fatturato lordo (min 66€),
+  // PIÙ un contributo di maternità FISSO di 110€/anno — qui, a differenza di
+  // ENPAM, le fonti concordano, quindi è incluso (campo `contributoFisso`,
+  // gestito sotto in contributiCassaProfessionale).
+  psicologi: {
+    nomeBreve: 'ENPAP',
+    aliquotaSoggettivo: 0.10, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 856,
+    aliquotaIntegrativo: 0.02, minimoIntegrativo: 66,
+    contributoFisso: 110,
+  },
+  // ENPAPI (infermieri liberi professionisti), 7a cassa coperta (2026-09-15)
+  // — scelta per mercato/bisogno reale: +66,4% nuove iscrizioni nel 2024
+  // (nurse24.it), home-care e libera professione infermieristica in forte
+  // crescita, categoria quasi ignorata dai software di fatturazione
+  // generalisti. Fonti concordanti (fiscoetasse.com + centrofiscale.com,
+  // 2026-09-15): soggettivo 16% del reddito netto (min 1.600€/anno),
+  // integrativo 4% del fatturato (min 150€/anno). LIMITE DICHIARATO:
+  // l'aliquota integrativa ridotta al 2% per prestazioni verso la PA non è
+  // gestita — Momentum non distingue i clienti PA dagli altri, quindi usa
+  // sempre il 4% (più prudente, mai un numero per difetto).
+  infermieri: {
+    nomeBreve: 'ENPAPI',
+    aliquotaSoggettivo: 0.16, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 1600,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: 150,
+  },
+  // ENPACL (consulenti del lavoro), 8a cassa coperta (2026-09-15) — scelta
+  // per mercato legato strutturalmente alla domanda delle PMI italiane
+  // (ogni consulente del lavoro serve decine di aziende clienti). Fonti
+  // concordanti (fiscoetasse.com + centrofiscale.com/partitaiva.it, fonte
+  // primaria enpacl.it): soggettivo 12% del reddito netto (min 2.620€/anno),
+  // integrativo 4% del volume d'affari (min 380€/anno), maternità fissa
+  // 52,98€/anno. LIMITE DICHIARATO: l'aliquota/il minimo agevolati per
+  // neoiscritti under 35 (6%/1.310€) non sono gestiti — Momentum non
+  // conosce l'anno di iscrizione alla cassa, mai un'agevolazione assunta.
+  consulenti_lavoro: {
+    nomeBreve: 'ENPACL',
+    aliquotaSoggettivo: 0.12, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 2620,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: 380,
+    contributoFisso: 52.98,
+  },
+  // ENPAB (biologi), 9a cassa coperta (2026-09-15) — scelta per mercato in
+  // crescita (nutrizionisti, biologi ambientali/della nutrizione, libera
+  // professione in espansione). Fonti concordanti (fiscoetasse.com +
+  // partitaiva.it, fonte primaria enpab.it): soggettivo 15% del reddito
+  // netto (min 1.309€/anno, elevabile volontariamente fino al 36% — mai
+  // usato di default, stesso principio già applicato a CNPADC/ENPACL),
+  // integrativo 4% del volume d'affari (min 106€/anno, anche per PA — nessuna
+  // riduzione da gestire, a differenza di ENPAPI), maternità fissa 136€/anno.
+  biologi: {
+    nomeBreve: 'ENPAB',
+    aliquotaSoggettivo: 0.15, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 1309,
+    aliquotaIntegrativo: 0.04, minimoIntegrativo: 106,
+    contributoFisso: 136,
+  },
+  // ENPAV (veterinari), 10a cassa coperta (2026-09-15) — fonte primaria
+  // enpav.it (pagina "contributi minimi") per i minimi 2026, incrociata con
+  // fonti secondarie concordanti (fidocommercialista.it, partitaiva.it,
+  // fiscoetasse.com) per aliquote/soglia: soggettivo 10% del reddito netto
+  // fino a 18.500€/anno, 3% sulla parte eccedente (struttura a due scaglioni
+  // come Cassa Forense), minimo 3.542,85€/anno; integrativo 2% del
+  // fatturato lordo, minimo 574,50€/anno. LIMITE DICHIARATO: il contributo
+  // di maternità (100€/anno secondo enpav.it) è segnato dalla fonte stessa
+  // come "in attesa di approvazione ministeriale" — non confermato, quindi
+  // NON incluso (stesso principio già applicato al minimo integrativo
+  // CNPADC/CIPAG e alla maternità ENPAM: mai un numero non confermato).
+  veterinari: {
+    nomeBreve: 'ENPAV',
+    aliquotaSoggettivo: 0.10, sogliaAliquotaRidotta: 18500, aliquotaSoggettivoOltreSoglia: 0.03,
+    minimoSoggettivo: 3542.85,
+    aliquotaIntegrativo: 0.02, minimoIntegrativo: 574.50,
+  },
+  // EPPI (periti industriali), 11a cassa coperta (2026-09-15) — fonte
+  // primaria eppi.it ("la contribuzione", valori 2026): soggettivo 18% del
+  // reddito netto (elevabile volontariamente fino al 35%, MAI usato di
+  // default — stesso principio già applicato a CNPADC/ENPACL/ENPAB), minimo
+  // 2.392€/anno; integrativo 5% del fatturato, minimo 664€/anno. LIMITE
+  // DICHIARATO: il contributo di maternità è marcato dalla fonte stessa
+  // come "da definire" per il 2026 — non un numero mancante per pigrizia,
+  // la fonte primaria non lo ha ancora fissato; mai incluso finché non lo è
+  // (stesso principio già applicato alla maternità ENPAV/ENPAM).
+  periti_industriali: {
+    nomeBreve: 'EPPI',
+    aliquotaSoggettivo: 0.18, sogliaAliquotaRidotta: null, aliquotaSoggettivoOltreSoglia: 0,
+    minimoSoggettivo: 2392,
+    aliquotaIntegrativo: 0.05, minimoIntegrativo: 664,
+  },
 };
 
 // ENPAM (medici/odontoiatri), deliberatamente ASSENTE da CASSE_CON_REGOLE
@@ -234,11 +328,61 @@ export function contributiCassaProfessionale(redditoImponibile, fatturato, cassa
   const soggettivo = Math.max(entro * regole.aliquotaSoggettivo + oltre, regole.minimoSoggettivo);
   const integrativoCalcolato = Math.max(0, fatturato || 0) * regole.aliquotaIntegrativo;
   const integrativo = regole.minimoIntegrativo != null ? Math.max(integrativoCalcolato, regole.minimoIntegrativo) : integrativoCalcolato;
+  const contributoFisso = regole.contributoFisso || 0; // solo ENPAP oggi: contributo maternità fisso, fonti concordanti
   return {
     nomeBreve: regole.nomeBreve,
     soggettivo: +soggettivo.toFixed(2),
     integrativo: +integrativo.toFixed(2),
-    totale: +(soggettivo + integrativo).toFixed(2),
+    ...(regole.contributoFisso != null ? { contributoFisso: +contributoFisso.toFixed(2) } : {}),
+    totale: +(soggettivo + integrativo + contributoFisso).toFixed(2),
+  };
+}
+
+// ENPAM (medici/odontoiatri), 5a cassa coperta — struttura DIVERSA dalle
+// altre 4 in CASSE_CON_REGOLE, per questo è una funzione a sé (dichiarato
+// come limite il 2026-09-11, chiuso il 2026-09-14): Quota A è FISSA per
+// fascia d'età (non una % sul reddito), Quota B è proporzionale al reddito
+// netto. Fonti incrociate e concordanti (2026-09-14): finom.co, money.it,
+// fiscozen.it, centrofiscale.com, camicecapitale.com.
+//
+// QUOTA A 2026, per fascia d'età (importi annui fissi). LIMITE DICHIARATO:
+// la fascia "studenti V-VI anno" (152,37€) non è gestita qui — richiede lo
+// status di studente, un dato che Momentum non raccoglie, mai assunto dalla
+// sola età: chi è in quella fascia riceve comunque un numero (quello per
+// età), dichiarato meno preciso, non un errore silenzioso.
+export const ENPAM_QUOTA_A_FASCE = [
+  { max: 30, importo: 304.73 }, // fino a 30 anni
+  { max: 35, importo: 591.47 },
+  { max: 40, importo: 1109.92 },
+  { max: Infinity, importo: 2049.83 }, // dai 40 anni in su
+];
+// QUOTA B: aliquota ORDINARIA 19,5% sul reddito professionale netto; scende
+// al 9,5% per chi ha un'altra copertura previdenziale obbligatoria o è
+// pensionato del Fondo Generale (fonte: fiscozen.it, verificato 2026-09-14
+// — stesso parametro `altraCoperturaPrevidenziale` già usato nel resto del
+// file per l'INPS Gestione Separata, riusato qui con lo stesso significato).
+// Resta fuori la riduzione al 2% per casi ulteriori NON verificati riga per
+// riga oggi — mai applicata, coerente con "mai una % indovinata".
+export const ENPAM_QUOTA_B_ALIQUOTA = 0.195;
+export const ENPAM_QUOTA_B_ALIQUOTA_RIDOTTA = 0.095;
+// Contributo di maternità/adozione/aborto: fonti DISCORDANTI per il 2026
+// (84,26€ secondo alcune, 95,54€ secondo altre, nessuna fonte primaria
+// enpam.it consultabile per dirimere) — MAI incluso nel totale finché non
+// si trova la fonte primaria, stesso principio già usato per il minimo
+// integrativo CIPAG/CNPADC.
+export function contributoEnpam(redditoNetto, eta, { altraCoperturaPrevidenziale = false } = {}) {
+  if (eta == null || !Number.isFinite(eta) || eta < 18 || eta > 100) return null; // mai un'assunzione sulla fascia
+  const fascia = ENPAM_QUOTA_A_FASCE.find(f => eta <= f.max) || ENPAM_QUOTA_A_FASCE[ENPAM_QUOTA_A_FASCE.length - 1];
+  const quotaA = fascia.importo;
+  const aliquotaQuotaB = altraCoperturaPrevidenziale ? ENPAM_QUOTA_B_ALIQUOTA_RIDOTTA : ENPAM_QUOTA_B_ALIQUOTA;
+  const quotaB = +(Math.max(0, redditoNetto || 0) * aliquotaQuotaB).toFixed(2);
+  return {
+    nomeBreve: 'ENPAM',
+    quotaA,
+    quotaB,
+    aliquotaQuotaB,
+    totale: +(quotaA + quotaB).toFixed(2),
+    contributoMaternitaNonIncluso: true,
   };
 }
 
@@ -367,7 +511,7 @@ export function taxAdvice(input = {}) {
     // caso, ed è la domanda che chiunque si avvicini alla soglia si fa per
     // prima: "quanto mi cambia la vita?".
     if (pct >= 0.8) {
-      const commonOpts = { year, rulesOverride: input.rulesOverride, cassaPropria: input.cassaPropria, altraCoperturaPrevidenziale: input.altraCoperturaPrevidenziale, overrides: input.overrides };
+      const commonOpts = { year, rulesOverride: input.rulesOverride, cassaPropria: input.cassaPropria, altraCoperturaPrevidenziale: input.altraCoperturaPrevidenziale, eta: input.eta, overrides: input.overrides };
       const conForfettario = taxSetAside(input.annualizedRevenue, { ...commonOpts, regime: 'forfettario' }).setAside;
       const conOrdinario = taxSetAside(input.annualizedRevenue, { ...commonOpts, regime: 'ordinario' }).setAside;
       const differenza = conOrdinario - conForfettario;
@@ -447,12 +591,32 @@ export function taxSetAside(amount, opts = {}) {
   // contributo soggettivo+integrativo è calcolato per davvero, con le
   // stesse aliquote/minimi verificati. Per le altre 13 casse resta null:
   // stesso comportamento onesto di prima, mai un numero indovinato.
-  const cassaCalcolo = opts.cassaPropria ? contributiCassaProfessionale(redditoImponibile, imponibile, opts.cassaPropria) : null;
+  // ENPAM (medici/odontoiatri) è un caso a sé, mai riusato nello schema
+  // soggettivo/integrativo delle altre 4 casse: verificato 2026-09-14 (art.
+  // 10 comma 1 lett. e TUIR, fonte fiscozen.it) che Quota A E Quota B sono
+  // ENTRAMBE interamente deducibili — diverso dall'integrativo delle altre
+  // casse (pass-through non deducibile, come l'IVA). Riusare quello schema
+  // avrebbe dedotto solo una parte del contributo reale, un numero sbagliato
+  // per difetto. Senza età: null, mai una fascia indovinata (vedi sotto).
+  const cassaCalcolo = opts.cassaPropria === 'medici_odontoiatri'
+    ? contributoEnpam(redditoImponibile, opts.eta, { altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale })
+    : (opts.cassaPropria ? contributiCassaProfessionale(redditoImponibile, imponibile, opts.cassaPropria) : null);
   // Il soggettivo è deducibile dall'imponibile IRPEF, stesso trattamento
   // dell'INPS (sono entrambi contributi previdenziali obbligatori) —
   // l'integrativo NO: è in rivalsa sul cliente, un pass-through come l'IVA,
   // non un costo che riduce il reddito imponibile del professionista.
-  const baseImposta = redditoImponibile - inps - (cassaCalcolo ? cassaCalcolo.soggettivo : 0);
+  // ENPAM: deduzione dell'INTERO totale (quotaA+quotaB), non solo una parte
+  // (vedi commento sopra) — riconosciuto dal campo `contributoMaternitaNonIncluso`,
+  // presente solo sui risultati di contributoEnpam. Per le altre casse, oltre
+  // al soggettivo, si deduce anche l'eventuale `contributoFisso` (es. ENPAP:
+  // maternità fissa 110€/anno) — è comunque un contributo previdenziale
+  // obbligatorio (stesso art. 10 comma 1 lett. e TUIR), non un pass-through
+  // come l'integrativo.
+  const deduzioneCassa = !cassaCalcolo ? 0
+    : (cassaCalcolo.contributoMaternitaNonIncluso != null
+        ? cassaCalcolo.totale
+        : cassaCalcolo.soggettivo + (cassaCalcolo.contributoFisso || 0));
+  const baseImposta = redditoImponibile - inps - deduzioneCassa;
 
   // Regime ordinario: usa gli scaglioni IRPEF REALI dell'anno se sono stati
   // verificati (tax-rules.js, computeIrpef — ogni fascia paga solo la sua
@@ -500,8 +664,12 @@ export function taxSetAside(amount, opts = {}) {
   const breakdown = [
     ...(iva > 0 ? [{ voce: 'IVA da versare', importo: +iva.toFixed(2) }] : []),
     ...(cassaCalcolo
-      ? [{ voce: `Contributo soggettivo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.soggettivo, nota: 'Deducibile dal reddito imponibile, come l\'INPS.' },
-         { voce: `Contributo integrativo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.integrativo, nota: 'In rivalsa sul cliente, non deducibile — come l\'IVA.' }]
+      ? (cassaCalcolo.contributoMaternitaNonIncluso != null
+        ? [{ voce: 'Quota A (ENPAM)', importo: cassaCalcolo.quotaA, nota: 'Deducibile dal reddito imponibile.' },
+           { voce: 'Quota B (ENPAM)', importo: cassaCalcolo.quotaB, nota: 'Deducibile dal reddito imponibile.' }]
+        : [{ voce: `Contributo soggettivo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.soggettivo, nota: 'Deducibile dal reddito imponibile, come l\'INPS.' },
+           { voce: `Contributo integrativo (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.integrativo, nota: 'In rivalsa sul cliente, non deducibile — come l\'IVA.' },
+           ...(cassaCalcolo.contributoFisso ? [{ voce: `Contributo fisso (${cassaCalcolo.nomeBreve})`, importo: cassaCalcolo.contributoFisso }] : [])])
       : cassaNome
       ? [{ voce: `Contributi (${cassaNome}, non INPS)`, importo: 0, nota: `Sei iscritto a ${cassaNome}: i contributi vanno lì, non all'INPS Gestione Separata (le due sono incompatibili per legge). Momentum non conosce ancora le aliquote di questa cassa — quindi qui non le calcola: aggiungile tu o chiedi al commercialista.` }]
       : opts.altraCoperturaPrevidenziale
@@ -765,6 +933,7 @@ export function projectAnnualTax(transactions = [], opts = {}) {
     rulesOverride: opts.rulesOverride,
     cassaPropria: opts.cassaPropria,
     altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale,
+    eta: opts.eta,
     overrides: opts.overrides,
   }).setAside;
   const suggestion = suggestRegime(annualized, { year, rulesOverride: opts.rulesOverride });
@@ -876,7 +1045,7 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   const atecoInfo = regimeKey.startsWith('forfettario') && opts.ateco
     ? coefficienteAteco(opts.ateco, { year: opts.year, rulesOverride: opts.rulesOverride }) : null;
   const atecoCoeff = atecoInfo ? { coeffRedditivita: atecoInfo.coeff } : null;
-  const taxOpts = { regime: regimeKey, year: opts.year, rulesOverride: opts.rulesOverride, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, overrides: { ...atecoCoeff, ...opts.overrides } };
+  const taxOpts = { regime: regimeKey, year: opts.year, rulesOverride: opts.rulesOverride, cassaPropria: opts.cassaPropria, altraCoperturaPrevidenziale: opts.altraCoperturaPrevidenziale, eta: opts.eta, overrides: { ...atecoCoeff, ...opts.overrides } };
   const { setAside, net, cassaNome, cassaCalcolo } = taxSetAside(fatturato, taxOpts);
   const netMensile = net / 12;
   // Strategie legittime, non trucchi: entrambe verificate su fonte ufficiale
@@ -907,12 +1076,22 @@ export function simulateNewPartitaIva(annualInvoiced = 0, opts = {}) {
   // per le altre 13, resta escluso e va detto chiaramente, mai lasciato
   // intuire da un totale più basso del previsto.
   if (cassaNome) {
-    strategie.push({
-      icon: 'cassa',
-      testo: cassaCalcolo
-        ? `Sei iscritto a ${cassaNome}: il numero sopra include già il contributo soggettivo (${Math.round(cassaCalcolo.soggettivo).toLocaleString('it-IT')}€) e quello integrativo (${Math.round(cassaCalcolo.integrativo).toLocaleString('it-IT')}€), con le aliquote 2026 verificate — non l'INPS, che per te non si applica.`
-        : `Sei iscritto a ${cassaNome}: i contributi previdenziali vanno lì, non all'INPS — per questo il numero sopra NON li include. Aggiungi tu l'importo della tua cassa (spesso ha un minimo fisso, indipendente dal reddito) per avere la cifra vera.`,
-    });
+    // ENPAM ha una forma diversa dalle altre 4 casse (quotaA/quotaB, non
+    // soggettivo/integrativo) — riusare i nomi di campo sbagliati produceva
+    // "NaN€" nel messaggio, trovato dal vivo in Chrome il 2026-09-14.
+    const isEnpam = cassaCalcolo && cassaCalcolo.contributoMaternitaNonIncluso != null;
+    let testoCassa;
+    if (isEnpam) {
+      testoCassa = `Sei iscritto a ${cassaNome}: il numero sopra include già la Quota A (${Math.round(cassaCalcolo.quotaA).toLocaleString('it-IT')}€, fissa per la tua età) e la Quota B (${Math.round(cassaCalcolo.quotaB).toLocaleString('it-IT')}€, ${(cassaCalcolo.aliquotaQuotaB * 100).toFixed(1)}% del reddito) — non l'INPS, che per te non si applica. Il contributo di maternità/adozione NON è incluso (fonti sull'importo esatto discordanti): aggiungilo a mano.`;
+    } else if (cassaCalcolo) {
+      const contributoFissoTxt = cassaCalcolo.contributoFisso
+        ? ` e il contributo di maternità fisso (${Math.round(cassaCalcolo.contributoFisso).toLocaleString('it-IT')}€/anno)`
+        : '';
+      testoCassa = `Sei iscritto a ${cassaNome}: il numero sopra include già il contributo soggettivo (${Math.round(cassaCalcolo.soggettivo).toLocaleString('it-IT')}€) e quello integrativo (${Math.round(cassaCalcolo.integrativo).toLocaleString('it-IT')}€)${contributoFissoTxt}, con le aliquote 2026 verificate — non l'INPS, che per te non si applica.`;
+    } else {
+      testoCassa = `Sei iscritto a ${cassaNome}: i contributi previdenziali vanno lì, non all'INPS — per questo il numero sopra NON li include. Aggiungi tu l'importo della tua cassa (spesso ha un minimo fisso, indipendente dal reddito) per avere la cifra vera.`;
+    }
+    strategie.push({ icon: 'cassa', testo: testoCassa });
   }
   // Dipendente che apre ANCHE la Partita IVA (nessuna cassa propria, quindi
   // rientra comunque nella Gestione Separata): aliquota INPS ridotta al 24%
