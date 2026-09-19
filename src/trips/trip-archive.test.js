@@ -82,3 +82,35 @@ test('archive preserves UUIDs, receipts, currency and trip metadata without unre
 test('invalid trip cannot accidentally export an entire archive', () => {
   assert.throws(() => buildTripArchive({}, []));
 });
+
+// Anti-frode: la STESSA immagine allegata a due spese diverse è un segnale
+// reale di doppio rimborso — mai bloccante da sola (può essere un errore
+// innocente), ma sempre dichiarata al revisore, mai nascosta.
+test('duplicate_receipt: due spese diverse con lo STESSO allegato byte-per-byte vengono segnalate, mai bloccate', () => {
+  const receipt = 'data:image/png;base64,YQ==';
+  const rows = [
+    { id: 'a', amount: 30, date: '2026-09-13', receiptImage: receipt },
+    { id: 'b', amount: 45, date: '2026-09-14', receiptImage: receipt },
+  ];
+  const check = inspectTripArchive(rows);
+  const dup = check.issues.filter(x => x.code === 'duplicate_receipt');
+  assert.equal(dup.length, 2);
+  assert.deepEqual(dup.map(x => x.index), [0, 1]);
+  assert.ok(dup.every(x => x.severity === 'warning'));
+  assert.equal(check.blockingCount, 0); // mai bloccante da sola
+});
+
+test('duplicate_receipt: due allegati DIVERSI (anche solo di un byte) non generano falsi positivi', () => {
+  const rows = [
+    { id: 'a', amount: 30, date: '2026-09-13', receiptImage: 'data:image/png;base64,YQ==' },
+    { id: 'b', amount: 45, date: '2026-09-14', receiptImage: 'data:image/png;base64,Yg==' },
+  ];
+  const check = inspectTripArchive(rows);
+  assert.equal(check.issues.filter(x => x.code === 'duplicate_receipt').length, 0);
+});
+
+test('duplicate_receipt: nessun allegato su nessuna riga -> nessuna segnalazione (mai un falso positivo su "nessuno ha allegato niente")', () => {
+  const rows = [{ id: 'a', amount: 30, date: '2026-09-13' }, { id: 'b', amount: 45, date: '2026-09-14' }];
+  const check = inspectTripArchive(rows);
+  assert.equal(check.issues.filter(x => x.code === 'duplicate_receipt').length, 0);
+});

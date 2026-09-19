@@ -12,6 +12,17 @@ export function isTripDate(value) {
 export function inspectTripArchive(transactions, policy) {
   const ids = new Map();
   for (const tx of transactions) { const id = String(tx?.id ?? '').trim(); if (id) ids.set(id, (ids.get(id) || 0) + 1); }
+  // Anti-frode reale (ricerca competitor 2026-09-19: Rydoo/Emburse rilevano
+  // già duplicati/scontrini sintetici prima dell'approvazione): la STESSA
+  // immagine allegata a due spese diverse è un segnale concreto di doppio
+  // rimborso, per errore o intenzionale. Confronto per byte esatti (stesso
+  // data URL): due foto diverse dello stesso scontrino avrebbero comunque
+  // byte diversi (compressione/inquadratura), quindi zero falsi positivi —
+  // mai un blocco automatico, solo una segnalazione onesta al revisore, che
+  // resta libero di decidere (può essere legittimo: es. lo stesso PDF di
+  // conferma allegato due volte per errore di copia-incolla).
+  const receiptCounts = new Map();
+  for (const tx of transactions) { if (tx?.receiptImage) receiptCounts.set(tx.receiptImage, (receiptCounts.get(tx.receiptImage) || 0) + 1); }
   const issues = [];
   const daily = new Map();
   for (const tx of transactions) {
@@ -41,7 +52,10 @@ export function inspectTripArchive(transactions, policy) {
       else if (Math.round(tx.amount * 100) > Math.round(limit * 100)) issue('policy_limit', 'warning');
     }
     if (!tx.receiptImage) issue('missing_attachment', needsReceipt(tx, policy) ? 'warning' : 'info');
-    else if (!isTripAttachment(tx.receiptImage)) issue('invalid_attachment');
+    else {
+      if (!isTripAttachment(tx.receiptImage)) issue('invalid_attachment');
+      if (receiptCounts.get(tx.receiptImage) > 1) issue('duplicate_receipt', 'warning');
+    }
   });
   return { transactionCount: transactions.length, attachmentCount: transactions.filter(tx => tx?.receiptImage).length,
     blockingCount: new Set(issues.filter(issue => issue.severity === 'blocking').map(issue => issue.index)).size,
