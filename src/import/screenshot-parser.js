@@ -300,10 +300,10 @@ const isPos = (...s) => s.some(x => x === '+');
 function detectAmount(line) {
   // numero SEGUITO dalla valuta: "-5,00 €", "-2 50€", "12,00-" (segno in coda)
   let m = line.match(/([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)[.,\s](\d{2})\s*([€$£¥])\s*([-−])?/);
-  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[5]), pos: isPos(m[1]), val: parseFloat(m[2].replace(/[.\s]/g, '') + '.' + m[3]) };
+  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[5]), pos: isPos(m[1]), val: parseFloat(m[2].replace(/[.\s]/g, '') + '.' + m[3]), currency: detectCurrency(m[4]) };
   // valuta SEGUITA dal numero, con segno EVENTUALE prima della valuta: "-£4,50", "$5.00", "€ 5,00"
   m = line.match(/([-−+])?\s*([€$£¥])\s*([-−+])?\s*(\d{1,3}(?:[.\s]\d{3})*)[.,](\d{2})\s*([-−])?/);
-  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[3], m[6]), pos: isPos(m[1], m[3]), val: parseFloat(m[4].replace(/[.\s]/g, '') + '.' + m[5]) };
+  if (m) return { start: m.index, end: m.index + m[0].length, neg: isNeg(m[1], m[3], m[6]), pos: isPos(m[1], m[3]), val: parseFloat(m[4].replace(/[.\s]/g, '') + '.' + m[5]), currency: detectCurrency(m[2]) };
   return null;
 }
 
@@ -332,7 +332,7 @@ export function parseScreenshotTransactions(rawText) {
     // l'inline solo se non c'è un header (liste con la data per-riga). Evita che
     // un numero dentro il nome esercente ("Lidl 466...") venga preso per data.
     const inline = parseListDate(line);
-    txs.push({ amount: a.val, type, description: desc.slice(0, 60), date: currentDate || inline });
+    txs.push({ amount: a.val, type, description: desc.slice(0, 60), date: currentDate || inline, ...(a.currency ? { currency: a.currency } : {}) });
   }
   return txs;
 }
@@ -384,7 +384,7 @@ export async function handleScreenshotUpload(file) {
         const date = t.date || new Date();
         const catId = safeCategorize(t.description, t.amount, date, t.type); // guardrail anti-crypto spurie
         const cat = getCatById(catId) || getCatById('spesa');
-        const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: date.toISOString(), source: 'screenshot_ocr' };
+        const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: date.toISOString(), source: 'screenshot_ocr', ...(t.currency ? { currency: t.currency } : {}) };
         const { duplicate } = VaultDAO.addTransaction(monthKey(date), tx, { bulk: true });
         if (!duplicate) added++;
       }
@@ -415,6 +415,14 @@ export async function handleScreenshotUpload(file) {
       color: getCatById(catId).color,
       date: dataRisolta.toISOString(),
       source: 'screenshot_ocr',
+      // BUG REALE trovato dal vivo (2026-09-19): `parsed.currency` era già
+      // rilevato da parseScreenshotText (detectCurrency), ma non veniva mai
+      // scritto sulla transazione salvata — uno scontrino in sterline/
+      // dollari/qualunque valuta diversa dall'euro veniva importato come se
+      // fosse EUR, in silenzio. Vedi src/core/currency-convert.js: la
+      // Dashboard sa già tenere separate le valute non base, ma solo se
+      // `tx.currency` è presente.
+      ...(parsed.currency ? { currency: parsed.currency } : {}),
     };
     const k = monthKey(dataRisolta);
     const { duplicate, route } = VaultDAO.addTransaction(k, tx);

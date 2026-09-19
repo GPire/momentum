@@ -102,6 +102,32 @@ test('addParsed: senza un source passato, nessun campo "source" viene aggiunto (
   assert.equal(salvata.source, undefined);
 });
 
+// BUG REALE (2026-09-19): csv-parser.js/pdf-parser.js rilevano già `currency`
+// per riga, ma questo dispatcher unificato la scartava sempre nel costruire
+// la transazione finale — un estratto in valuta estera veniva importato
+// come se fosse sempre EUR, qualunque fosse il parser di origine.
+test('addParsed: la valuta rilevata dal parser (CSV/PDF/CAMT.053) arriva sulla transazione salvata', async () => {
+  const { VaultDAO } = await import('../core/vault.js');
+  VaultDAO.state.transactions = {};
+  VaultDAO.save = () => {};
+  const seenIds = new Set();
+  const txs = [{ date: new Date('2026-07-01'), amount: 45.0, type: 'uscita', description: 'Hotel Zurich', currency: 'CHF' }];
+  addParsed(txs, seenIds, [], 'pdf');
+  const salvata = VaultDAO.state.transactions['2026-07'][0];
+  assert.equal(salvata.currency, 'CHF');
+});
+
+test('addParsed: nessuna valuta sulla riga di partenza -> nessun campo "currency" inventato (transazione in valuta base)', async () => {
+  const { VaultDAO } = await import('../core/vault.js');
+  VaultDAO.state.transactions = {};
+  VaultDAO.save = () => {};
+  const seenIds = new Set();
+  const txs = [{ date: new Date('2026-07-01'), amount: 12.5, type: 'uscita', description: 'Bar Roma' }];
+  addParsed(txs, seenIds, [], 'csv');
+  const salvata = VaultDAO.state.transactions['2026-07'][0];
+  assert.equal(salvata.currency, undefined);
+});
+
 test('KIND_TO_SOURCE: copre i 4 formati reali gestiti da importFiles, screenshot multiplo condivide lo STESSO tag del singolo (un solo canale misurato, non due)', () => {
   assert.deepEqual(KIND_TO_SOURCE, { csv: 'csv', pdf: 'pdf', xml: 'camt053', image: 'screenshot_ocr' });
 });

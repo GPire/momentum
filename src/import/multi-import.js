@@ -14,7 +14,7 @@ import { VaultDAO, getCatById } from '../core/vault.js';
 import { monthKey } from '../core/constants.js';
 import { parseRevolutExport, isRevolutExport } from './revolut-csv.js';
 import { parseGenericCsv } from './csv-parser.js';
-import { extractTransactionsFromItems, parseCellAmount, parseCellDate, COLUMN_KEYWORDS } from './pdf-parser.js';
+import { extractTransactionsFromItems, parseCellAmount, parseCellDate, detectCurrency, COLUMN_KEYWORDS } from './pdf-parser.js';
 import { parseScreenshotTransactions } from './screenshot-parser.js';
 import { safeCategorize } from './categorize.js';
 import { parseCamt053, isCamt053 } from './camt053.js';
@@ -45,7 +45,13 @@ export function addParsed(txs, seenIds, learned, source) {
     // guardrail anti-crypto/etf spurie).
     const catId = t.category || safeCategorize(t.description, t.amount, t.date, t.type);
     const cat = getCatById(catId) || getCatById('spesa');
-    const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: extId, ...(source ? { source } : {}) };
+    // BUG REALE trovato dal vivo (2026-09-19): il CSV/PDF parser rileva già
+    // `t.currency` (csv-parser.js/pdf-parser.js, detectCurrency), ma questo
+    // dispatcher unificato lo scartava sempre nel costruire la transazione
+    // finale — un estratto conto in valuta estera veniva importato come se
+    // fosse tutto EUR. Vedi src/core/currency-convert.js per come la
+    // Dashboard usa `tx.currency` quando presente.
+    const tx = { id: Date.now() + Math.random(), amount: t.amount, type: t.type, category: cat.id, description: t.description, color: cat.color, date: t.date.toISOString(), externalId: extId, ...(t.currency ? { currency: t.currency } : {}), ...(source ? { source } : {}) };
     const { duplicate } = VaultDAO.addTransaction(monthKey(t.date), tx, { bulk: true, noDedup: !!extId });
     if (!duplicate) { added++; if (learned) learned.push({ description: t.description, category: cat.id, amount: t.amount, date: t.date }); }
   }
@@ -226,8 +232,9 @@ async function ocrPdfPage(page) {
     const desc = parts.filter((p, idx) => idx !== dateColIdx && idx !== expenseColIdx && idx !== incomeColIdx).join(' ').trim() || 'Transazione OCR';
     const expAmt = expenseColIdx >= 0 && parts[expenseColIdx] ? parseCellAmount(parts[expenseColIdx]) : null;
     const incAmt = incomeColIdx >= 0 && parts[incomeColIdx] ? parseCellAmount(parts[incomeColIdx]) : null;
-    if (expAmt !== null && expAmt !== 0) out.push({ date, amount: Math.abs(expAmt), type: 'uscita', description: desc });
-    if (incAmt !== null && incAmt !== 0) out.push({ date, amount: Math.abs(incAmt), type: 'entrata', description: desc });
+    const currency = detectCurrency(line) || undefined;
+    if (expAmt !== null && expAmt !== 0) out.push({ date, amount: Math.abs(expAmt), type: 'uscita', description: desc, ...(currency ? { currency } : {}) });
+    if (incAmt !== null && incAmt !== 0) out.push({ date, amount: Math.abs(incAmt), type: 'entrata', description: desc, ...(currency ? { currency } : {}) });
   }
   return out;
 }

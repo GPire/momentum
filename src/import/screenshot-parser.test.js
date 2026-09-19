@@ -279,3 +279,13 @@ test("parola 'totale' non latina con importo DECIMALE (non whole-number) resta p
   assert.equal(result.amount, 45.80);
   assert.equal(result.confidence, "alta");
 });
+
+test("parseScreenshotTransactions: valuta rilevata PER RIGA, non solo per il singolo scontrino (bug reale: l'import personale leggeva sempre EUR)", async () => {
+  const { parseScreenshotTransactions } = await import('./screenshot-parser.js');
+  const ocr = `Starbucks London -£4,50\nAmazon.it -12,00 €\nWhole Foods $52,30`;
+  const txs = parseScreenshotTransactions(ocr);
+  assert.equal(txs.length, 3);
+  assert.equal(txs[0].currency, 'GBP');
+  assert.equal(txs[1].currency, 'EUR');
+  assert.equal(txs[2].currency, 'USD');
+});
