@@ -9091,9 +9091,40 @@ window.setNotifyPref = (category, attiva) => {
   VaultDAO.state.notifyPrefs = { ...(VaultDAO.state.notifyPrefs || {}), [category]: !!attiva };
   VaultDAO.save();
 };
+// Avviso "resoconti aziendali da approvare" (2026-09-19, ricerca reale:
+// il 19% dei viaggiatori d'affari aspetta oltre 3 mesi il rimborso, il 47%
+// incolpa processi di approvazione lenti — un responsabile che dimentica
+// di controllare è una causa vera, non ipotetica). Sistema PROPRIETARIO,
+// non push server-side: stesso meccanismo già in uso per gli avvisi di
+// prezzo (Notification API locale via notifyUser, mai un servizio esterno
+// come SendGrid/Resend — evita lo stesso blocco strutturale già dichiarato
+// per i pagamenti automatici). Un controllo silenzioso all'avvio, mai
+// bloccante: se il fetch fallisce (nessuna sessione Better Auth in questo
+// browser — la stragrande maggioranza degli utenti personali) si tace
+// senza errori, `credentials:'same-origin'` sfrutta la sessione se esiste
+// già (stesso principio di company-policy.js, mai un secondo login qui).
+async function checkCompanyApprovals() {
+  try {
+    const response = await fetch('/v1/me/companies', { credentials: 'same-origin', redirect: 'error', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) return;
+    const data = await response.json();
+    const totale = (data.companies || []).reduce((somma, c) => somma + (Number.isFinite(c.pendingCount) ? c.pendingCount : 0), 0);
+    const ultimoAvvisato = VaultDAO.state.companyApprovalsLastNotified || 0;
+    if (totale > 0 && totale !== ultimoAvvisato) {
+      const msg = totale === 1 ? tCh('companyApprovalsPendingOne', __uiLang) : tCh('companyApprovalsPendingMany', __uiLang, totale);
+      showToast(msg, 'info');
+      notifyUser(tCh('companyApprovalsNotifyTitle', __uiLang), msg, 'aziendale');
+      VaultDAO.state.companyApprovalsLastNotified = totale;
+      VaultDAO.save();
+    } else if (totale === 0 && ultimoAvvisato > 0) {
+      VaultDAO.state.companyApprovalsLastNotified = 0;
+      VaultDAO.save();
+    }
+  } catch (_) {}
+}
 function renderNotifyPrefs() {
   const prefs = VaultDAO.state.notifyPrefs || {};
-  ['fiscale', 'normativa', 'prezzi'].forEach((cat) => {
+  ['fiscale', 'normativa', 'prezzi', 'aziendale'].forEach((cat) => {
     const el = document.getElementById(`notify-pref-${cat}`);
     if (el) el.checked = prefs[cat] !== false;
   });
@@ -21748,6 +21779,7 @@ const initApp = () => {
   {
     const quandoLibero = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200));
     quandoLibero(() => renderVegliaMercato());
+    quandoLibero(() => checkCompanyApprovals());
   }
   if (qaInput && qaSend && qaAnswer) {
     const ask = async () => {
