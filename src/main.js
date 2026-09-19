@@ -63,6 +63,7 @@ import { TARIFFE_GERMANIA_2026, TARIFFE_USA_2026, RIDUZIONE_USA_2026, TARIFFE_RE
 import { TARIFFA_KM_PER_PAESE } from './trips/trip-mileage-rates.js';
 import { rimborsoChilometrico } from './trips/trip-mileage.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
+import { reconcileCardStatement } from './trips/card-reconciliation.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva } from './voice/voice.js';
@@ -327,7 +328,8 @@ import { observeImport, affidabilitaCanale, riepilogoAffidabilita } from './impo
 // una sola mappa scritta una volta, riusata in ogni punto che osserva.
 const SOURCE_TO_CANALE = { screenshot_ocr: 'screenshot', csv: 'csv', pdf: 'pdf' };
 import { NeuroSym } from './ai/neurosym.js';
-import { importFiles, reconcileModelsWithHistory, learnInBackground } from './import/multi-import.js';
+import { importFiles, reconcileModelsWithHistory, learnInBackground, readCsvText } from './import/multi-import.js';
+import { parseGenericCsv } from './import/csv-parser.js';
 // Firma dei modelli AI: cambiala quando spedisci modelli/tecnologie nuove →
 // l'app ri-allinea l'AI dai dati preservati dell'utente, senza perdere nulla.
 const MODEL_SIGNATURE = 'v10-omega-nano+meso+logreg-dcgn-2026-07';
@@ -11944,6 +11946,7 @@ window.openBusinessTrip = (tripId) => {
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
         <button onclick="window.openCompanyExportMapping('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyExportBtn', __uiLang))}</button>
+        <button onclick="window.openCardReconciliation('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileBtn', __uiLang))}</button>
         <details class="trip-company">
           <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
           <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
@@ -12753,6 +12756,76 @@ window.openCompanyExportMapping = (tripId) => {
     link.click();
     URL.revokeObjectURL(link.href);
     showToast(tCh('tripExportDone', __uiLang), 'success');
+  });
+};
+
+// Riconciliazione estratto conto carta aziendale (gap reale trovato in
+// ricerca: 30-45 minuti/mese/persona di incrocio a mano — vedi
+// src/trips/card-reconciliation.js per la formula e le fonti). Riusa il
+// parser CSV bank-agnostico già esistente (mai un secondo parser) e la
+// stessa lettura file (UTF-8/windows-1252) già collaudata per l'import.
+window.openCardReconciliation = (tripId) => {
+  const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
+  if (!trip) return;
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const spese = tripExpenses(trip, allTransactionsFlat());
+  if (!spese.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
+  const dataLabel = (d) => { try { const dt = d instanceof Date ? d : new Date(d); return isNaN(dt) ? String(d ?? '') : dt.toLocaleDateString(__uiLocale); } catch (_) { return String(d ?? ''); } };
+
+  const rigaVoce = (tx, nota = '') => `
+    <div class="flex items-center justify-between gap-2 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0">
+      <span class="min-w-0 truncate">${esc(dataLabel(tx.date))} · ${esc(tx.description || '')}${nota}</span>
+      <span class="text-[var(--on-surface-secondary)] shrink-0">${eur(tx.amount)}</span>
+    </div>`;
+
+  const renderEsito = (esito) => {
+    const nessunaDiscrepanza = !esito.unmatchedCharges.length && !esito.expensesWithoutCharge.length;
+    return `
+      <div class="card p-3 flex flex-col gap-1">
+        <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>${esc(tCh('companyReconcileMatchedSummary', __uiLang, esito.matched.length))}</div>
+        ${nessunaDiscrepanza ? `<p class="text-[11.5px] text-[var(--on-surface-secondary)]">${esc(tCh('companyReconcileAllClear', __uiLang))}</p>` : ''}
+      </div>
+      ${esito.unmatchedCharges.length ? `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('companyReconcileUnmatchedChargesTitle', __uiLang))}</div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileUnmatchedChargesHint', __uiLang))}</p>
+        ${esito.unmatchedCharges.map(u => rigaVoce(u.carta)).join('')}
+      </div>` : ''}
+      ${esito.expensesWithoutCharge.length ? `
+      <div class="card p-3">
+        <div class="eyebrow">${esc(tCh('companyReconcileMissingChargesTitle', __uiLang))}</div>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileMissingChargesHint', __uiLang))}</p>
+        ${esito.expensesWithoutCharge.map(s => rigaVoce(s)).join('')}
+      </div>` : ''}
+      ${esito.matched.filter(m => m.altriCandidati > 0).length ? `
+      <div class="card p-3">
+        ${esito.matched.filter(m => m.altriCandidati > 0).map(m => rigaVoce(m.carta, esc(tCh('companyReconcileAltCandidate', __uiLang, m.altriCandidati)))).join('')}
+      </div>` : ''}`;
+  };
+
+  openModal(`
+    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div><h3 class="text-base font-black">${esc(tCh('companyReconcileTitle', __uiLang))}</h3><p class="card-sub !mb-0">${esc(tCh('companyReconcileSub', __uiLang))}</p></div>
+      <button id="crec-upload" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileUploadBtn', __uiLang))}</button>
+      <input id="crec-file" type="file" accept=".csv,text/csv" class="hidden" name="crec-file" />
+      <div id="crec-esito"></div>
+    </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('trustCenterClose', __uiLang))}</button>`);
+
+  $('#crec-upload')?.addEventListener('click', () => $('#crec-file')?.click());
+  $('#crec-file')?.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const testo = await readCsvText(file);
+      const cardTransactions = parseGenericCsv(testo);
+      if (!cardTransactions.length) { showToast(tCh('companyReconcileFileEmpty', __uiLang), 'error'); return; }
+      const esito = reconcileCardStatement(cardTransactions, spese);
+      const el = document.getElementById('crec-esito');
+      if (el) el.innerHTML = renderEsito(esito);
+    } catch (_) {
+      showToast(tCh('companyReconcileFileEmpty', __uiLang), 'error');
+    }
   });
 };
 
