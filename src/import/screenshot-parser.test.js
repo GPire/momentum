@@ -8,7 +8,7 @@ globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0, hardwareConcurrency: 4 };
 globalThis.document = globalThis.document || { querySelector: () => null, querySelectorAll: () => [], addEventListener: () => {}, getElementById: () => null };
 
-const { parseScreenshotText } = await import("./screenshot-parser.js");
+const { parseScreenshotText, stripPaymentProcessorPrefix } = await import("./screenshot-parser.js");
 
 test("estrae il totale di uno scontrino distinguendolo da contanti/resto", () => {
   const raw = "BAR ROMA\nVia Roma 12\nCaffe 1.20\nCornetto 1.50\nTOTALE 38,90\nCONTANTI 40,00\nRESTO 1,10";
@@ -288,4 +288,81 @@ test("parseScreenshotTransactions: valuta rilevata PER RIGA, non solo per il sin
   assert.equal(txs[0].currency, 'GBP');
   assert.equal(txs[1].currency, 'EUR');
   assert.equal(txs[2].currency, 'USD');
+});
+
+// Data ambigua gg/mm vs mm/gg (2026-09-19): un numero >12 in una delle due
+// posizioni toglie ogni ambiguità (non può essere un mese); solo quando
+// ENTRAMBI sono ≤12 e diversi l'ordine è scelto (default resto del mondo:
+// gg/mm) e dichiarato come ambiguo — mai spacciato per certo.
+test("data inequivocabile (giorno > 12): nessuna ambiguità, letta correttamente indipendentemente dall'ordine scritto", () => {
+  const r = parseScreenshotText("RISTORANTE\n25/04/2026\nTOTALE 30,00");
+  assert.equal(r.date.getDate(), 25);
+  assert.equal(r.date.getMonth(), 3); // aprile
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("data inequivocabile (mese scritto per secondo > 12, es. formato US con giorno inequivocabile): nessuna ambiguità", () => {
+  const r = parseScreenshotText("RESTAURANT\n04/25/2026\nTOTAL 30.00");
+  assert.equal(r.date.getDate(), 25);
+  assert.equal(r.date.getMonth(), 3); // aprile
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("data GENUINAMENTE ambigua (entrambi i numeri ≤12): default gg/mm, dichiarata come ambigua (mai in silenzio)", () => {
+  const r = parseScreenshotText("RISTORANTE\n03/04/2026\nTOTALE 30,00");
+  assert.equal(r.date.getDate(), 3);
+  assert.equal(r.date.getMonth(), 3); // aprile: gg/mm di default
+  assert.equal(r.dateAmbiguous, true);
+});
+
+test("data ambigua con tripCountry='US': l'unico segnale disponibile fa scegliere mm/gg, resta comunque dichiarata ambigua", () => {
+  const r = parseScreenshotText("RESTAURANT\n03/04/2026\nTOTAL 30.00", { tripCountry: 'US' });
+  assert.equal(r.date.getMonth(), 2); // marzo
+  assert.equal(r.date.getDate(), 4);
+  assert.equal(r.dateAmbiguous, true);
+});
+
+test("giorno e mese identici (es. 05/05): nessuna ambiguità reale, l'ordine non cambia la data", () => {
+  const r = parseScreenshotText("RISTORANTE\n05/05/2026\nTOTALE 30,00");
+  assert.equal(r.dateAmbiguous, undefined);
+});
+
+test("entrambi i numeri > 12 (formato non valido per nessuna interpretazione): data non riconosciuta, mai un crash", () => {
+  const r = parseScreenshotText("RISTORANTE\n32/45/2026\nTOTALE 30,00");
+  assert.equal(r.date, null);
+});
+
+// Prefisso di PROCESSORE di pagamento (2026-09-19): mai il vero esercente —
+// "SQ *BLUE BOTTLE COFFEE" deve diventare "Blue Bottle Coffee", non restare
+// col nome di chi incassa per conto del negozio.
+test("stripPaymentProcessorPrefix: rimuove i prefissi documentati dei processori più comuni (Square/Toast/PayPal/Clover/Zettle/SumUp/Checkout.com/Shopify)", () => {
+  assert.equal(stripPaymentProcessorPrefix('SQ *BLUE BOTTLE COFFEE'), 'BLUE BOTTLE COFFEE');
+  assert.equal(stripPaymentProcessorPrefix('TST* Blue Coffee Shop'), 'Blue Coffee Shop');
+  assert.equal(stripPaymentProcessorPrefix('PAYPAL *ETSY'), 'ETSY');
+  assert.equal(stripPaymentProcessorPrefix('CLV*Corner Bakery'), 'Corner Bakery');
+  assert.equal(stripPaymentProcessorPrefix('IZ *Mercatino Bio'), 'Mercatino Bio');
+  assert.equal(stripPaymentProcessorPrefix('SUMUP *Bar Centrale'), 'Bar Centrale');
+  assert.equal(stripPaymentProcessorPrefix('CKO*Global Shop'), 'Global Shop');
+  assert.equal(stripPaymentProcessorPrefix('SHOPIFY *Etsy Seller'), 'Etsy Seller');
+});
+
+test("stripPaymentProcessorPrefix: un nome negozio che contiene per caso le stesse lettere ma NON è un prefisso reale (niente separatore) resta intatto", () => {
+  assert.equal(stripPaymentProcessorPrefix('SQUARE PIZZA ROMA'), 'SQUARE PIZZA ROMA');
+  assert.equal(stripPaymentProcessorPrefix('Testoni Boutique'), 'Testoni Boutique');
+});
+
+test("stripPaymentProcessorPrefix: nessun prefisso -> testo invariato, mai un troncamento a caso", () => {
+  assert.equal(stripPaymentProcessorPrefix('Ristorante Da Mario'), 'Ristorante Da Mario');
+  assert.equal(stripPaymentProcessorPrefix(''), '');
+  assert.equal(stripPaymentProcessorPrefix(null), '');
+});
+
+test("extractMerchant: il prefisso del processore viene rimosso anche quando l'esercente arriva da uno scontrino OCR", () => {
+  const nome = extractMerchant(['SQ *BLUE BOTTLE COFFEE', '12/07/2026', 'TOTALE 4,50']);
+  assert.equal(nome, 'BLUE BOTTLE COFFEE');
+});
+
+test("parseScreenshotText: descrizione pulita dal prefisso del processore end-to-end", () => {
+  const r = parseScreenshotText('PAYPAL *ETSY SELLER\n12/07/2026\nTOTALE 25,00');
+  assert.equal(r.description, 'ETSY SELLER');
 });

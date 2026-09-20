@@ -7,6 +7,7 @@ import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
 import { detectTripAmountAnomalies } from './trips/trip-anomaly.js';
+import { FATTORI_CO2_KG_PER_KM, stimaCo2Kg, convertiInKm, modoAereoSuggerito, totaleCo2Trasferta } from './trips/trip-carbon.js';
 import { MOMENTUM_EXPORT_FIELDS, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripAttachmentCopy } from './i18n/trip-attachment.js';
@@ -317,7 +318,8 @@ import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-pars
 import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
 import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
 import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
-import { createTrip, tripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
+import { buildOriginalCurrencyFields } from './trips/trip-currency.js';
+import { createTrip, tripExpenses, reimbursableTripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
 import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
 import { reviewConflictCopy } from './i18n/review-conflict.js';
 import { extractQuickAddParams, buildQuickAddPrefill, buildQuickAddSetupInstructions } from './import/quick-add-link.js';
@@ -11381,7 +11383,7 @@ function formatDataLocale(iso, opts = { weekday: 'short', day: 'numeric', month:
 // dichiarato come tale, mai un fallimento silenzioso né un dato indovinato
 // spacciato per certo. Vedi src/trips/receipt-ocr-transparency.js (puro).
 const OCR_CONF_COLOR = { alta: 'text-emerald-400', media: 'text-amber-400', bassa: 'text-[var(--on-surface-secondary)]' };
-function receiptOcrReportHtml(report, lang) {
+function receiptOcrReportHtml(report, lang, state = null) {
   if (!report) return '';
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fieldLabel = (f) => tCh('tripOcrField_' + f, lang);
@@ -11389,12 +11391,21 @@ function receiptOcrReportHtml(report, lang) {
   const missingLine = (name) => `<span class="inline-flex items-center gap-1 text-[var(--on-surface-secondary)] opacity-70"><svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>${esc(tCh('tripOcrMissing', lang, fieldLabel(name)))}</span>`;
   const dateWarn = report.warnings.find(w => w.type === 'date-differs');
   const currWarn = report.warnings.find(w => w.type === 'currency-mismatch');
+  const ambigWarn = report.warnings.find(w => w.type === 'date-ambiguous');
   return `<div class="p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] flex flex-col gap-1.5">
     <div class="font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide text-[9px]">${esc(tCh('tripOcrReportTitle', lang, tCh('tripOcrSource_' + report.source, lang)))}</div>
     <div class="flex flex-col gap-1">${report.found.map(foundLine).join('')}${report.missing.map(missingLine).join('')}</div>
     ${!report.ok ? `<div class="text-rose-400 font-bold">${esc(tCh('tripOcrNoAmount', lang))}</div>` : ''}
+    ${ambigWarn ? `<div class="text-amber-400">${esc(tCh('tripOcrDateAmbiguous', lang))} <button type="button" data-trip-use-ocr-date="${esc(ambigWarn.alternateDate)}" class="font-bold underline underline-offset-2 text-[var(--primary)]">${esc(tCh('tripOcrUseAlternateDate', lang, formatDataLocale(ambigWarn.alternateDate)))}</button></div>` : ''}
     ${dateWarn ? `<button type="button" data-trip-use-ocr-date="${esc(dateWarn.ocrDate)}" class="text-left text-[var(--primary)] font-bold underline underline-offset-2">${esc(tCh('tripOcrUseDate', lang, formatDataLocale(dateWarn.ocrDate)))}</button>` : ''}
-    ${currWarn ? `<div class="text-amber-400 font-bold">${esc(tCh('tripOcrCurrencyMismatch', lang, currWarn.receiptCurrency, currWarn.tripCurrency))}</div>` : ''}
+    ${currWarn ? (
+      state?.ocrOriginalCurrency === currWarn.receiptCurrency
+        ? `<div class="text-emerald-400 font-bold">${esc(tCh('tripOcrConverted', lang, state.ocrOriginalAmount, currWarn.receiptCurrency, state.ocrExchangeRate))}</div>`
+        : `<div class="text-amber-400 font-bold flex flex-col gap-1 items-start">
+            <span>${esc(tCh('tripOcrCurrencyMismatch', lang, currWarn.receiptCurrency, currWarn.tripCurrency))}</span>
+            <button type="button" id="trip-ocr-convert" data-receipt-currency="${esc(currWarn.receiptCurrency)}" data-trip-currency="${esc(currWarn.tripCurrency)}" class="font-bold underline underline-offset-2 text-[var(--primary)]" ${state?.ocrConverting ? 'disabled' : ''}>${esc(state?.ocrConverting ? tCh('tripOcrConverting', lang) : tCh('tripOcrConvert', lang, currWarn.receiptCurrency, currWarn.tripCurrency))}</button>
+          </div>`
+    ) : ''}
     ${report.rawText ? `<details><summary class="cursor-pointer text-[var(--on-surface-secondary)] underline underline-offset-2">${esc(tCh('tripOcrShowRaw', lang))}</summary><pre class="whitespace-pre-wrap break-words mt-1 text-[10px] text-[var(--on-surface-secondary)] max-h-24 overflow-y-auto">${esc(report.rawText)}</pre></details>` : ''}
   </div>`;
 }
@@ -11427,6 +11438,40 @@ function tripAnomalyHtml(anomalies, lang) {
   return `<div class="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3 text-[11px]">
     <div class="font-bold text-amber-400 mb-1">${esc(tCh('tripAnomalyTitle', lang))}</div>
     <ul class="flex flex-col gap-1 list-disc pl-4">${righe}</ul>
+  </div>`;
+}
+
+// Impronta di CO2 (src/trips/trip-carbon.js) — collassato di default (link,
+// stesso pattern già usato per "Scontrino in un altro alfabeto?"): la
+// maggior parte delle spese di trasporto di una trasferta è un biglietto
+// del metro da pochi euro, non merita un calcolatore sempre aperto. Mai
+// una stima salvata senza che l'utente scelga esplicitamente modo+distanza.
+function co2EstimatorHtml(state, lang) {
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const MODI = ['auto', 'treno', 'aereo_corto', 'aereo_lungo'];
+  if (!state.co2PickerOpen) {
+    return `<button type="button" id="trip-co2-toggle" class="text-[11px] font-bold text-[var(--primary)] underline underline-offset-2 mb-2 block">${esc(state.co2Modo ? tCh('tripCo2Active', lang) : tCh('tripCo2Toggle', lang))}</button>`;
+  }
+  const distanzaInput = parseFloat(String(state.co2Distanza).replace(',', '.'));
+  const distanzaKm = convertiInKm(distanzaInput, state.co2Unita);
+  const kg = state.co2Modo ? stimaCo2Kg(state.co2Modo, distanzaKm) : null;
+  const chip = (modo) => `<button type="button" data-co2modo="${modo}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.co2Modo === modo ? 'border-emerald-400 text-emerald-400 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('tripCo2Mode_' + modo, lang))}</button>`;
+  return `<div class="rounded-xl border border-[var(--outline)] p-2.5 mb-2">
+    <button type="button" id="trip-co2-toggle" class="text-[11px] font-bold text-[var(--primary)] underline underline-offset-2 mb-2 block">${esc(tCh('tripCo2Close', lang))}</button>
+    <div class="flex flex-wrap gap-1.5 mb-2">${MODI.map(chip).join('')}</div>
+    ${state.co2Modo ? `
+    <div class="flex gap-2 items-end">
+      <label class="task-field flex-1"><span>${esc(tCh(state.co2Unita === 'mi' ? 'tripKmDistanceLabelMi' : 'tripKmDistanceLabelKm', lang))}</span><input id="trip-co2-distanza" type="number" inputmode="decimal" value="${esc(state.co2Distanza)}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]" name="trip-co2-distanza" /></label>
+      <label class="task-field w-20 shrink-0"><span>${esc(tCh('tripKmUnitLabel', lang))}</span>
+        <select id="trip-co2-unita" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[12px]">
+          <option value="km" ${state.co2Unita === 'km' ? 'selected' : ''}>km</option>
+          <option value="mi" ${state.co2Unita === 'mi' ? 'selected' : ''}>mi</option>
+        </select>
+      </label>
+    </div>
+    ${distanzaKm > 0 && ['aereo_corto', 'aereo_lungo'].includes(state.co2Modo) && modoAereoSuggerito(distanzaKm) !== state.co2Modo ? `<p class="text-[10px] text-amber-400 mt-1.5">${esc(tCh('tripCo2SuggestOther_' + modoAereoSuggerito(distanzaKm), lang))}</p>` : ''}
+    ${kg != null ? `<div class="flex items-center justify-between mt-2 pt-2 border-t border-[var(--outline)]"><span class="text-[12px] font-bold text-emerald-400">${esc(tCh('tripCo2Estimate', lang, kg))}</span></div>` : ''}
+    <p class="text-[9px] text-[var(--on-surface-secondary)] mt-1.5">${esc(tCh('tripCo2Disclaimer', lang))}</p>` : ''}
   </div>`;
 }
 
@@ -11573,12 +11618,12 @@ window.openBusinessTrip = (tripId) => {
   // spesa dei giorni precedenti finiva registrata con la data sbagliata
   // (oggi), rompendo sia il raggruppamento per giorno appena aggiunto sia
   // il riepilogo per l'azienda.
-  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, voiceBusy: false, offerto: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
+  const state = { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, tripCategory: null, tripCategoryManuale: false, catReale: null, receiptDataUrl: null, ocrBusy: false, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: null, ocrOriginalCurrency: null, ocrExchangeRate: null, ocrConverting: false, voiceBusy: false, offerto: false, tripPersonal: false, mealType: null, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', co2Modo: null, co2Distanza: '', co2Unita: 'km', co2PickerOpen: false, data: new Date().toISOString().slice(0, 10), calendarioAperto: false, calAnno: null, calMese0: null, periodoCampoAperto: null, periodoCalAnno: null, periodoCalMese0: null, bridgeConfigAperto: false, bridgePlatformBozza: null, bridgeAddressBozza: null };
 
   const render = () => {
     const allTx = allTransactionsFlat();
     const expenses = tripExpenses(trip, allTx);
-    const exportRows = allTx.filter(tx => tx?.businessTripId === trip.id);
+    const exportRows = reimbursableTripExpenses(trip, allTx);
     const exportChecks = inspectTripArchive(exportRows, trip.receiptPolicy);
     // Anomalie di importo (src/trips/trip-anomaly.js): confronto contro la
     // PROPRIA media storica di trasferta, mai contro quella di altri — lo
@@ -11589,6 +11634,10 @@ window.openBusinessTrip = (tripId) => {
     const tripAnomalies = detectTripAmountAnomalies(allTx.filter(tx => tx?.businessTripId))
       .filter(a => a.tx.businessTripId === trip.id);
     const { totale, perCategoria } = tripTotals(trip, allTx);
+    // CO2 (src/trips/trip-carbon.js): su TUTTE le spese di trasporto della
+    // trasferta, incluse quelle personali/bleisure — il viaggio è avvenuto
+    // comunque, l'impronta non dipende da chi rimborsa cosa.
+    const co2Trip = totaleCo2Trasferta(expenses);
     // Sync live: se arriva un aggiornamento da un altro dei propri dispositivi
     // mentre questa schermata è aperta, si ridisegna con i dati nuovi invece
     // di restare ferma sotto un toast che dice che sono cambiati. Si rilegge
@@ -11606,9 +11655,10 @@ window.openBusinessTrip = (tripId) => {
           <span class="block text-[12px] font-bold truncate">${esc(t.description) || esc(tCh('tripNoDescription', __uiLang))}</span>
           <button type="button" data-trip-edit="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px]">${esc(tripEditCopy(__uiLang, t.tripRevisionConflict ? 3 : 0))}</button>
           ${t.receiptImage ? `<button type="button" data-tripreceipt="${esc(String(t.id))}" class="text-[var(--primary)] text-xs font-bold min-h-[44px] underline underline-offset-4 active:scale-95 transition-transform">${esc(tCh('tripOpenReceipt', __uiLang))}</button>` : ''}
-          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}</span>
+          ${t.originalCurrency ? `<span class="block text-[10px] text-[var(--on-surface-secondary)]">${(+t.originalAmount).toFixed(2).replace('.', ',')} ${esc(t.originalCurrency)} → ${eur(t.amount)}</span>` : ''}
+          <span class="text-[10px] text-[var(--on-surface-secondary)] inline-flex items-center gap-1 flex-wrap">${esc(tCh('trip_' + (TRIP_CATEGORIES.includes(t.tripCategory) ? t.tripCategory : 'altro'), __uiLang))} · ${giornoLocale(t.date)}${needsReceipt(t, trip.receiptPolicy) ? `<span class="notify-pulse inline-flex items-center gap-1 text-amber-400 font-bold bg-[color-mix(in_srgb,var(--gold)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tripReadinessCopy(__uiLang, 2))}"><svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>${esc(tCh('tripReceiptMissing', __uiLang))}</span>` : ''}${t.tripPersonal ? `<span class="inline-flex items-center gap-1 text-[var(--primary)] font-bold bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] px-1.5 py-0.5 rounded-full" title="${esc(tCh('tripPersonalHint', __uiLang))}">${esc(tCh('tripPersonalTag', __uiLang))}</span>` : ''}</span>
         </span>
-        <span class="font-mono font-bold shrink-0">${eur(t.amount)}</span>
+        <span class="font-mono font-bold shrink-0 ${t.tripPersonal ? 'opacity-50' : ''}">${eur(t.amount)}</span>
         ${t.receiptImage ? `<button data-tripexpsend="${t.id}" aria-label="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" title="${esc(t.bridgeSentAt ? tCh('bridgeResendAria', __uiLang) : tCh('bridgeSendAria', __uiLang))}" class="${t.bridgeSentAt ? 'text-emerald-400 opacity-70' : 'text-[var(--on-surface-secondary)] opacity-40'} hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${t.bridgeSentAt ? '<path d="M20 6L9 17l-5-5"/>' : '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/>'}</svg></button>` : ''}
         <button data-tripexpdup="${t.id}" aria-label="${esc(tCh('tripDuplicateAria', __uiLang))}" title="${esc(tCh('tripDuplicateAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--primary)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
         <button data-tripexpdel="${t.id}" data-month="${monthKey(new Date(t.date))}" aria-label="${esc(tCh('txEliminaAria', __uiLang))}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] active:scale-90 transition-transform shrink-0 p-1"><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
@@ -11712,7 +11762,7 @@ window.openBusinessTrip = (tripId) => {
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
     if (appr?.reportFingerprint && !appr.invalidatedAt) {
-      if (verdict.state === 'approvata' && inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy).blockingCount) {
+      if (verdict.state === 'approvata' && inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy).blockingCount) {
         showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
       }
       const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
@@ -11776,13 +11826,14 @@ window.openBusinessTrip = (tripId) => {
           <div class="trip-summary-copy">
             <p class="trip-summary-label">${esc(tCh('tripTotalLabel', __uiLang))}</p>
             <strong class="trip-summary-amount">${eur(totale)}</strong>
-            <p class="trip-summary-count">${esc(tCh('tripExpenseCount', __uiLang, expenses.length))}</p>
+            <p class="trip-summary-count">${esc(tCh('tripExpenseCount', __uiLang, exportRows.length))}</p>
           </div>
           <div class="trip-summary-actions">
             <button type="button" id="trip-jump-expense" class="btn-action btn-primary"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>${esc(tCh('tripAddExpense', __uiLang))}</button>
             <button type="button" id="trip-jump-period">${esc(tCh('tripPeriodTitle', __uiLang))}</button>
           </div>
           <div class="trip-summary-breakdown">${totaliCat}</div>
+          ${co2Trip.kg > 0 ? `<p class="trip-summary-count" title="${esc(tCh('tripCo2Disclaimer', __uiLang))}">${esc(tCh('tripCo2TripTotal', __uiLang, co2Trip.kg))}</p>` : ''}
         </section>
         <!-- PERIODO — richiesta esplicita, confermata dalla ricerca (SAP
              Concur/Rydoo/Mobilexpense): la diaria pasti in Germania dipende
@@ -11898,7 +11949,7 @@ window.openBusinessTrip = (tripId) => {
           ${String(state.receiptDataUrl || '').startsWith('data:application/pdf') ? '' : ocrLangPickerHtml(state, __uiLang)}
           ${isReviewAttachment(state.receiptDataUrl) ? (String(state.receiptDataUrl).startsWith('data:application/pdf') ? `<div class="flex items-center gap-2 p-2.5 rounded-lg bg-black/20 mb-2 text-[11px] font-bold text-[var(--on-surface-secondary)]"><span class="text-[var(--red)] font-black">PDF</span>${esc(tCh('tripReceiptAttached', __uiLang))}</div>` : `<img src="${state.receiptDataUrl}" alt="${esc(tCh('tripReceiptAttached', __uiLang))}" class="w-full max-h-40 object-contain rounded-lg mb-2 bg-black/20" />`) : ''}
           ${state.receiptDataUrl ? `<button id="trip-remove-receipt" ${state.ocrBusy ? 'disabled' : ''} type="button" class="btn-action px-4 py-3 mb-3 rounded-xl">${esc(tripAttachmentCopy(__uiLang, 1))}</button>` : ''}
-          ${receiptOcrReportHtml(state.ocrReport, __uiLang)}
+          ${receiptOcrReportHtml(state.ocrReport, __uiLang, state)}
           <div class="flex gap-2 mb-2">
             <input id="trip-amt" type="text" inputmode="decimal" autocomplete="off" value="${esc(state.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" aria-label="${esc(tCh('itemSplitAmountPlaceholder', __uiLang))}" name="trip-amt" />
             <input id="trip-desc" value="${esc(state.description)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${esc(tCh('tripDescPlaceholder', __uiLang))}" aria-label="${esc(tCh('tripDescPlaceholder', __uiLang))}" name="trip-desc" />
@@ -11974,7 +12025,8 @@ window.openBusinessTrip = (tripId) => {
                 <button type="button" id="trip-km-usa-importo" class="text-[11px] font-bold text-[var(--primary)] underline">${esc(tCh('tripKmUseAmountBtn', __uiLang))}</button>
               </div>` : ''}
             </div>`;
-          })() : ''}` : ''}
+          })() : ''}
+          ${co2EstimatorHtml(state, __uiLang)}` : ''}
           <!-- Metodo di pagamento — serve SOLO all'avviso di tracciabilità
                (expenseNeedsTraceabilityWarning, trip-engine.js), mai a un
                calcolo diverso: chi non lo dichiara semplicemente non riceve
@@ -12004,11 +12056,23 @@ window.openBusinessTrip = (tripId) => {
                rimborsata. Un chip, non un checkbox nascosto: è una scelta
                che cambia cosa succede al salvataggio, deve essere visibile
                quanto la categoria stessa. -->
-          <button id="trip-offerto-toggle" ${state.editingId !== null ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+          <button id="trip-offerto-toggle" ${state.editingId !== null || state.tripPersonal ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.offerto ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
             <span class="w-4 h-4 rounded-md border-2 ${state.offerto ? 'border-[var(--gold)] bg-[var(--gold)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.offerto ? '<svg class="w-2.5 h-2.5 text-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
             ${esc(tCh('tripOfferedToggle', __uiLang))}
           </button>
           ${state.offerto ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripOfferedHint', __uiLang))}</p>` : ''}
+          <!-- Bleisure (richiesta esplicita 2026-09-19): una spesa vera pagata
+               dal dipendente durante il periodo della trasferta ma NON di
+               lavoro (es. la notte extra del weekend prolungato) — resta una
+               transazione vera (i soldi sono usciti davvero), ma esclusa dal
+               totale da rimborsare (reimbursableTripExpenses, trip-engine.js).
+               Mutuamente esclusivo con "Offerto": non ha senso dichiarare
+               "ha pagato un altro" E "è una mia spesa personale" insieme. -->
+          <button id="trip-personal-toggle" ${state.offerto ? 'disabled' : ''} type="button" class="w-full flex items-center gap-2 text-[11px] font-bold px-3 py-2 rounded-xl border mb-2 ${state.tripPersonal ? 'border-[var(--primary)] text-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">
+            <span class="w-4 h-4 rounded-md border-2 ${state.tripPersonal ? 'border-[var(--primary)] bg-[var(--primary)]' : 'border-[var(--outline)]'} inline-flex items-center justify-center shrink-0">${state.tripPersonal ? '<svg class="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>' : ''}</span>
+            ${esc(tCh('tripPersonalToggle', __uiLang))}
+          </button>
+          ${state.tripPersonal ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripPersonalHint', __uiLang))}</p>` : ''}
           ${state.editingId !== null ? '<button id="trip-edit-cancel" class="btn-action w-full py-3 mb-2">' + esc(tripEditCopy(__uiLang, 2)) + '</button>' : ''}
           <button id="trip-save" ${state.ocrBusy ? 'disabled' : ''} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
         </div>
@@ -12072,7 +12136,10 @@ window.openBusinessTrip = (tripId) => {
       $('#trip-period-panel')?.scrollIntoView({ block: 'start', behavior: 'instant' });
       document.querySelector('[data-periodopill="startDate"]')?.focus({ preventScroll: true });
     });
-    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; state.amountFromOcr = false; e.target.removeAttribute('aria-invalid'); });
+    // Un tocco manuale sull'importo dopo una conversione invalida il tasso
+    // dichiarato — stessa disciplina di split-engine.js:editExpense (mai due
+    // numeri, importo e tasso, che non si spiegano più a vicenda).
+    $('#trip-amt')?.addEventListener('input', (e) => { state.amount = e.target.value; state.amountFromOcr = false; state.ocrOriginalAmount = null; state.ocrOriginalCurrency = null; state.ocrExchangeRate = null; e.target.removeAttribute('aria-invalid'); });
     $('#trip-desc')?.addEventListener('input', (e) => { state.description = e.target.value; state.descriptionFromOcr = false; });
     // Selettore data di Momentum: apre/chiude il calendario disegnato.
     // (Prima qui c'era un input invisibile che sul desktop non apriva niente —
@@ -12146,6 +12213,13 @@ window.openBusinessTrip = (tripId) => {
     $('#trip-km-distanza')?.addEventListener('change', (e) => { state.kmDistanza = e.target.value; render(); });
     $('#trip-km-unita')?.addEventListener('change', (e) => { state.kmUnita = e.target.value; render(); });
     $('#trip-km-tariffa')?.addEventListener('change', (e) => { state.kmTariffaPersonalizzata = e.target.value; render(); });
+    $('#trip-co2-toggle')?.addEventListener('click', () => { state.co2PickerOpen = !state.co2PickerOpen; render(); });
+    document.querySelectorAll('[data-co2modo]').forEach(b => b.addEventListener('click', () => {
+      state.co2Modo = state.co2Modo === b.dataset.co2modo ? null : b.dataset.co2modo;
+      render();
+    }));
+    $('#trip-co2-distanza')?.addEventListener('change', (e) => { state.co2Distanza = e.target.value; render(); });
+    $('#trip-co2-unita')?.addEventListener('change', (e) => { state.co2Unita = e.target.value; render(); });
     // "Usa questo importo": mai una scrittura automatica silenziosa in
     // state.amount — un tocco esplicito, coerente col principio del
     // progetto (nessun numero calcolato che appare senza conferma).
@@ -12163,9 +12237,32 @@ window.openBusinessTrip = (tripId) => {
     });
     document.querySelectorAll('[data-trippay]').forEach(b => b.addEventListener('click', () => { state.paymentMethod = state.paymentMethod === b.dataset.trippay ? null : b.dataset.trippay; render(); }));
     document.querySelectorAll('[data-tripmeal]').forEach(b => b.addEventListener('click', () => { state.mealType = state.mealType === b.dataset.tripmeal ? null : b.dataset.tripmeal; render(); }));
-    $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; render(); });
+    $('#trip-offerto-toggle')?.addEventListener('click', () => { state.offerto = !state.offerto; if (state.offerto) state.tripPersonal = false; render(); });
+    $('#trip-personal-toggle')?.addEventListener('click', () => { state.tripPersonal = !state.tripPersonal; if (state.tripPersonal) state.offerto = false; render(); });
     $('#trip-remove-receipt')?.addEventListener('click', () => { if (state.ocrBusy) return; state.receiptDataUrl = null; state.ocrReport = null; render(); });
     $('[data-trip-use-ocr-date]')?.addEventListener('click', (e) => { state.data = e.currentTarget.dataset.tripUseOcrDate; render(); });
+    // Conversione reale multi-valuta per lo scontrino (src/trips/trip-
+    // currency.js): stessa fonte/disciplina già in produzione per le spese
+    // di gruppo (src/split/exchange-rate.js) — tasso del GIORNO della
+    // spesa (mai "oggi"), recuperato solo ora al tocco, mai indovinato.
+    $('#trip-ocr-convert')?.addEventListener('click', async (e) => {
+      if (state.ocrConverting) return;
+      const receiptCurrency = e.currentTarget.dataset.receiptCurrency;
+      const tripCurrencyCode = e.currentTarget.dataset.tripCurrency;
+      const originalAmt = parseTripAmount(state.amount);
+      if (!(originalAmt > 0)) { showToast(tCh('tripAmountRequired', __uiLang), 'error'); return; }
+      state.ocrConverting = true; render();
+      const isoDate = state.data || giornoLocale(new Date());
+      const rate = await fetchHistoricalRate(receiptCurrency, tripCurrencyCode, isoDate);
+      state.ocrConverting = false;
+      if (!rate) { showToast(tCh('tripOcrConvertError', __uiLang, receiptCurrency, tripCurrencyCode), 'error'); render(); return; }
+      state.ocrOriginalAmount = originalAmt;
+      state.ocrOriginalCurrency = receiptCurrency;
+      state.ocrExchangeRate = rate;
+      state.amount = String(Math.round((originalAmt * rate + Number.EPSILON) * 100) / 100);
+      state.amountFromOcr = true;
+      render();
+    });
     $('#trip-ocrlang-toggle')?.addEventListener('click', () => { state.ocrLangPickerOpen = !state.ocrLangPickerOpen; render(); });
     document.querySelectorAll('[data-ocrlang]').forEach(b => b.addEventListener('click', async () => {
       if (state.ocrBusy) return;
@@ -12317,14 +12414,14 @@ window.openBusinessTrip = (tripId) => {
       reader.readAsDataURL(f);
     });
     const resetEdit = () => {
-      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, mealType: null, data: giornoLocale(new Date()) });
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: null, ocrOriginalCurrency: null, ocrExchangeRate: null, ocrConverting: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, tripPersonal: false, co2Modo: null, co2Distanza: '', co2PickerOpen: false, mealType: null, data: giornoLocale(new Date()) });
       render();
     };
     $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
     document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
       const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
       if (!tx) return;
-      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, mealType: tx.mealType || null, offerto: false });
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: tx.originalCurrency ? tx.originalAmount : null, ocrOriginalCurrency: tx.originalCurrency || null, ocrExchangeRate: tx.originalCurrency ? tx.exchangeRate : null, ocrConverting: false, mealType: tx.mealType || null, offerto: false, tripPersonal: tx.tripPersonal === true, co2Modo: tx.co2?.modo || null, co2Distanza: tx.co2?.distanzaKm ? String(tx.co2.distanzaKm) : '', co2Unita: 'km', co2PickerOpen: false });
       render();
       $('#trip-amt')?.focus();
     }));
@@ -12343,13 +12440,29 @@ window.openBusinessTrip = (tripId) => {
       // il campo #trip-data sopra): quasi nessuno registra uno scontrino
       // nell'istante esatto in cui lo riceve.
       const oggi = state.data || new Date().toISOString().slice(0, 10);
+      // Impronta di CO2 (src/trips/trip-carbon.js): congelata al momento del
+      // salvataggio, mai ricalcolata dopo con fattori di emissione futuri
+      // diversi — stessa disciplina di audit del resto della trasferta.
+      // null se l'utente non ha scelto modo+distanza (mai una stima inventata).
+      const co2Distanza = convertiInKm(parseFloat(String(state.co2Distanza).replace(',', '.')), state.co2Unita);
+      const co2Kg = state.co2Modo ? stimaCo2Kg(state.co2Modo, co2Distanza) : null;
+      const co2 = co2Kg != null ? { modo: state.co2Modo, distanzaKm: co2Distanza, kg: co2Kg } : null;
+      // Valuta originale (src/trips/trip-currency.js): solo se lo scontrino
+      // è stato convertito dal pulsante dedicato — mai un tasso indovinato.
+      let originalCurrencyFields;
+      try {
+        originalCurrencyFields = buildOriginalCurrencyFields({ amount: amt, originalAmount: state.ocrOriginalAmount, originalCurrency: state.ocrOriginalCurrency, exchangeRate: state.ocrExchangeRate, tripCurrency: trip.receiptPolicy?.currency || 'EUR' });
+      } catch (err) { showToast(err.message, 'error'); return; }
 
       if (state.editingId !== null) {
         try {
           const result = VaultDAO.reviseTripTransaction(state.editingId, trip.id, {
             amount: amt, description: state.description, date: oggi,
             tripCategory: state.tripCategory, mealType: state.mealType,
-            receiptImage: state.receiptDataUrl || null,
+            receiptImage: state.receiptDataUrl || null, tripPersonal: state.tripPersonal, co2,
+            originalAmount: originalCurrencyFields.originalAmount ?? null,
+            originalCurrency: originalCurrencyFields.originalCurrency ?? null,
+            exchangeRate: originalCurrencyFields.exchangeRate ?? null,
           }, crypto.randomUUID(), state.editingDigest);
           if (!result) { showToast(tripEditCopy(__uiLang, 4), 'error'); return; }
           try { queueLiveSync(result.date.slice(0, 7), result); } catch (_) {}
@@ -12371,7 +12484,7 @@ window.openBusinessTrip = (tripId) => {
           const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
           persistTrip(nuovoTrip);
         } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
-        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.ocrOriginalAmount = null; state.ocrOriginalCurrency = null; state.ocrExchangeRate = null; state.ocrConverting = false; state.offerto = false; state.tripPersonal = false; state.co2Modo = null; state.co2Distanza = ''; state.co2PickerOpen = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
         render();
         return;
       }
@@ -12399,6 +12512,9 @@ window.openBusinessTrip = (tripId) => {
         ...(state.paymentMethod ? { paymentMethod: state.paymentMethod } : {}),
         ...(state.transportMode ? { transportMode: state.transportMode } : {}),
         ...(state.receiptDataUrl ? { receiptImage: state.receiptDataUrl } : {}),
+        ...(state.tripPersonal ? { tripPersonal: true } : {}),
+        ...(co2 ? { co2 } : {}),
+        ...originalCurrencyFields,
       };
       // Bug reale trovato dal vivo TESTANDO "duplica spesa": senza restringere
       // la finestra di dedup fuzzy (default 48 ore, pensata per fondere la
@@ -12413,7 +12529,7 @@ window.openBusinessTrip = (tripId) => {
       VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
       try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
       VaultDAO.save();
-      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.offerto = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.ocrOriginalAmount = null; state.ocrOriginalCurrency = null; state.ocrExchangeRate = null; state.ocrConverting = false; state.offerto = false; state.tripPersonal = false; state.co2Modo = null; state.co2Distanza = ''; state.co2PickerOpen = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
       // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
       // incidere sul budget), ma la Dashboard sottostante restava con lo
       // snapshot di quando il modale si era aperto — chiudendo il modale
@@ -12454,6 +12570,11 @@ window.openBusinessTrip = (tripId) => {
       state.ocrLangOverride = null;
       state.ocrLangPickerOpen = false;
       state.offerto = false;
+      state.tripPersonal = orig.tripPersonal === true;
+      state.co2Modo = orig.co2?.modo || null;
+      state.co2Distanza = orig.co2?.distanzaKm ? String(orig.co2.distanzaKm) : '';
+      state.co2Unita = 'km';
+      state.co2PickerOpen = false;
       showToast(tCh('tripDuplicated', __uiLang), 'success');
       render();
       document.getElementById('trip-amt')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -12801,8 +12922,12 @@ window.exportTripCsv = (tripId) => {
     righe.push([tCh('tripSpainCashSummary', __uiLang, numeroAvvisiSpagna)]);
     righe.push([]);
   }
-  righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
-  expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
+  // Valuta originale (src/trips/trip-currency.js): mai un importo convertito
+  // in CSV senza il numero di partenza e il tasso che lo spiegano — lo stesso
+  // principio di audit di ogni altra colonna qui.
+  const notaValuta = (e) => e.valutaOriginale ? `${(+e.importoOriginale).toFixed(2).replace('.', ',')} ${e.valutaOriginale} (${tCh('tripOcrExchangeRateLabel', __uiLang, e.tassoCambio)})` : '';
+  righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColOriginalCurrency', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
+  expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, notaValuta(e), e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
   righe.push([]);
   righe.push([tCh('itemSplitTotalLabel', __uiLang), totale]);
   // Voci OFFERTE in una sezione a parte, mai mescolate col totale
@@ -12845,7 +12970,7 @@ window.openCompanyExportMapping = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const records = tripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
+  const records = reimbursableTripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
   if (!records.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : defaultMapping();
   // Un salvataggio precedente potrebbe non coprire un campo aggiunto dopo:
@@ -13157,7 +13282,7 @@ window.openTripReviewShare = async (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const checks = inspectTripArchive(allTransactionsFlat().filter(tx => tx?.businessTripId === trip.id), trip.receiptPolicy);
+  const checks = inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy);
   if (checks.blockingCount) {
     window.openBusinessTrip(trip.id);
     const panel = document.getElementById('trip-preflight');

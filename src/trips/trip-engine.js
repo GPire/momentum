@@ -329,10 +329,24 @@ export function tripExpenses(trip, allTransactions) {
   return allTransactions.filter(t => t.businessTripId === trip.id && t.type === 'uscita');
 }
 
+// Bleisure (business + leisure, richiesta esplicita 2026-09-19): una spesa
+// pagata durante il periodo della trasferta ma dichiarata PERSONALE (es. il
+// weekend extra prima di rientrare) — resta una transazione vera (i soldi
+// sono usciti davvero, stesso principio di sempre), ma non entra MAI nel
+// totale da rimborsare né nell'export verso l'azienda. Funzione a parte
+// (non un filtro in-line ripetuto in ogni punto che oggi fa
+// `allTx.filter(tx => tx?.businessTripId === trip.id)`): un solo posto
+// dove "cosa conta per il rimborso" è definito, mai due elenchi che possono
+// divergere.
+export function reimbursableTripExpenses(trip, allTransactions) {
+  return tripExpenses(trip, allTransactions).filter(t => !t.tripPersonal);
+}
+
 // Totale generale + per macro-voce (trasporto/vitto/alloggio/altro) — quello
-// che una nota spese aziendale chiede per prima cosa.
+// che una nota spese aziendale chiede per prima cosa. Esclude le spese
+// personali (bleisure): mai un euro di vacanza extra rimborsato per errore.
 export function tripTotals(trip, allTransactions) {
-  const expenses = tripExpenses(trip, allTransactions);
+  const expenses = reimbursableTripExpenses(trip, allTransactions);
   const perCategoria = {};
   for (const cat of TRIP_CATEGORIES) perCategoria[cat] = 0;
   let totale = 0;
@@ -363,7 +377,7 @@ export function tripOfferedTotals(trip) {
 // data, mai un formato ERP specifico promesso: un CSV/HTML leggibile
 // ovunque, dichiarato come tale (vedi commento in testa al file).
 export function exportTripData(trip, allTransactions, { taxActiveCountry = null } = {}) {
-  const expenses = [...tripExpenses(trip, allTransactions)]
+  const expenses = [...reimbursableTripExpenses(trip, allTransactions)]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
     .map(t => ({
       data: t.date,
@@ -376,6 +390,10 @@ export function exportTripData(trip, allTransactions, { taxActiveCountry = null 
       avvisoTracciabilita: expenseNeedsTraceabilityWarning(t, trip),
       avvisoSpagna: expenseNeedsSpainCashWarning(t, taxActiveCountry),
       ...(t.tripRevisionConflict ? { revisionConflict: true } : {}),
+      // Valuta originale (src/trips/trip-currency.js): l'export/audit deve
+      // poter mostrare "45 CHF al tasso 0.92 del 12/08" anche fuori dall'app,
+      // mai solo l'importo già convertito senza spiegazione.
+      ...(t.originalCurrency ? { valutaOriginale: t.originalCurrency, importoOriginale: t.originalAmount, tassoCambio: t.exchangeRate } : {}),
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))

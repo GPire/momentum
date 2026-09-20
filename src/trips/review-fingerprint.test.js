@@ -15,7 +15,7 @@ test('review round trip binds the decision to the same full report', async () =>
 });
 test('attachments, amounts, offered expenses and policy change the fingerprint', async () => {
   const hash = await fingerprint();
-  for (const patch of [{ amount: 13 }, { receiptImage: 'replacement' }, { date: '2026-09-14' }, { currency: 'USD' }]) {
+  for (const patch of [{ amount: 13 }, { receiptImage: 'replacement' }, { date: '2026-09-14' }, { currency: 'USD' }, { originalCurrency: 'CHF', originalAmount: 12, exchangeRate: 0.92 }]) {
     assert.notEqual(await fingerprint(trip, [{ ...rows[0], ...patch }]), hash);
   }
   assert.notEqual(await fingerprint({ ...trip, offeredItems: [{ id: 'meal', amount: 3 }] }), hash);
@@ -25,6 +25,21 @@ test('delivery metadata, key order and unrelated expenses do not invalidate a re
   assert.equal(await fingerprint({ ...trip, approval: { state: 'inviata' } }, [{ ...rows[0], bridgePreparedAt: 'now' }, { id: 'private', businessTripId: 'other' }]), await fingerprint());
   const another = { ...rows[0], id: 'y' };
   assert.equal(await fingerprint(trip, [...rows, another]), await fingerprint(trip, [another, ...rows]));
+});
+
+// Bleisure (2026-09-19): una spesa marcata personale non è mai stata parte
+// di ciò che è stato davvero inviato all'azienda — modificarla DOPO
+// l'approvazione non deve invalidarla, ma marcarla/smarcarla sì (cambia
+// cosa viene davvero rimborsato).
+test('bleisure: modificare una spesa GIÀ personale non invalida il report (non era mai stata inviata)', async () => {
+  const personale = { ...rows[0], tripPersonal: true };
+  const hash = await fingerprint(trip, [personale]);
+  assert.equal(await fingerprint(trip, [{ ...personale, amount: 999 }]), hash);
+});
+
+test('bleisure: marcare/smarcare una spesa come personale INVALIDA il report (cambia cosa viene rimborsato)', async () => {
+  const hash = await fingerprint(); // rows[0] normale, rimborsabile
+  assert.notEqual(await fingerprint(trip, [{ ...rows[0], tripPersonal: true }]), hash);
 });
 
 test('compressed summaries keep the fingerprint of the full report', async () => {

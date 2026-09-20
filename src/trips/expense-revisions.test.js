@@ -24,6 +24,19 @@ test('edit preserves identity, attachment, provenance and original values', () =
   assert.equal(edited.tripRevisionBase.amount, 12);
   assert.equal(base.amount, 12);
 });
+// Bleisure (2026-09-19): marcare/smarcare una spesa come personale è una
+// revisione vera come cambiare l'importo — deve sopravvivere al giro
+// pick()/materialize(), altrimenti il toggle sparirebbe silenziosamente
+// alla prima modifica successiva della spesa.
+test('edit carries tripPersonal through a revision (bleisure toggle survives an edit)', () => {
+  const personal = reviseTripExpense(base, { tripPersonal: true }, 'p1');
+  assert.equal(personal.tripPersonal, true);
+  const stillPersonal = reviseTripExpense(personal, { amount: 20 }, 'p2');
+  assert.equal(stillPersonal.tripPersonal, true);
+  const backToReimbursable = reviseTripExpense(stillPersonal, { tripPersonal: false }, 'p3');
+  assert.equal(backToReimbursable.tripPersonal, false);
+});
+
 test('concurrent edits converge and retain both alternatives for explicit review', () => {
   const a = reviseTripExpense(base, { amount: 14 }, 'a');
   const b = reviseTripExpense(base, { amount: 16 }, 'b');
@@ -36,6 +49,17 @@ test('concurrent edits converge and retain both alternatives for explicit review
   assert.equal(resolved.tripRevisions.length, 3);
   assert.equal(mergeTripExpenseRevisions(resolved, a), resolved);
 });
+test('valuta originale (src/trips/trip-currency.js): impostata e poi rimossa esplicitamente con null, mai persa in silenzio', () => {
+  const converted = reviseTripExpense(base, { amount: 11.04, originalAmount: 12, originalCurrency: 'CHF', exchangeRate: 0.92 }, 'cur1');
+  assert.equal(converted.originalCurrency, 'CHF');
+  assert.equal(converted.originalAmount, 12);
+  assert.equal(converted.exchangeRate, 0.92);
+  const cleared = reviseTripExpense(converted, { amount: 12, originalAmount: null, originalCurrency: null, exchangeRate: null }, 'cur2');
+  assert.equal(cleared.originalCurrency, null);
+  assert.equal(cleared.originalAmount, null);
+  assert.equal(cleared.exchangeRate, null);
+});
+
 test('invalid edits and unrelated incoming rows cannot alter a trip', () => {
   assert.throws(() => reviseTripExpense(base, { amount: Infinity }, 'x'));
   assert.throws(() => reviseTripExpense(base, { date: '2026-02-30' }, 'x'));

@@ -33,7 +33,12 @@ export function buildReceiptOcrReport(result, opts = {}) {
   let dateValue = null;
   if (result?.date instanceof Date && !isNaN(result.date.getTime())) dateValue = giornoLocale(result.date);
   if (dateValue) {
-    found.push({ field: 'date', value: dateValue, confidence: source === 'pdf' ? 'alta' : 'media' });
+    // Formato gg/mm vs mm/gg genuinamente ambiguo (vedi screenshot-parser.js:
+    // interpretaDataGiornoMese) — mai una confidenza "media" spacciata per
+    // certa quanto le altre quando in realtà è un colpo di moneta fra due
+    // date valide. L'alternativa (giorno/mese scambiati) si mostra sempre,
+    // mai solo la scelta fatta in silenzio.
+    found.push({ field: 'date', value: dateValue, confidence: result?.dateAmbiguous ? 'bassa' : (source === 'pdf' ? 'alta' : 'media') });
   } else {
     missing.push('date');
   }
@@ -50,6 +55,11 @@ export function buildReceiptOcrReport(result, opts = {}) {
 
   if (dateValue && currentDate && dateValue !== currentDate) {
     warnings.push({ type: 'date-differs', ocrDate: dateValue, currentDate });
+  }
+
+  if (dateValue && result?.dateAmbiguous) {
+    const [y, m, d] = dateValue.split('-');
+    warnings.push({ type: 'date-ambiguous', chosenDate: dateValue, alternateDate: `${y}-${d}-${m}` });
   }
 
   return {

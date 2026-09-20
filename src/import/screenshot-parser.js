@@ -83,6 +83,22 @@ const MERCHANT_NOISE = [
   /reparto|cassa|operatore|cassiere/i,
 ];
 
+// Prefisso di PROCESSORE di pagamento (mai il vero esercente): sugli
+// estratti/ricevute digitali reali, chi incassa tramite un aggregatore
+// mostra spesso "SQ *NOME LOCALE"/"TST* NOME LOCALE"/"PAYPAL *NOME NEGOZIO"
+// invece del solo nome — il cliente non ha mai scelto Square/Toast/PayPal,
+// li ha scelti il negozio. Pattern DOCUMENTATI dagli stessi processori (non
+// indovinati): Square, Toast POS, PayPal, Clover, iZettle/Zettle, SumUp,
+// Checkout.com, Shopify Payments. Rimosso PRIMA di mostrare la descrizione
+// — "SQ *BLUE BOTTLE COFFEE" diventa "Blue Bottle Coffee".
+// Limite dichiarato: elenco curato dei processori più comuni al mondo, non
+// esaustivo — un processore non in lista passa comunque, solo senza pulizia
+// (mai un nome troncato a caso su un prefisso non riconosciuto).
+const PROCESSOR_PREFIX_RE = /^(SQ|TST|PAYPAL|CLV|IZ|SUMUP|CKO|SHOPIFY)\s*[*#:]\s*/i;
+export function stripPaymentProcessorPrefix(text) {
+  return String(text || '').replace(PROCESSOR_PREFIX_RE, '').trim();
+}
+
 // Esercente: prima riga sostanziosa (≥3 lettere) tra le prime 6 che non è
 // rumore fiscale/indirizzo. null se non c'è niente di plausibile — il
 // chiamante decide il fallback, qui mai un nome inventato.
@@ -93,7 +109,7 @@ export function extractMerchant(lines) {
     if (letters < 3) continue;
     // una riga con importo non è il nome (es. "TOTALE 45,80")
     if (new RegExp(AMOUNT_RE_SRC).test(line)) continue;
-    return line.slice(0, 60);
+    return stripPaymentProcessorPrefix(line).slice(0, 60);
   }
   return null;
 }
@@ -105,10 +121,31 @@ export function extractMerchant(lines) {
 const INCOME_HINTS = /(accredito|accreditat|ricevut|stipendio|bonifico in entrata|incasso|rimborso)/i;
 const EXPENSE_HINTS = /(addebito|addebitat|pagamento|pagat|acquisto|prelievo|acquistat)/i;
 
+// Disambiguazione data "gg/mm" vs "mm/gg" — BUG REALE trovato rileggendo il
+// codice (mai indovinato prima): con entrambi i numeri ≤12 ("03/04/2026") il
+// formato è genuinamente ambiguo, e il codice assumeva SEMPRE gg/mm senza
+// dirlo — uno scontrino USA vero ("03/04" = 4 marzo, non 3 aprile) veniva
+// silenziosamente letto con la data sbagliata. Quando un numero supera 12
+// non c'è ambiguità (non può essere un mese): si usa quello per capire
+// l'ordine, a prescindere da qualunque preferenza. Solo quando ENTRAMBI i
+// numeri sono ≤12 (e diversi) l'ordine è scelto da `preferisciMeseGiorno`
+// (true per gli USA, unico Paese dove mm/gg è la norma) — e la scelta viene
+// dichiarata onestamente (`ambigua: true`), mai spacciata per certa.
+function interpretaDataGiornoMese(a, b, preferisciMeseGiorno) {
+  if (a > 12 && b <= 12) return { giorno: a, mese: b, ambigua: false };
+  if (b > 12 && a <= 12) return { giorno: b, mese: a, ambigua: false };
+  if (a > 12 && b > 12) return null; // nessun numero può essere un mese: data invalida
+  const ambigua = a !== b;
+  return preferisciMeseGiorno ? { giorno: b, mese: a, ambigua } : { giorno: a, mese: b, ambigua };
+}
+
 // Funzione pura: dato il testo grezzo restituito dall'OCR, estrae una
 // transazione plausibile. Nessuna dipendenza da Tesseract/DOM — testabile
-// direttamente in Node.
-export function parseScreenshotText(rawText) {
+// direttamente in Node. `opts.tripCountry`: unico segnale disponibile per
+// scegliere l'ordine giorno/mese quando è ambiguo (vedi sopra) — 'US' è
+// l'unico Paese, fra quelli già coperti dal modulo trasferte, dove mm/gg è
+// la convenzione normale.
+export function parseScreenshotText(rawText, opts = {}) {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
 
   // Priorità 1: pattern di NOTIFICA precisi (notification-parser.js). È il
@@ -159,13 +196,17 @@ export function parseScreenshotText(rawText) {
   // (mostra "mancante"); l'import personale (handleScreenshotUpload sotto)
   // applica il proprio fallback "oggi" al punto d'uso, non qui.
   let date = null;
+  let dateAmbiguous = false;
   const dmySlash = rawText.match(DATE_PATTERN);
   const ymdCjk = dmySlash ? null : rawText.match(DATE_PATTERN_YMD_CJK);
   if (dmySlash) {
     let yr = parseInt(dmySlash[3]);
     if (yr < 100) yr += 2000;
-    const parsed = new Date(yr, parseInt(dmySlash[2]) - 1, parseInt(dmySlash[1]));
-    if (!isNaN(parsed.getTime())) date = parsed;
+    const interpretata = interpretaDataGiornoMese(parseInt(dmySlash[1]), parseInt(dmySlash[2]), opts.tripCountry === 'US');
+    if (interpretata) {
+      const parsed = new Date(yr, interpretata.mese - 1, interpretata.giorno);
+      if (!isNaN(parsed.getTime())) { date = parsed; dateAmbiguous = interpretata.ambigua; }
+    }
   } else if (ymdCjk) {
     const parsed = new Date(parseInt(ymdCjk[1]), parseInt(ymdCjk[2]) - 1, parseInt(ymdCjk[3]));
     if (!isNaN(parsed.getTime())) date = parsed;
@@ -195,6 +236,7 @@ export function parseScreenshotText(rawText) {
     confidence: confidenceAmount || 'bassa',
     rawText,
     ...(currency ? { currency } : {}),
+    ...(dateAmbiguous ? { dateAmbiguous: true } : {}),
   };
 }
 
@@ -277,7 +319,7 @@ function isDateHeader(line) {
 // Pulisce il nome esercente dal rumore: codici località ("Ita16100ita",
 // "Genova Ita16126ita"), circuiti di pagamento, diciture di stato.
 function cleanMerchant(s) {
-  return s
+  return stripPaymentProcessorPrefix(s)
     .replace(/\b[Il1]ta\d{2,}\w*/gi, '')                             // codici "Ita16100ita"/"Ita999" (OCR: I→1/l)
     .replace(/(apple pay|google pay|pagamento nfc|pagamento cless con device|pagamento con device|contactless|da contabilizzare|nfc)/ig, '')
     .replace(/\s{2,}/g, ' ')
@@ -356,7 +398,7 @@ export async function scanScreenshot(imageFileOrBlob, opts = {}) {
   }
   const lang = resolveOcrLang(opts);
   const { data } = await Tesseract.recognize(imageFileOrBlob, lang);
-  return { ...parseScreenshotText(data.text), ocrLang: lang };
+  return { ...parseScreenshotText(data.text, { tripCountry: opts.tripCountry }), ocrLang: lang };
 }
 
 // OCR → più transazioni (per le liste movimenti). Ritorna { transactions, rawText }.
