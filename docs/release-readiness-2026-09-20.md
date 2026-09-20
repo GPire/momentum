@@ -270,3 +270,19 @@ riconciliazione completa di modifiche ordinarie, allegati, impostazioni e modell
 anteprima dei conflitti fra archivi popolati; retry dopo timeout di autenticazione;
 feedback dell'ultima ricezione e trasporto offline. Non dichiarare archivio intero
 sempre sincronizzato né conservazione remota. Accesso resta sperimentale.
+
+### Recupero autenticazione privata — 20 settembre, controllo successivo
+Il controller ritenta la challenge dopo 10 e 20 secondi, interrompe il tentativo
+a 30 secondi e permette un nuovo avvio esplicito. Autenticazione riuscita,
+revoca, chiusura del canale o rimozione della fiducia fermano i retry. Ogni timer
+è associato al tentativo corrente: un callback già accodato di una sessione
+precedente non può revocare la nuova. Dispose cancella timer e sessioni.
+Verifica: controller 9/9, sessioni 9/9, confine privato 7/7, trasporto 51/51
+(76 test locali). Le fixture non sono due dispositivi fisici né reti reali.
+Build portabile riuscita su 447 moduli; restano gli avvisi sui chunk grandi.
+Modifica tecnica coperta dalla voce sperimentale 2026-09-20b già presente nelle
+novità: nessuna nuova promessa di copertura e nessuna migrazione dei dati.
+Resta da completare il feedback visibile dei timeout, la conferma persistente
+della ricezione, la riconciliazione delle modifiche ordinarie e dell'intero
+archivio, l'anteprima dei conflitti e il collaudo fra dispositivi fisici.
+Non inviare l'intero oggetto Vault: include chiavi e autorizzazioni locali.

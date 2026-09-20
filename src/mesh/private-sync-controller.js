@@ -10,6 +10,25 @@ export function bindPrivateSync(node, options) {
   const requests = new WeakMap(), retried = new WeakSet();
   const announced = new WeakSet();
   const readyReceived = new WeakSet();
+  const timers = new Map();
+  const schedule = options.schedule || ((fn, ms) => { const timer=setTimeout(fn,ms); timer.unref?.(); return timer; });
+  const cancel = options.cancel || clearTimeout;
+  const stop = peer => { if(timers.has(peer)) cancel(timers.get(peer)); timers.delete(peer); };
+  const retry = (peer, entry, key, attempt = 0) => {
+    stop(peer);
+    const timer = schedule(() => {
+      if (timers.get(peer) !== timer) return;
+      timers.delete(peer);
+      if (sessions.allows(peer,entry)) return;
+      if (node.peers.get(peer)!==entry || entry.channel?.readyState!=='open' || options.consent(key)!==true || !options.trusted().some(d => d.publicKey === key)) {
+        pending.delete(entry); sessions.revoke(peer); status(peer,'disconnected'); return;
+      }
+      if (attempt>=2) { pending.delete(entry); sessions.revoke(peer); status(peer,'timeout'); return; }
+      send(peer,entry,'private_sync_challenge',requests.get(entry));
+      retry(peer,entry,key,attempt+1);
+    },10000);
+    timers.set(peer, timer);
+  };
   const send = (peer, entry, type, payload) => {
     if (node.peers.get(peer) !== entry || entry.channel?.readyState !== 'open') return false;
     try { entry.channel.send(JSON.stringify({type, ...payload})); return true; } catch { return false; }
@@ -17,10 +36,14 @@ export function bindPrivateSync(node, options) {
   const start = (peer, key) => {
     const entry = node.peers.get(peer);
     if (!entry || pending.has(entry)) return false;
+    stop(peer);
+    retried.delete(entry); announced.delete(entry); readyReceived.delete(entry);
     const request = sessions.begin(peer, entry, key);
     if (!request) { status(peer, 'needs-consent'); return false; }
     pending.add(entry); requests.set(entry,request); status(peer, 'authenticating');
-    return send(peer, entry, 'private_sync_challenge', request);
+    const sent=send(peer, entry, 'private_sync_challenge', request);
+    retry(peer,entry,key);
+    return sent;
   };
   node.authorizePrivatePeer = (peer, type, entry) => DATA.has(type) && sessions.allows(peer, entry);
   node.onPrivateSyncControl = async (peer, message, entry) => {
@@ -30,7 +53,7 @@ export function bindPrivateSync(node, options) {
       const key = options.peerKey(peer);
       if (!key || options.consent(key) !== true || !options.trusted().some(d => d.publicKey === key)) return;
       const proof = await sessions.answer(entry, message);
-            if (proof) {
+      if (proof) {
         send(peer, entry, 'private_sync_proof', proof);
         if (!pending.has(entry)) start(peer, key);
         else if (!sessions.allows(peer, entry) && !retried.has(entry)) {
@@ -39,6 +62,7 @@ export function bindPrivateSync(node, options) {
       }
     } else if (message.type === 'private_sync_proof') {
       if (!await sessions.complete(peer, entry, message)) return;
+      stop(peer);
       status(peer, 'authenticated');
       if (!announced.has(entry)) { announced.add(entry); send(peer, entry, 'private_sync_ready', {}); }
       node.requestSync(peer, {forceDigest:true});
@@ -49,5 +73,5 @@ export function bindPrivateSync(node, options) {
       node.requestSync(peer, {forceDigest:true});
     }
   };
-  return { start, sessions, revoke(peer) { const entry=node.peers.get(peer); if(entry) { pending.delete(entry); requests.delete(entry); retried.delete(entry); announced.delete(entry); readyReceived.delete(entry); } sessions.revoke(peer); status(peer,'revoked'); } };
+  return { start, sessions, dispose() { for(const peer of timers.keys()) stop(peer); sessions.sessions.clear(); }, revoke(peer) { stop(peer); const entry=node.peers.get(peer); if(entry) { pending.delete(entry); requests.delete(entry); retried.delete(entry); announced.delete(entry); readyReceived.delete(entry); } sessions.revoke(peer); status(peer,'revoked'); } };
 }
