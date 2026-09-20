@@ -67,3 +67,21 @@ test('selectableCountries: Italia mappata, altri come profilo internazionale', (
   assert.ok(list.find(c => c.code === 'IT' && c.mapped));
   assert.ok(list.find(c => c.code === 'DEFAULT'));
 });
+
+test('codici non mappati e proprietà ereditate usano sempre il profilo internazionale', () => {
+  for (const code of ['CH', 'ES', '__proto__', 'constructor', 'toString', ' IT ']) {
+    const expected = code.trim() === 'IT' ? COUNTRIES.IT : COUNTRIES.DEFAULT;
+    assert.equal(invoiceCountry(code), expected);
+    assert.doesNotThrow(() => renderInvoiceHTML({}, { country: code }));
+  }
+});
+
+test('documenti generati non certificano validità fiscale o trasmissione', () => {
+  const inv = computeInvoice({ imponibile: 500, regime: 'forfettario', country: 'IT' });
+  const it = renderInvoiceHTML(inv, { country: 'IT' });
+  const intl = renderInvoiceHTML(inv, { country: 'ES' });
+  assert.match(it, /non attesta/i);
+  assert.doesNotMatch(it, /valido per la contabilita/i);
+  assert.match(intl, /not verified/i);
+  assert.doesNotMatch(intl, /valid as an invoice/i);
+});

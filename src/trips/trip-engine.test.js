@@ -234,6 +234,13 @@ test('exportTripData: valuta originale (src/trips/trip-currency.js) passa nell\'
   assert.equal(bus.valutaOriginale, undefined);
 });
 
+test('exportTripData: conserva la valuta della trasferta e di ogni movimento nell\'export', () => {
+  const trip = { ...createTrip({ name: 'New York' }), receiptPolicy: { currency: 'USD' } };
+  const [record] = exportTripData(trip, [{ type: 'uscita', amount: 30, date: '2026-09-10', businessTripId: trip.id, tripCategory: 'vitto', currency: 'USD' }]).expenses;
+  assert.equal(exportTripData(trip, []).currency, 'USD');
+  assert.equal(record.valuta, 'USD');
+});
+
 test('exportTripData: numeroGiustificativiMancanti conta tutte le spese sopra soglia senza scontrino, zero se nessuna', () => {
   const trip = createTrip({ name: 'Roma' });
   const nessunGiustificativo = exportTripData(trip, [

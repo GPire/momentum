@@ -96,7 +96,7 @@ export const VERDICT_STATES = ['approvata', 'modifiche'];
 // Chiavi corte nel payload: un QR più corto è un QR che si legge al primo
 // colpo, su carta stampata e su uno schermo sporco. Nomi lunghi qui
 // costerebbero centinaia di byte per una trasferta di venti spese.
-export async function encodeTripReview({ tripId, tripName, startDate, endDate, expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint, policyExceptionReason = '', offerti = [], offertiTotale = 0 }, p2pOffer, { maxLen = 900 } = {}) {
+export async function encodeTripReview({ tripId, tripName, startDate, endDate, currency = 'EUR', expenses = [], totale = 0, numeroGiustificativiMancanti = 0, mittente = '', reportFingerprint, policyExceptionReason = '', offerti = [], offertiTotale = 0 }, p2pOffer, { maxLen = 900 } = {}) {
   if (!tripId) throw new Error('serve l identificativo della trasferta');
   const slim = {
     v: 1,
@@ -107,6 +107,7 @@ export async function encodeTripReview({ tripId, tripName, startDate, endDate, e
     ...(startDate ? { s: startDate } : {}),
     ...(endDate ? { e: endDate } : {}),
     ...(mittente ? { m: mittente } : {}),
+    ...(typeof currency === 'string' && currency ? { y: currency.slice(0, 3).toUpperCase() } : {}),
     t: Math.round((+totale + Number.EPSILON) * 100) / 100,
     k: numeroGiustificativiMancanti,
     j: expenses.filter(x => x.revisionConflict).length,
@@ -225,6 +226,7 @@ export async function decodeTripReview(code) {
       startDate: g.s || null,
       endDate: g.e || null,
       mittente: g.m || '',
+      currency: typeof g.y === 'string' && /^[A-Z]{3}$/.test(g.y) ? g.y : 'EUR',
       totale: +g.t || 0,
       numeroGiustificativiMancanti: +g.k || 0,
       revisionConflictCount: +g.j || 0,

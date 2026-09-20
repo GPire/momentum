@@ -1,6 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildAccountantReportCh, buildAccountantReportEs, renderAccountantReportHTMLIntl } from './accountant-export-intl.js';
+import { irpfEstatal, cuotaReta } from './tax-es.js';
+
+test('export ES: 24000 annui non diventano 24000 mensili', () => {
+  const tx = vault(Array.from({length:12},(_,i) => [`2026-${String(i+1).padStart(2,'0')}-10`,2000,'factura cliente']));
+  const report = buildAccountantReportEs(tx,2026);
+  assert.equal(report.incassato,24000);
+  assert.equal(report.count,12);
+  assert.equal(report.imposta.importo,irpfEstatal(24000));
+  assert.equal(report.contributi[0].importo,+(cuotaReta(2000).cuotaMensual * 12).toFixed(2));
+  assert.ok(report.noteOneste.some(n => /12 meses/.test(n)));
+});
+
+test('export ES: importi serializzati e centesimi mantengono il totale annuo', () => {
+  const report = buildAccountantReportEs(vault([['2026-02-02','1000.01','factura'],['2026-03-03','2000.02','factura']]),2026);
+  assert.equal(report.incassato,3000.03);
+  assert.equal(report.imposta.importo,irpfEstatal(3000.03));
+});
 
 function vault(voci) {
   const out = {};

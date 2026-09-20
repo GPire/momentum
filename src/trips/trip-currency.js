@@ -17,6 +17,11 @@
 
 const round2 = (n) => Math.round((+n + Number.EPSILON) * 100) / 100;
 
+export function canChangeTripCurrency(trip, nextCurrency, transactions) {
+  return (trip.receiptPolicy?.currency || 'EUR') === nextCurrency
+    || (!(trip.offeredItems || []).length && !transactions.some(tx => tx.businessTripId === trip.id));
+}
+
 // Ritorna i campi {originalAmount, originalCurrency, exchangeRate} da unire
 // alla transazione, o {} se non c'è nessuna valuta originale dichiarata
 // (caso comune: scontrino già nella valuta del viaggio). Lancia se i numeri
@@ -24,7 +29,7 @@ const round2 = (n) => Math.round((+n + Number.EPSILON) * 100) / 100;
 // sommare esatte altrove nel progetto.
 export function buildOriginalCurrencyFields({ amount, originalAmount, originalCurrency, exchangeRate, tripCurrency }) {
   if (!originalCurrency || originalCurrency === tripCurrency) return {};
-  if (!(originalAmount > 0) || !(exchangeRate > 0)) throw new Error('valuta originale senza importo o tasso di cambio');
+  if (![amount, originalAmount, exchangeRate].every(value => Number.isFinite(value) && value > 0)) throw new Error('valuta originale senza importo o tasso di cambio');
   const atteso = round2(originalAmount * exchangeRate);
   if (Math.abs(atteso - round2(amount)) > 0.02) throw new Error('l\'importo convertito non coincide col tasso di cambio dichiarato');
   return { originalAmount: round2(originalAmount), originalCurrency, exchangeRate };

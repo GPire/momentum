@@ -1,0 +1,13 @@
+<!doctype html><html lang="it"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Receipt UI isolated fixture</title>
+<link rel="stylesheet" href="../src/ui/tax-workspace.css">
+<style>:root{--outline:#45415f;--surface-elevated:#1d1b30;--on-surface-secondary:#c8c3dc}body{background:#10101b;color:#f4f1ff;font:16px system-ui;margin:0;padding:16px}main{max-width:760px;margin:auto}button{font:inherit;color:inherit;background:#302a51;border:1px solid #77709a;border-radius:14px;padding:12px;cursor:pointer}button:disabled{opacity:.5}</style>
+<main id="root"></main><script type="module">
+import {mountDocumentArchive} from '../src/ui/document-archive.js';
+import {createDocumentArchive} from '../src/invoice/document-archive.js';
+import {verifactuFixture} from './national-receipt-fixture.js';
+const country=new URLSearchParams(location.search).get('country')==='IT'?'IT':'ES';
+const it=`<r:RicevutaImpossibilitaRecapito xmlns:r="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fattura/messaggi/v1.0" versione="1.0"><IdentificativoSdI>123</IdentificativoSdI><NomeFile>invoice-TEST.xml</NomeFile><Hash>${'a'.repeat(64)}</Hash><DataOraRicezione>2026-09-19T10:00:00Z</DataOraRicezione><DataMessaADisposizione>2026-09-19</DataMessaADisposizione><MessageId>TEST</MessageId></r:RicevutaImpossibilitaRecapito>`;
+const archive=await createDocumentArchive({country,invoiceId:'TEST',files:[{id:'doc',kind:'invoice',name:'invoice-TEST.xml',data:'<test/>'},{id:'receipt',kind:'receipt',documentId:'doc',name:'receipt-TEST.xml',data:country==='IT'?it:verifactuFixture()}]});
+// Read-only synthetic adapter: UI test, not a persistence or official-portal test.
+mountDocumentArchive(document.querySelector('#root'),{country,invoiceId:'TEST',lang:'it',store:{open:async()=>({}),get:async()=>archive}});
+</script></html>

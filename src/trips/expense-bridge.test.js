@@ -87,3 +87,7 @@ test('scontriniDaInviare/scontriniGiaInviati con lista vuota o assente non crash
   assert.deepEqual(scontriniDaInviare(undefined), []);
   assert.deepEqual(scontriniGiaInviati(undefined), []);
 });
+
+test('Rydoo uses the documented production receipt inbox', () => {
+  assert.equal(trovaPiattaforma('rydoo').indirizzoFisso, 'receipts@rydoo.com');
+});

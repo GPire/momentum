@@ -1,0 +1,6 @@
+// Synthetic response derived from AEAT's published response schema; no real taxpayer.
+export const verifactuFixture=()=>`<r:RespuestaRegFactuSistemaFacturacion xmlns:r="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaSuministro.xsd" xmlns:i="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd">
+<r:Cabecera><i:ObligadoEmision><i:NombreRazon>TEST</i:NombreRazon><i:NIF>TESTONLY1</i:NIF></i:ObligadoEmision></r:Cabecera>
+<r:TiempoEsperaEnvio>60</r:TiempoEsperaEnvio><r:EstadoEnvio>ParcialmenteCorrecto</r:EstadoEnvio>
+${[1,2].map(n=>`<r:RespuestaLinea><r:IDFactura><i:IDEmisorFactura>TESTONLY1</i:IDEmisorFactura><i:NumSerieFactura>TEST-${n}</i:NumSerieFactura><i:FechaExpedicionFactura>01-09-2026</i:FechaExpedicionFactura></r:IDFactura><r:Operacion><i:TipoOperacion>Alta</i:TipoOperacion></r:Operacion><r:EstadoRegistro>${n===1?'Correcto':'Incorrecto'}</r:EstadoRegistro>${n===2?'<r:CodigoErrorRegistro>3000</r:CodigoErrorRegistro><r:RegistroDuplicado><i:IdPeticionRegistroDuplicado>TEST</i:IdPeticionRegistroDuplicado></r:RegistroDuplicado>':''}</r:RespuestaLinea>`).join('')}
+</r:RespuestaRegFactuSistemaFacturacion>`;

@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { buildTripArchive, inspectTripArchive, isTripDate } from './trip-archive.js';
 import { parseTripAmount } from './trip-engine.js';
 import { needsReceipt, exportTripData } from './trip-engine.js';
+
+test('mixed explicit currencies block report submission even without spending limits', () => {
+  const rows = [{ id: 'a', amount: 20, date: '2026-09-20', currency: 'USD' }];
+  assert.equal(inspectTripArchive(rows, { currency: 'EUR' }).blockingCount, 1);
+  assert.equal(inspectTripArchive(rows, { currency: 'USD' }).blockingCount, 0);
+});
 test('preflight separates optional receipts from warnings and blocks every duplicate identity', () => {
   const rows = [{ id: 'a', amount: 5, date: '2026-09-13' }, { id: 'b', amount: 30, date: '2026-09-13' }];
   const check = inspectTripArchive(rows, { receiptThreshold: 25 });

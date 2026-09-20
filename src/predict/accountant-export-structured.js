@@ -11,6 +11,7 @@
 // mai una seconda formula fiscale, mai un dato che l'HTML non ha già.
 // Funzioni pure, nessun DOM: main.js le collega a un download reale.
 'use strict';
+import { invoiceCollectionsCopy, invoiceCollectionReportNote } from '../i18n/invoice-collections.js';
 
 // JSON: l'intero report, con un involucro minimo che identifica formato/
 // versione e ripete il disclaimer anche qui — un JSON può finire aperto da
@@ -53,11 +54,22 @@ function csvIt(report, meta) {
     ['Accantonamento già versato', report.accantonamento.versato],
     ['Accantonamento mancante', report.accantonamento.mancante],
   ]);
-  out += csvSection('Fatture', ['Numero', 'Anno', 'Data', 'Cliente', 'Imponibile', 'Stato', 'Data incasso', 'Confidenza incasso'],
-    report.fatture.map(f => [f.numero, f.anno, f.data, f.cliente, f.imponibile, f.stato, f.dataIncasso || '', f.confidenzaIncasso || '']));
+  out += csvSection('Fatture', ['Numero', 'Anno', 'Data', 'Cliente', 'Imponibile', 'Stato', 'Data incasso', 'Confidenza incasso', 'Residuo netto', 'Valuta residuo'],
+    report.fatture.map(f => [f.numero, f.anno, f.data, f.cliente, f.imponibile, f.stato, f.dataIncasso || '', f.confidenzaIncasso || '', f.residuoNetto ?? '', f.valuta || '']));
+  out += csvSection('Note incassi', ['Nota'], [['Gli incassi abbinati sono liquidità, non automaticamente imponibile fiscale. Le conferme sono registrate dall’utente, non certificate dalla banca.']]);
+  if (report.anomalie.abbinamentiDaRivedere) out += csvSection('Abbinamenti da rivedere', ['Numero'], [[report.anomalie.abbinamentiDaRivedere]]);
+  if (report.anomalie.versamentiSenzaAnno) out += csvSection('Versamenti esclusi: anno da confermare', ['Numero', 'Importo EUR'], [[report.anomalie.versamentiSenzaAnno,report.anomalie.importoVersamentiSenzaAnno]]);
+  if (report.anomalie.versamentiInvalidi) out += csvSection('Versamenti con importo non valido', ['Numero'], [[report.anomalie.versamentiInvalidi]]);
+  const reviewRows=(report.invoiceReviews || []).flatMap(r=>r.history.map(e=>[r.invoiceId,e.id,e.type,e.requestId || '',e.at,e.note || '',r.open.some(o=>o.id===e.id)?'da controllare':'evento storico',e.version]));
+  if(reviewRows.length) out += csvSection('Controlli locali: non approvazioni fiscali', ['Fattura','Evento','Tipo','Richiesta','Data','Nota','Stato','Versione'],reviewRows);
+  if (report.taxDocuments?.length) out += csvSection('F24 dichiarati: crediti da verificare, non dedotti automaticamente', ['Documento','Tributo','Anno','Cassa','Credito','Stato'],report.taxDocuments.map(d=>[d.reference,d.code,d.taxYear,d.cashPaid,d.credit,d.status]));
   if (report.accantonamento.scomposizione.length) {
     out += csvSection('Composizione accantonamento', ['Voce', 'Importo (EUR)'],
       report.accantonamento.scomposizione.map(v => [v.voce, v.importo]));
+  }
+  if (report.incassi?.length) {
+    out += csvSection('Incassi abbinati (stime da verificare)', ['Numero fattura', 'Anno fattura', 'Cliente', 'Data incasso', 'Importo (EUR)', 'Confidenza'],
+      report.incassi.map(i => [i.numeroFattura, i.annoFattura, i.cliente, i.data, i.importo, i.confidenza]));
   }
   if (report.scadenze.length) {
     out += csvSection('Scadenze', ['Nome', 'Data', 'Importo (EUR)', 'Giorni mancanti'],
@@ -96,6 +108,13 @@ function csvIntl(report, meta) {
   if (report.noteOneste?.length) {
     out += csvSection('Note', ['Testo'], report.noteOneste.map(n => [n]));
   }
+  if (report.invoiceCollections?.rows.length) {
+    const c=invoiceCollectionsCopy(meta.lang || (report.paese==='ES'?'es':'de'));
+    out += csvSection(c.title, [c.invoice,c.receipt,c.amount,c.currency,c.due],
+      report.invoiceCollections.rows.map(r=>[`${r.invoiceNumber}/${r.invoiceYear} · ${r.client}`,`${r.date} · ${r.receiptId}`,r.amount,r.currency,r.remaining]));
+    out += csvRow([invoiceCollectionReportNote(meta.lang || (report.paese==='ES'?'es':'de'))]);
+  }
+  if (report.invoiceCollections?.reviewCount) out += csvSection('Abbinamenti da verificare', ['Numero'], [[report.invoiceCollections.reviewCount]]);
   return out;
 }
 

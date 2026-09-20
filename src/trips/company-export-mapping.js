@@ -27,6 +27,7 @@ import { nomeFileGiustificativo } from './expense-bridge.js';
 export const MOMENTUM_EXPORT_FIELDS = [
   'localId', 'date', 'category', 'mealType', 'description', 'amount',
   'currency', 'attachmentName', 'revisionFlag', 'provenance',
+  'tripId', 'originalAmount', 'originalCurrency', 'exchangeRate', 'paymentMethod',
 ];
 
 // Quali campi sono "di natura obbligatoria" per un giustificativo di spesa
@@ -42,6 +43,13 @@ export function defaultMapping() {
     mapping[field] = { column: '', required: DEFAULT_REQUIRED_FIELDS.includes(field) };
   }
   return mapping;
+}
+
+// Generic Momentum format, not a certified vendor import template.
+export function standardMapping() {
+  return Object.fromEntries(MOMENTUM_EXPORT_FIELDS.map(field => [field, {
+    column: field, required: DEFAULT_REQUIRED_FIELDS.includes(field),
+  }]));
 }
 
 // Valida la MAPPATURA stessa (non ancora le righe): un campo richiesto
@@ -79,6 +87,11 @@ export function transactionToExportRecord(tx, trip) {
     attachmentName: tx?.receiptImage ? nomeFileGiustificativo(tx, isPdf) : null,
     revisionFlag: tx?.tripRevisionConflict ? 'conflict' : 'clean',
     provenance: 'momentum-app',
+    tripId: trip?.id || null,
+    originalAmount: Number.isFinite(tx?.originalAmount) ? tx.originalAmount : null,
+    originalCurrency: tx?.originalCurrency || null,
+    exchangeRate: Number.isFinite(tx?.exchangeRate) ? tx.exchangeRate : null,
+    paymentMethod: tx?.paymentMethod || null,
   };
 }
 
@@ -128,7 +141,8 @@ function csvEscape(v) {
 // se la mappatura stessa non è valida: mai un file parziale silenzioso.
 export function mappedExportToCsv(preview, mapping) {
   if (preview.mappingErrors.length) return null;
-  const colonne = MOMENTUM_EXPORT_FIELDS.map(f => mapping?.[f]?.column && String(mapping[f].column).trim()).filter(Boolean);
+  const orderedFields = MOMENTUM_EXPORT_FIELDS.map((field, index) => ({ field, order: Number.isSafeInteger(mapping?.[field]?.order) && mapping[field].order >= 0 ? mapping[field].order : MOMENTUM_EXPORT_FIELDS.length + index })).sort((a, b) => a.order - b.order).map(item => item.field);
+  const colonne = orderedFields.map(f => mapping?.[f]?.column && String(mapping[f].column).trim()).filter(Boolean);
   if (!colonne.length) return null;
   const intestazione = colonne.map(csvEscape).join(',');
   const righe = preview.rows.filter(r => !r.errors.length).map(r => colonne.map(c => csvEscape(r.row[c])).join(','));

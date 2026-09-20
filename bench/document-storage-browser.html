@@ -1,0 +1,34 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>Document storage integration test</title><button id="run">Run isolated storage test</button><pre id="result"></pre><script type="module">
+import {createDocumentArchive} from '../src/invoice/document-archive.js';
+import {saveDocumentArchive,loadDocumentArchive} from '../src/invoice/document-storage.js';
+import {includeDocumentBackup,restoreDocumentBackup,splitDocumentBackup} from '../src/invoice/document-backup.js';
+import {encryptBackup,decryptBackup} from '../src/core/backup.js';
+document.querySelector('#run').onclick=async()=>{
+ const output=document.querySelector('#result');let db;
+ try{
+  db=await new Promise((resolve,reject)=>{const r=indexedDB.open('momentum-document-test-'+crypto.randomUUID(),1);r.onupgradeneeded=()=>r.result.createObjectStore('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  const store={open:async()=>db,get:async(s,k)=>new Promise((resolve,reject)=>{const r=db.transaction(s).objectStore(s).get(k);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);})};
+  const a=await createDocumentArchive({country:'IT',invoiceId:'TEST',files:[{id:'doc',kind:'invoice',name:'test.xml',data:'<test/>'}]});
+  await saveDocumentArchive(store,a);const restored=await loadDocumentArchive(store,'IT','TEST');if(restored.files[0].data!=='<test/>')throw Error('Roundtrip');
+  let rejected=false;try{await saveDocumentArchive(store,a,null);}catch{rejected=true;}if(!rejected)throw Error('Lost update accepted');
+  await saveDocumentArchive(store,a,a.manifestSha256);
+  const name=db.name;db.close();db=await new Promise((resolve,reject)=>{const r=indexedDB.open(name,1);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  if((await loadDocumentArchive(store,'IT','TEST')).manifestSha256!==a.manifestSha256)throw Error('Reopen failed');
+  const backup=await includeDocumentBackup({transactions:{},mlData:{weights:[1]}},store);
+  const decrypted=await decryptBackup(await encryptBackup(backup,'test-only-password'),'test-only-password');
+  const split=splitDocumentBackup(decrypted);if(split.state.invoiceDocumentBackup||split.state.mlData.weights[0]!==1)throw Error('State isolation failed');
+  const sourceName=db.name;db.close();
+  db=await new Promise((resolve,reject)=>{const r=indexedDB.open('momentum-document-test-'+crypto.randomUUID(),1);r.onupgradeneeded=()=>r.result.createObjectStore('state');r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error);});
+  indexedDB.deleteDatabase(sourceName);
+  if(await loadDocumentArchive(store,'IT','TEST'))throw Error('Target must be empty');
+  await restoreDocumentBackup(split.documents,store);
+  await restoreDocumentBackup(split.documents,store);
+  const different=await createDocumentArchive({...a,files:[{...a.files[0],data:'different'}]});
+  const second=await createDocumentArchive({...a,invoiceId:'NEW'});
+  let conflict=false;try{await restoreDocumentBackup({version:1,archives:[second,different]},store);}catch{conflict=true;}
+  if(!conflict||await loadDocumentArchive(store,'IT','NEW'))throw Error('Atomic restore failed');
+  if((await loadDocumentArchive(store,'IT','TEST')).files[0].data!=='<test/>')throw Error('Original lost');
+  output.textContent='PASS: storage reopen, conflicting writes rejected, encrypted document backup restored into empty database, state isolation, duplicate restore, conflicting restore rolled back without partial writes.';
+ }catch(e){output.textContent='FAIL: '+e.message;}finally{if(db){const name=db.name;db.close();indexedDB.deleteDatabase(name);}}
+};
+</script></html>

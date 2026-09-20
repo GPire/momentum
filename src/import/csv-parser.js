@@ -1,3 +1,4 @@
+import { VALUTE_ISO4217 } from '../core/iso4217.js';
 import { parseCellAmount, parseCellDate, detectCurrency, COLUMN_KEYWORDS } from './pdf-parser.js';
 import { parseCsvRow } from './revolut-csv.js';
 
@@ -50,8 +51,9 @@ export function parseGenericCsv(text) {
   if (!dataRows.length) return [];
 
   // 1) Header hint (se presente): quale colonna è cosa.
-  let dateCol = -1, descCol = -1, amountCol = -1, debitCol = -1, creditCol = -1, dcCol = -1, ignoreCols = new Set();
+  let dateCol = -1, descCol = -1, amountCol = -1, debitCol = -1, creditCol = -1, dcCol = -1, currencyCol = -1, ignoreCols = new Set();
   if (header) header.forEach((h, i) => {
+    if (/^(valuta|currency|devise|währung|waehrung|moneda|moeda|valutacode)$/.test(h.trim())) { currencyCol = i; return; }
     if (COLUMN_KEYWORDS.ignore.test(h)) { ignoreCols.add(i); return; }
     if (dateCol < 0 && COLUMN_KEYWORDS.date.test(h)) dateCol = i;
     else if (descCol < 0 && COLUMN_KEYWORDS.desc.test(h)) descCol = i;
@@ -84,7 +86,7 @@ export function parseGenericCsv(text) {
   const pickBy = (metric, exclude) => { let best = -1, bv = 0.5; for (let c = 0; c < nCol; c++) { if (exclude.has(c)) continue; const v = metric(c); if (v > bv) { bv = v; best = c; } } return best; };
 
   if (dateCol < 0) dateCol = pickBy(c => ratio(c, 'date'), new Set([...ignoreCols]));
-  const used = new Set([dateCol, descCol, amountCol, debitCol, creditCol, dcCol, ...ignoreCols].filter(i => i >= 0));
+  const used = new Set([dateCol, descCol, amountCol, debitCol, creditCol, dcCol, currencyCol, ...ignoreCols].filter(i => i >= 0));
   // colonne monetarie: se header non le ha date, prendi quelle a contenuto-importo
   if (amountCol < 0 && debitCol < 0 && creditCol < 0) {
     const moneyCols = [];
@@ -129,7 +131,9 @@ export function parseGenericCsv(text) {
     // valuta rilevata dalla cella importo stessa (simbolo o codice ISO):
     // assente quando la cella non ne porta traccia — il chiamante ricade
     // sulla valuta base del dispositivo, mai una valuta indovinata a caso.
-    const currency = detectCurrency(rawAmountCell);
+    const explicitCurrency = currencyCol >= 0 ? String(cols[currencyCol] || '').trim().toUpperCase() : '';
+    if (explicitCurrency && !VALUTE_ISO4217.has(explicitCurrency)) throw new TypeError('Invalid CSV currency');
+    const currency = explicitCurrency || detectCurrency(rawAmountCell);
     const tx = { date, amount: Math.abs(signed), type, description: String(desc || 'Operazione').slice(0, 60) };
     if (currency) tx.currency = currency;
     out.push(tx);

@@ -1,0 +1,31 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><title>National receipt parser tests</title>
+<button id="run">Test receipt reader</button><pre id="result"></pre>
+<script type="module">
+import {readVerifactuReceipt,readSdiReceipt} from '../src/invoice/national-receipt.js';
+import {verifactuFixture} from './national-receipt-fixture.js';
+document.querySelector('#run').onclick=()=>{
+ let count=0;const check=(ok,label)=>{if(!ok)throw Error(label);count++;};
+ const reject=(xml,label)=>{let caught=false;try{readVerifactuReceipt(xml);}catch{caught=true;}check(caught,label);};
+ try{
+  const xml=verifactuFixture(),r=readVerifactuReceipt(xml);
+  check(r.lines.length===2&&r.lines[0].status==='Correcto'&&r.lines[1].status==='Incorrecto','Per-line outcomes');
+  check(r.authenticityVerified===false&&r.schemaValidated===false,'No fabricated certification');
+  check(r.lines[0].date==='2026-09-01'&&r.lines[0].number==='TEST-1','Identity');
+  check(r.lines[1].duplicate===true,'Duplicate flag');
+  check(readVerifactuReceipt(`<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body>${xml}</s:Body></s:Envelope>`).lines.length===2,'SOAP');
+  reject(xml.replace('ParcialmenteCorrecto','Accepted'),'Unknown outcome');
+  reject(xml.replace('01-09-2026','31-02-2026'),'Impossible date');
+  reject(xml.replace('xmlns:r="https:', 'xmlns:r="http:'),'Wrong namespace');
+  reject('<!DOCTYPE x [<!ENTITY e SYSTEM "file:///test">]>'+xml,'DTD');
+  reject(xml.replace('</r:EstadoEnvio>','</r:EstadoEnvio><r:EstadoEnvio>Correcto</r:EstadoEnvio>'),'Repeated scalar');
+  reject(xml.replace('</r:RespuestaLinea>','</r:RespuestaLinea><broken>'),'Malformed XML');
+  reject(xml.replace('<r:EstadoRegistro>Correcto</r:EstadoRegistro>','<r:EstadoRegistro><x>Correcto</x></r:EstadoRegistro>'),'Nested scalar');
+  reject('x'.repeat(2000001),'Oversized');
+  check(readVerifactuReceipt(xml.replace('>Correcto</r:EstadoRegistro>','>AceptadoConErrores</r:EstadoRegistro>')).lines[0].status==='AceptadoConErrores','Accepted with errors');
+  const it=`<r:RicevutaScarto xmlns:r="http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fattura/messaggi/v1.0" versione="1.0"><IdentificativoSdI>123</IdentificativoSdI><NomeFile>IT_TEST.xml</NomeFile><Hash>${'a'.repeat(64)}</Hash><DataOraRicezione>2026-09-19T10:00:00Z</DataOraRicezione><MessageId>TEST</MessageId><ListaErrori><Errore><Codice>00400</Codice><Descrizione>TEST</Descrizione><Suggerimento>Controlla il documento</Suggerimento></Errore></ListaErrori></r:RicevutaScarto>`;
+  const ir=readSdiReceipt(it);check(ir.lines[0].status==='RicevutaScarto'&&ir.lines[0].code==='00400'&&!ir.authenticityVerified,'IT rejected receipt');
+  for(const bad of [it.replace('versione="1.0"','versione="9.0"'),it.replace('2026-09-19','2026-02-30'),it.replace('messaggi/v1.0','messaggi/fake'),it.replace('<NomeFile>','<NomeFile><nested/>'),it.replace('<ListaErrori>','<ListaErrori/><ListaErrori>')]){let caught=false;try{readSdiReceipt(bad);}catch{caught=true;}check(caught,'IT invalid input');}
+  document.querySelector('#result').textContent=`PASS: ${count} checks. Synthetic fixtures; no authentic receipt or signature verification.`;
+ }catch(e){document.querySelector('#result').textContent='FAIL: '+e.message;}
+};
+</script></html>

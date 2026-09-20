@@ -1,9 +1,9 @@
 // ============================================================
-// COUNTRY INVOICING — architettura pronta per ogni mercato (v10)
+// COUNTRY INVOICING — profili di calcolo e documento
 // ============================================================
-// L'Italia è l'implementazione COMPLETA e corretta; la struttura è pronta per
-// l'espansione: aggiungere un Paese = aggiungere una entry qui (IVA di default,
-// obbligo e-fattura, valuta, disclaimer, parole), senza rifare la logica.
+// Il profilo italiano prepara i calcoli e il documento, non la trasmissione
+// o la conservazione fiscale. Aggiungere un profilo non implementa gli obblighi
+// di un nuovo Paese: servono regole, tracciati e verifiche dedicati.
 // Onestà (regola #1): i valori sono reali e dichiarati; per i Paesi non ancora
 // mappati si usa un profilo INTERNAZIONALE prudente (IVA configurabile, nessuna
 // ritenuta/cassa assunta) — mai numeri inventati specifici di un Paese.
@@ -20,12 +20,12 @@ export const COUNTRIES = {
     vatDefault: 0.22, defaultRitenuta: 0.20, defaultCassa: 0.04, bollo: true,
     eInvoiceMandatory: true,
     disclaimerLines: [
-      'Documento fattura con calcoli corretti: valido per la contabilita\' del cliente.',
-      'In Italia la fattura fiscale va emessa via SdI (elettronica): qui e\' una copia di cortesia.',
+      'Copia di cortesia: non attesta la trasmissione o l\'esito dello SdI.',
+      'Quando obbligatoria, l\'emissione elettronica richiede l\'invio allo SdI e la verifica dell\'esito.',
     ],
   },
-  // Profilo INTERNAZIONALE di default (Paesi non ancora mappati): il PDF è una
-  // fattura-documento valida dove non c'è obbligo di e-fattura; IVA configurabile.
+  // Profilo generico: IVA configurabile, requisiti nazionali non verificati.
+  // eInvoiceMandatory=false non certifica l'assenza di obblighi nel Paese.
   // BUG REALE corretto: locale='en' ma il testo era in italiano — un cliente
   // fuori Italia riceveva un disclaimer che non poteva leggere. Ora il testo
   // segue davvero la lingua dichiarata.
@@ -34,14 +34,15 @@ export const COUNTRIES = {
     vatDefault: 0.0, defaultRitenuta: 0.0, defaultCassa: 0.0, bollo: false,
     eInvoiceMandatory: false,
     disclaimerLines: [
-      'Invoice document with correct calculations, valid as an invoice where electronic invoicing is not mandatory.',
+      'Prepared document: country-specific invoicing requirements are not verified.',
       'Check your country\'s tax obligations with your accountant.',
     ],
   },
 };
 
 export function invoiceCountry(code) {
-  return COUNTRIES[String(code || '').toUpperCase()] || COUNTRIES.DEFAULT;
+  const key = String(code || '').trim().toUpperCase();
+  return Object.hasOwn(COUNTRIES, key) ? COUNTRIES[key] : COUNTRIES.DEFAULT;
 }
 
 // Elenco dei Paesi selezionabili (per la UI). L'Italia prima; il resto usa il

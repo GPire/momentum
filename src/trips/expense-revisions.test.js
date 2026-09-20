@@ -37,6 +37,18 @@ test('edit carries tripPersonal through a revision (bleisure toggle survives an 
   assert.equal(backToReimbursable.tripPersonal, false);
 });
 
+test('edit carries payment and transport choices through a revision, including an explicit clear', () => {
+  const cashTaxi = reviseTripExpense(base, { paymentMethod: 'contanti', transportMode: 'taxi_ncc' }, 'pay1');
+  assert.equal(cashTaxi.paymentMethod, 'contanti');
+  assert.equal(cashTaxi.transportMode, 'taxi_ncc');
+  const publicCard = reviseTripExpense(cashTaxi, { paymentMethod: 'carta', transportMode: 'pubblico' }, 'pay2');
+  assert.equal(publicCard.paymentMethod, 'carta');
+  assert.equal(publicCard.transportMode, 'pubblico');
+  const cleared = reviseTripExpense(publicCard, { paymentMethod: null, transportMode: null }, 'pay3');
+  assert.equal(cleared.paymentMethod, null);
+  assert.equal(cleared.transportMode, null);
+});
+
 test('concurrent edits converge and retain both alternatives for explicit review', () => {
   const a = reviseTripExpense(base, { amount: 14 }, 'a');
   const b = reviseTripExpense(base, { amount: 16 }, 'b');
@@ -76,8 +88,10 @@ test('Vault edit moves the existing record and rejects stale editor snapshots', 
   try {
     VaultDAO.state = { transactions: { '2026-09': [{ ...base }] } };
     VaultDAO.save = () => { saved++; };
-    const next = VaultDAO.reviseTripTransaction('uuid', 'trip', { date: '2026-10-01', amount: 18 }, 'edit', '');
+    const next = VaultDAO.reviseTripTransaction('uuid', 'trip', { date: '2026-10-01', amount: 18, category: 'ristoranti' }, 'edit', '');
     assert.equal(next.amount, 18);
+    assert.equal(next.category, 'ristoranti');
+    assert.equal(next.tripRevisionBase.category, 'food');
     assert.equal(VaultDAO.state.transactions['2026-09'].length, 0);
     assert.equal(VaultDAO.state.transactions['2026-10'][0].receiptImage, 'receipt');
     assert.equal(VaultDAO.reviseTripTransaction('uuid', 'trip', { amount: 20 }, 'stale', ''), null);

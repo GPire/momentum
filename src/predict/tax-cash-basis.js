@@ -28,11 +28,12 @@ function norm(s) {
 // Il cliente compare nella descrizione dell'incasso? Basta una parola
 // significativa (≥4 lettere) del nome: "Studio Rossi Srl" riconosce
 // "bonifico studio rossi", senza pretendere la stringa esatta.
-function clienteNellaDescrizione(cliente, descrizione) {
-  const paroleCliente = norm(cliente).split(' ').filter((w) => w.length >= 4 && !['srl', 'spa', 'snc', 'sas'].includes(w));
+export function clienteNellaDescrizione(cliente, descrizione) {
+  const generiche = new Set(['studio', 'societa', 'company', 'limited', 'services', 'service', 'servizi', 'group', 'gruppo', 'gmbh', 'sarl']);
+  const paroleCliente = norm(cliente).split(' ').filter((w) => w.length >= 4 && !generiche.has(w));
   if (!paroleCliente.length) return false;
-  const d = norm(descrizione);
-  return paroleCliente.some((w) => d.includes(w));
+  const d = new Set(norm(descrizione).split(' '));
+  return paroleCliente.some((w) => d.has(w));
 }
 
 // Abbina ogni fattura emessa a un incasso reale.
@@ -49,10 +50,10 @@ export function matchInvoicePayments(invoices, allTx, {
   const entrate = [];
   for (const lista of Object.values(allTx || {})) {
     for (const t of lista || []) {
-      if (t?.type !== 'entrata') continue;
+      if (t?.type !== 'entrata' || t.taxable === false) continue;
       const ms = Date.parse(t.date);
-      if (!Number.isFinite(ms) || !(+t.amount > 0)) continue;
-      entrate.push({ ms, amount: +t.amount, description: t.description || '', id: t.id });
+      if (!Number.isFinite(ms) || !Number.isFinite(+t.amount) || !(+t.amount > 0)) continue;
+      entrate.push({ ms, amount: +t.amount, description: t.description || '', id: t.id, currency: String(t.currency || '').trim().toUpperCase() });
     }
   }
   entrate.sort((a, b) => a.ms - b.ms);
@@ -65,15 +66,17 @@ export function matchInvoicePayments(invoices, allTx, {
   // stesso importo, la più vecchia si prende l'incasso più vecchio — è
   // l'ordine naturale con cui i clienti pagano.
   const fatture = [...(invoices || [])]
-    .filter((f) => +f.imponibile > 0 && Number.isFinite(Date.parse(f.date)))
+    .filter((f) => f && Number.isFinite(+f.imponibile) && +f.imponibile > 0 && Number.isFinite(Date.parse(f.date)))
     .sort((a, b) => Date.parse(a.date) - Date.parse(b.date));
 
   for (const f of fatture) {
     const emessaMs = Date.parse(f.date);
     const atteso = +f.imponibile;
+    const currency = String(f.currency || '').trim().toUpperCase();
     let migliore = null;
     for (const e of entrate) {
       if (usati.has(e.id ?? e.ms)) continue;
+      if (currency && e.currency && currency !== e.currency) continue;
       if (e.ms < emessaMs) continue;
       if (e.ms > emessaMs + finestraGiorni * DAY_MS) break; // ordinate: oltre non serve cercare
       const scarto = Math.abs(e.amount - atteso) / atteso;

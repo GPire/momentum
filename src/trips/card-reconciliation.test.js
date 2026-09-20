@@ -56,10 +56,25 @@ test('reconcileCardStatement: un importo diverso (anche di poco oltre la tollera
   assert.equal(r.unmatchedCharges.length, 1);
 });
 
-test('reconcileCardStatement: un addebito doppio (duplicato reale) — solo UNO si abbina, il secondo resta segnalato', () => {
+test('identical charges competing for one expense remain unresolved rather than choosing by input order', () => {
   const r = reconcileCardStatement([carta('2026-09-10', 50), carta('2026-09-10', 50)], [spesa('2026-09-10', 50)]);
-  assert.equal(r.matched.length, 1);
-  assert.equal(r.unmatchedCharges.length, 1);
+  assert.equal(r.matched.length, 0);
+  assert.equal(r.unmatchedCharges.length, 2);
+  assert.ok(r.unmatchedCharges.every(row => row.motivo === 'corrispondenza_ambigua'));
+});
+
+test('equally plausible expenses are never silently reconciled', () => {
+  const r = reconcileCardStatement([carta('2026-09-10', 50)], [spesa('2026-09-10', 50), spesa('2026-09-10', 50)]);
+  assert.equal(r.matched.length, 0);
+  assert.equal(r.unmatchedCharges[0].motivo, 'corrispondenza_ambigua');
+});
+test('the nearest charge wins regardless of statement ordering', () => {
+  const input = [carta('2026-09-11', 50), carta('2026-09-10', 50)];
+  for (const charges of [input, [...input].reverse()]) {
+    const r = reconcileCardStatement(charges, [spesa('2026-09-10', 50)]);
+    assert.equal(r.matched.length, 1);
+    assert.equal(r.matched[0].carta.date, '2026-09-10');
+  }
 });
 
 test('reconcileCardStatement: una spesa pagata con carta senza addebito corrispondente resta dichiarata, mai nascosta', () => {
@@ -98,4 +113,27 @@ test('reconcileCardStatement: dati vuoti non generano eccezioni', () => {
 test('reconcileCardStatement: tolleranze personalizzabili, mai fisse per chi ha bisogno di margini diversi', () => {
   const r = reconcileCardStatement([carta('2026-09-20', 50)], [spesa('2026-09-10', 50)], { toleranzaGiorni: 15 });
   assert.equal(r.matched.length, 1);
+});
+
+
+test('real CSV parser preserves currency before card matching', async () => {
+  const { parseGenericCsv } = await import('../import/csv-parser.js');
+  const charges = parseGenericCsv('Date,Description,Amount,Currency\n2026-09-10,Meal,-50,USD\n2026-09-10,Meal,-50,EUR');
+  const result = reconcileCardStatement(charges, [spesa('2026-09-10', 50, { currency: 'EUR' })]);
+  assert.equal(result.matched.length, 1);
+  assert.equal(result.matched[0].carta.currency, 'EUR');
+  assert.equal(result.unmatchedCharges[0].carta.currency, 'USD');
+});
+test('invalid tolerances fail rather than matching unrelated expenses', () => {
+  for (const toleranzaGiorni of [-1, NaN, Infinity]) assert.throws(() => reconcileCardStatement([], [], { toleranzaGiorni }), TypeError);
+});
+test('handoff and reconciliation copy cover all supported languages', async () => {
+  const { tripHandoffCopy, tripSenderCopy } = await import('../i18n/trip-handoff.js');
+  const { tripReconciliationCopy } = await import('../i18n/trip-reconciliation.js');
+  for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
+    assert.equal(tripHandoffCopy(lang).length, 10);
+    assert.equal(tripSenderCopy(lang).length, 2);
+    assert.equal(tripReconciliationCopy(lang).length, 6);
+    assert.ok([...tripHandoffCopy(lang), ...tripSenderCopy(lang), ...tripReconciliationCopy(lang)].every(Boolean));
+  }
 });

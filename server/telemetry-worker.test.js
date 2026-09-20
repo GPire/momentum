@@ -214,3 +214,61 @@ test('handleRequest: POST install con platform/source FUORI whitelist → scarta
   assert.deepEqual(stats.installsByPlatform, {});
   assert.deepEqual(stats.installsBySource, {});
 });
+
+test('trip events travel from client to worker without trip contents', async () => {
+ const { sendFeatureEvent } = await import('../src/core/telemetry.js');
+ const { TRIP_TELEMETRY_EVENTS } = await import('../src/core/trip-telemetry-events.js');
+ const values = new Map([['momentum_anon_id','test-device']]);
+ const storage = {getItem:key=>values.get(key)||null,setItem:(key,value)=>values.set(key,value)};
+ const kv = fakeKv(); const now=new Date('2026-09-20');
+ const fetchImpl=async(url,options)=>{
+  assert.deepEqual(Object.keys(JSON.parse(options.body)).sort(),['event','id','key','month']);
+  return handleRequest(new Request(url,options),{MOMENTUM_TELEMETRY:kv});
+ };
+ for(const key of TRIP_TELEMETRY_EVENTS) assert.equal((await sendFeatureEvent('https://x.test/',key,{storage,fetchImpl,now})).sent,true);
+ const stats=await computeStats(kv,{now});
+ assert.equal(Object.keys(stats.featureByMonth['2026-09']).length,TRIP_TELEMETRY_EVENTS.length);
+});
+
+test('PWA JSON preflight succeeds only for configured origins and never exposes stats', async()=>{
+ const {fetchTelemetry}=await import('./telemetry-worker.js');
+ const env={MOMENTUM_TELEMETRY:fakeKv()};
+ const headers={Origin:'https://momentum-finance.pages.dev','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'content-type'};
+ const pre=await fetchTelemetry(new Request('https://collector.test/',{method:'OPTIONS',headers}),env);
+ assert.equal(pre.status,204); assert.equal(pre.headers.get('Access-Control-Allow-Origin'),headers.Origin);
+ const bad=await fetchTelemetry(new Request('https://collector.test/',{method:'OPTIONS',headers:{...headers,Origin:'https://evil.test'}}),env);
+ assert.equal(bad.status,403);
+ const stats=await fetchTelemetry(new Request('https://collector.test/stats',{headers}),env);
+ assert.equal(stats.headers.get('Access-Control-Allow-Origin'),null);
+});
+test('all product keys accepted; arbitrary feature text rejected',async()=>{
+ const {PRODUCT_TELEMETRY_EVENTS}=await import('../src/core/product-telemetry-events.js');
+ const env={MOMENTUM_TELEMETRY:fakeKv()};
+ for(const key of [...PRODUCT_TELEMETRY_EVENTS,'private words']) {
+  const result=await handleRequest(new Request('https://collector.test/',{method:'POST',body:JSON.stringify({id:'test-device',event:'feature',key,month:'2026-09'})}),env);
+  assert.equal(result.status,key==='private words'?400:200);
+ }
+});
+
+test('first visit is distinct from confirmed installation; presence expires by server timestamp',async()=>{
+ const kv=fakeKv();const metadata=new Map(); const put=kv.put;const list=kv.list;
+ kv.put=async(key,value,options)=>{await put(key,value);metadata.set(key,options?.metadata)};
+ kv.list=async(options)=>{const result=await list(options);result.keys=result.keys.map(key=>({...key,metadata:metadata.get(key.name)}));return result};
+ const env={MOMENTUM_TELEMETRY:kv};
+ for(const event of ['install','pwa_installed','pwa_installed','standalone_opened','presence'])
+  assert.equal((await handleRequest(new Request('https://x.test/',{method:'POST',body:JSON.stringify({id:'a',event})}),env)).status,200);
+ const stats=await computeStats(kv);
+ assert.equal(stats.firstSeenDevices,1);assert.equal(stats.confirmedPwaInstallDevices,1);assert.equal(stats.standaloneObservedDevices,1);assert.equal(stats.recentlyVisibleDevices,1);
+ const stale=await computeStats(kv,{now:new Date(Date.now()+301000)});assert.equal(stale.recentlyVisibleDevices,0);
+});
+
+test('legacy first starts stay historical; existing installed apps are recognized without double counting',async()=>{
+ const kv=fakeKv();await kv.put('install:old-browser','1');
+ const before=await computeStats(kv);assert.equal(before.firstSeenDevices,1);assert.equal(before.installedDevicesObserved,0);
+ await kv.put('standalone_opened:old-browser','1');
+ await kv.put('pwa_installed:old-browser','1');
+ await kv.put('standalone_opened:other-browser','1');
+ const after=await computeStats(kv);
+ assert.equal(after.firstSeenDevices,1);assert.equal(after.installedDevicesObserved,2);
+ assert.equal(after.confirmedPwaInstallDevices,1);assert.equal(after.standaloneObservedDevices,2);
+});

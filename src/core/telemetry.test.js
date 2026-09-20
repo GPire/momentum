@@ -241,3 +241,40 @@ test('sendFeatureEvent: fetch che fallisce → non segna come inviato, mai un cr
   const r = await sendFeatureEvent('https://x.test', 'onboarding_completed', { storage: s, fetchImpl, now: new Date('2026-07-27') });
   assert.equal(r.sent, false);
 });
+
+test('feature concurrency: duplicates stay locked and different events survive', async () => {
+ const storage = fakeStorage(); const waits = [];
+ const fetchImpl = () => new Promise(resolve => waits.push(resolve));
+ const args = { storage, fetchImpl, now:new Date('2026-09-20') };
+ const first = sendFeatureEvent('https://x.test', 'trips_opened', args);
+ assert.equal((await sendFeatureEvent('https://x.test', 'trips_opened', args)).sent,false);
+ assert.equal((await sendFeatureEvent('https://x.test', 'trips_opened', args)).sent,false);
+ const second = sendFeatureEvent('https://x.test','trip_detail_opened',args);
+ assert.equal(waits.length,2);
+ waits[1]({ok:true}); await second; waits[0]({ok:true}); await first;
+ const saved = JSON.parse(storage.getItem('momentum_telemetry_feature_sent'));
+ assert.deepEqual(new Set(saved),new Set(['trips_opened:2026-09','trip_detail_opened:2026-09']));
+});
+test('invalid dates and unavailable storage do not break the app', async () => {
+ const fetchImpl = () => assert.fail('Must not send');
+ assert.equal((await sendFeatureEvent('https://x.test','trips_opened',{storage:fakeStorage(),fetchImpl,now:new Date('bad')})).sent,false);
+ assert.equal((await sendFeatureEvent('https://x.test','trips_opened',{storage:{getItem(){throw Error('blocked')}},fetchImpl})).sent,false);
+});
+
+test('installation and foreground observations respect opt-out, visibility and retry',async()=>{
+ const {sendAppObservation}=await import('./telemetry.js');
+ const storage=fakeStorage();const sent=[];
+ const fetchImpl=async(url,options)=>{sent.push(JSON.parse(options.body));return {ok:true}};
+ const args={storage,fetchImpl,now:1000000};
+ assert.equal((await sendAppObservation('https://x.test','presence',{...args,visible:false})).sent,false);
+ assert.equal((await sendAppObservation('https://x.test','presence',args)).sent,true);
+ assert.equal((await sendAppObservation('https://x.test','presence',args)).sent,false);
+ assert.equal((await sendAppObservation('https://x.test','presence',{...args,now:1120000})).sent,true);
+ assert.equal((await sendAppObservation('https://x.test','pwa_installed',args)).sent,true);
+ assert.equal((await sendAppObservation('https://x.test','pwa_installed',args)).sent,false);
+ assert.equal((await sendAppObservation('https://x.test','standalone_opened',{...args,fetchImpl:async()=>({ok:false})})).sent,false);
+ assert.equal((await sendAppObservation('https://x.test','standalone_opened',args)).sent,true);
+ setTelemetryEnabled(false,storage);
+ assert.equal((await sendAppObservation('https://x.test','presence',{...args,now:2000000})).sent,false);
+ for(const payload of sent) assert.deepEqual(Object.keys(payload).sort(),['event','id']);
+});

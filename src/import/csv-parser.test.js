@@ -121,3 +121,12 @@ test('BUG REALE CORRETTO — "Money In"/"Money Out" (variante PDF Starling): il 
   assert.equal(txs[1].type, 'entrata', 'importo in "Money In" -> entrata, non uscita');
   assert.equal(txs[1].amount, 1500);
 });
+
+
+test('explicit per-row currency survives generic CSV import, including dollar currencies', () => {
+  const rows = parseGenericCsv('Date,Description,Amount,Currency\n2026-09-20,Meal,-15,EUR\n2026-09-20,Taxi,-$22,CAD');
+  assert.deepEqual(rows.map(row => row.currency), ['EUR', 'CAD']);
+});
+test('invalid explicit currency does not silently become the device currency', () => {
+  assert.throws(() => parseGenericCsv('Date,Description,Amount,Currency\n2026-09-20,Meal,-15,EUROO'), /currency/);
+});

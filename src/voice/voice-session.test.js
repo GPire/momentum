@@ -93,3 +93,16 @@ test('spoken custom category keeps international letters through the actual pars
     assert.equal(result.category, 'office-test');
   } finally { VaultDAO.state.customCategories = previous; }
 });
+
+test('voice metrics use closed categories and ignore callbacks from older sessions',()=>{
+ window.SpeechRecognition=Recognition;
+ const events=[];
+ VoiceCore.init(container,key=>events.push(key));
+ const oldError=VoiceCore.recognition.onerror;
+ VoiceCore.init(container,key=>events.push(key));
+ oldError({error:'network'});
+ assert.deepEqual(events,[]);
+ VoiceCore.recognition.onerror({error:'network'});
+ VoiceCore.recognition.onerror({error:'aborted'});
+ assert.deepEqual(events,['voice_network_failed']);
+});

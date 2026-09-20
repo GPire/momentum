@@ -37,6 +37,12 @@ export const EXPENSE_PLATFORMS = [
     nota: 'Il tuo indirizzo personale è in Zoho Expense → Impostazioni → Preferenze.',
   },
   {
+    id: 'rydoo',
+    nome: 'Rydoo',
+    indirizzoFisso: 'receipts@rydoo.com',
+    nota: 'Usa il mittente associato al tuo account Rydoo.',
+  },
+  {
     id: 'altro',
     nome: 'Altro',
     indirizzoFisso: null,

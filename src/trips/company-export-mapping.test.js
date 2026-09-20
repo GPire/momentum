@@ -118,3 +118,40 @@ test('mappedExportToCsv: valori con virgola/virgolette/a-capo restano un solo ca
   const csv = mappedExportToCsv(preview, m);
   assert.match(csv, /"Cena, ""ottima"" location"/);
 });
+
+
+test('standard export is ready without configuring every column; blank mapping stays available', async () => {
+  const { standardMapping, MOMENTUM_EXPORT_FIELDS } = await import('./company-export-mapping.js');
+  const mapping = standardMapping();
+  assert.deepEqual(Object.keys(mapping), MOMENTUM_EXPORT_FIELDS);
+  const preview = buildMappedExportPreview([transactionToExportRecord(TX_OK, TRIP)], mapping);
+  assert.equal(preview.mappingErrors.length, 0);
+  assert.equal(preview.readyCount, 1);
+  assert.ok(mappedExportToCsv(preview, mapping));
+  assert.equal(defaultMapping().amount.column, '');
+});
+
+
+test('international handoff preserves recorded FX evidence without inventing conversion', () => {
+  const row = transactionToExportRecord({ ...TX_OK, originalAmount: 50, originalCurrency: 'USD', exchangeRate: 0.85, paymentMethod: 'carta' }, TRIP);
+  assert.equal(row.amount, 42.5);
+  assert.equal(row.originalAmount, 50);
+  assert.equal(row.originalCurrency, 'USD');
+  assert.equal(row.exchangeRate, 0.85);
+  assert.equal(row.tripId, TRIP.id);
+  assert.equal(row.paymentMethod, 'carta');
+  const legacy = transactionToExportRecord(TX_OK, TRIP);
+  assert.equal(legacy.originalAmount, null);
+  assert.equal(legacy.exchangeRate, null);
+});
+
+test('company template order survives JSON persistence and CSV generation', async () => {
+  const { suggestExportTemplate } = await import('./export-template.js');
+  const suggested = suggestExportTemplate('Currency,Amount,Category,Date,Original currency,Original amount,Exchange rate');
+  assert.deepEqual(suggested.issues, []);
+  const mapping = JSON.parse(JSON.stringify(suggested.mapping));
+  const record = transactionToExportRecord({ ...TX_OK, originalAmount: 50, originalCurrency: 'USD', exchangeRate: 0.85 }, TRIP);
+  const csv = mappedExportToCsv(buildMappedExportPreview([record], mapping), mapping);
+  assert.equal(csv.split('\r\n')[0], 'Currency,Amount,Category,Date,Original currency,Original amount,Exchange rate');
+  assert.equal(csv.split('\r\n')[1], 'EUR,42.5,trasporto,2026-09-10,USD,50,0.85');
+});

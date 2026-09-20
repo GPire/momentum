@@ -1,0 +1,11 @@
+case_id,country,scenario,year,regime,authorized_input_reference,independent_expected_result,momentum_result,tolerance_and_reason,official_source,reviewer,reviewed_on,status
+IT-01,IT,Incasso parziale e saldo in anni differenti,,,,,,,,,,NOT_REVIEWED
+IT-02,IT,Forfettario soglie e cause di esclusione,,,,,,,,,,NOT_REVIEWED
+IT-03,IT,Rettifica storno e compensazione tributi,,,,,,,,,,NOT_REVIEWED
+IT-04,IT,Ricevuta SdI di scarto e nuovo invio,,,,,,,,,,NOT_REVIEWED
+CH-01,CH,QR e pagamento CHF con incasso parziale,,,,,,,,,,NOT_REVIEWED
+CH-02,CH,IVA AVS e perimetro cantonale applicabile,,,,,,,,,,NOT_REVIEWED
+CH-03,CH,Recupero documenti e prova di provenienza,,,,,,,,,,NOT_REVIEWED
+ES-01,ES,IRPF RETA e mesi effettivi di attivita,,,,,,,,,,NOT_REVIEWED
+ES-02,ES,IVA ritenute rettifiche e territorio competente,,,,,,,,,,NOT_REVIEWED
+ES-03,ES,Applicabilita SIF ed esito del canale ufficiale,,,,,,,,,,NOT_REVIEWED

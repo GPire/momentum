@@ -24,6 +24,9 @@ import { dirname, join } from 'node:path';
 const radice = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const html = readFileSync(join(radice, 'index.html'), 'utf8');
 const js = readFileSync(join(radice, 'src', 'main.js'), 'utf8');
+const uiTemplates = [...js.matchAll(/from\s+['"]\.\/ui\/([^'"]+\.js)['"]/g)]
+  .map(([, file]) => readFileSync(join(radice, 'src', 'ui', file), 'utf8'))
+  .join('\n');
 
 // Funzioni realmente esposte su window da main.js.
 const espostiSuWindow = new Set();
@@ -73,9 +76,10 @@ test('GARANZIA DOM: nessun NUOVO elemento fantasma oltre a quelli già documenta
   // Id dichiarati in index.html.
   const idHtml = new Set();
   for (const m of html.matchAll(/id=["']([\w-]+)["']/g)) idHtml.add(m[1]);
-  // Id creati da main.js (template letterali, con o senza escape).
+  // Id creati da main.js o dai moduli UI che importa direttamente. Le nuove
+  // superfici sono modulari: limitarci a main.js produrrebbe falsi fantasmi.
   const idJs = new Set();
-  for (const m of js.matchAll(/id=[\\'"]([\w-]+)[\\'"]/g)) idJs.add(m[1]);
+  for (const m of `${js}\n${uiTemplates}`.matchAll(/id=[\\'"]([\w-]+)[\\'"]/g)) idJs.add(m[1]);
   // Nodes created with createElement and an explicit .id assignment also exist.
   for (const m of js.matchAll(/\.id\s*=\s*['"]([\w-]+)['"]/g)) idJs.add(m[1]);
   // Dashboard sections are generated from [id, titleKey, hintKey, children, gate].

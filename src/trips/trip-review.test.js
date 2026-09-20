@@ -22,13 +22,14 @@ const riepilogoBase = () => ({
 });
 
 test('round-trip: il riepilogo torna identico dall altra parte', async () => {
-  const code = await encodeTripReview(riepilogoBase());
+  const code = await encodeTripReview({ ...riepilogoBase(), currency: 'USD' });
   const out = await decodeTripReview(code);
   assert.equal(out.tripId, 'trip-123');
   assert.equal(out.tripName, 'Milano');
   assert.equal(out.startDate, '2026-09-10');
   assert.equal(out.endDate, '2026-09-12');
   assert.equal(out.mittente, 'Giorgio');
+  assert.equal(out.currency, 'USD');
   assert.equal(out.totale, 165);
   assert.equal(out.numeroGiustificativiMancanti, 1);
   assert.equal(out.expenses.length, 2);

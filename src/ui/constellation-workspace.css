@@ -1,0 +1,88 @@
+/* Task entrances share one orbit language; financial charts keep their own meaning. */
+.card.constellation-card,#debt-entry-card,#bank-fees-entry-card,#trip-entry-card,#together-entry-card {
+  position: relative; isolation: isolate; border: 1px solid var(--outline); border-radius: 28px;
+  padding: clamp(20px,3vw,30px); background: radial-gradient(ellipse at 100% 0,color-mix(in srgb,var(--primary) 10%,transparent),transparent 60%),var(--surface-solid);
+  box-shadow: inset 0 1px color-mix(in srgb,var(--on-surface) 7%,transparent),0 12px 36px #0000000a;
+}
+.constellation-card h3,.journey-entry-card .journey-heading h3 { font-size: clamp(19px,2vw,24px); line-height: 1.25; letter-spacing: -.025em; text-transform: none; }
+.journey-entry-card .journey-heading { display: flex; align-items: center; gap: 20px; margin-bottom: 18px; }
+.journey-entry-card .journey-heading .eyebrow::before { display: none; }
+.journey-entry-card .journey-heading > svg { flex: 0 0 52px; width: 52px; height: 52px; padding: 13px; color: var(--primary); border-radius: 50%; border: 1px solid color-mix(in srgb,var(--primary) 45%,var(--outline)); background: radial-gradient(circle at 25% 15%,color-mix(in srgb,var(--primary) 25%,var(--surface-elevated)),var(--surface-solid)); box-shadow: 0 0 0 6px color-mix(in srgb,var(--primary) 5%,transparent),inset -5px -6px 12px #00000012; }
+.journey-entry-card .card-sub { font-size: 14px; line-height: 1.65; max-width: 52ch; margin-bottom: 22px; }
+.journey-entry-card .btn-action { border-radius: 18px; min-height: 54px; gap: 12px; }
+.journey-entry-card .btn-action svg { width: 20px; height: 20px; }
+#payroll-settings-card > div:first-child > div:first-child,#tax-settings-card > div:first-child > div:first-child { position: relative; width: 52px; height: 52px; border-radius: 50%; color: var(--primary); background: radial-gradient(circle at 25% 15%,color-mix(in srgb,var(--primary) 22%,var(--surface-elevated)),var(--surface-solid)); box-shadow: inset -6px -6px 14px #00000014; }
+#payroll-settings-card > div:first-child > div:first-child::after,#tax-settings-card > div:first-child > div:first-child::after { content: ''; position: absolute; inset: 17px -7px; border: 1px solid color-mix(in srgb,var(--primary) 50%,transparent); border-radius: 50%; transform: rotate(-25deg); pointer-events: none; }
+#payroll-settings-card .btn-action { min-height: 60px; border-radius: 18px; padding: 16px; font-size: 14px; }
+#tax-settings-card .tax-workspace-countries { gap: 8px; padding: 6px; border-radius: 23px; border: 1px solid var(--outline); background: var(--surface-solid); }
+#tax-settings-card .tax-workspace-countries button { flex-direction: column; border-color: transparent; background: transparent; min-height: 84px; gap: 10px; }
+#tax-settings-card .tax-workspace-countries button[aria-pressed=true] { background: color-mix(in srgb,var(--primary) 13%,var(--surface-elevated)); box-shadow: inset 0 -2px var(--primary); }
+#tax-settings-card .constellation-country { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 4px color-mix(in srgb,var(--primary) 6%,transparent); }
+#tax-card { padding: 20px; border: 1px solid var(--outline); border-radius: 20px; background: var(--surface-elevated); }
+#tax-card #tax-note { font-size: 14px; line-height: 1.65; }
+#net-worth-card #net-worth-total { font-size: clamp(30px,5vw,52px); letter-spacing: -.04em; line-height: 1.25; overflow-wrap: anywhere; padding-block: 12px; }
+#net-worth-card #net-worth-breakdown { font-size: 14px; line-height: 1.6; }
+.market-disclosure { border-top: 1px solid var(--outline); margin-top: 20px; }
+.market-disclosure > summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; min-height: 56px; font-size: 14px; font-weight: 650; cursor: pointer; list-style: none; }
+.market-disclosure > summary::-webkit-details-marker { display: none; }
+.market-disclosure > summary::after { content: ''; width: 9px; height: 9px; border-right: 1.5px solid var(--primary); border-bottom: 1.5px solid var(--primary); transform: rotate(45deg); transition: transform 180ms; margin: 0 5px 5px; }
+.market-disclosure[open] > summary::after { transform: rotate(225deg); margin-bottom: 0; }
+.market-disclosure[open] > div { animation: constellation-reveal 240ms ease-out; }
+#net-worth-card #sector-ranking > div { display: grid; gap: 16px; }
+#net-worth-card #sector-ranking > div > div { font-size: 12px; }
+#net-worth-card #sector-ranking > div > div > div:first-child { gap: 14px; align-items: flex-start; }
+#asset-search-card .asset-search-form { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; }
+#asset-search-card #asset-search-input { min-width: 0; min-height: 56px; font-size: 16px; border-radius: 18px; }
+#asset-search-card .finance-search-action { min-width: 72px; border-radius: 18px; }
+#asset-search-card .asset-search-examples { gap: 8px; flex-wrap: wrap; }
+#asset-search-card .asset-search-examples button { min-height: 44px; padding: 10px 14px; border-radius: 14px; }
+.money-editor .money-editor-heading { display: grid; grid-template-columns: 58px minmax(0,1fr); align-items: center; column-gap: 22px; text-align: start; }
+.money-editor .money-editor-heading .money-editor-planet { grid-row: span 2; width: 48px; height: 48px; margin: 6px; }
+.money-editor .money-editor-heading h3 { margin: 0; font-size: clamp(23px,4vw,30px); line-height: 1.2; }
+.money-editor .money-editor-heading p { margin-top: 8px; grid-column: 2; font-size: 14px; line-height: 1.65; }
+.money-editor .payout-methods { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.money-editor .payout-methods button { min-height: 56px; border-radius: 17px; justify-content: flex-start; padding: 14px; }
+.money-editor .cosmos-form-field input { min-height: 56px; font-size: 16px; border-radius: 18px; }
+.money-editor .money-editor-planet::after { animation: constellation-orbit 12s ease-in-out infinite alternate; }
+@keyframes constellation-orbit { from { transform: rotate(-25deg) scaleX(1); } to { transform: rotate(20deg) scaleX(.93); } }
+@keyframes constellation-reveal { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+:is(.constellation-card,.journey-entry-card,.money-editor) button { transition: transform 180ms,background 180ms,border-color 180ms,box-shadow 180ms; }
+:is(.constellation-card,.journey-entry-card,.money-editor) button:active { transform: scale(.98); }
+:is(.constellation-card,.journey-entry-card,.money-editor) :is(button,input,summary):focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+@media (hover:hover) and (pointer:fine) { :is(.constellation-card,.journey-entry-card,.money-editor) button:hover { transform: translateY(-2px); border-color: var(--primary); } }
+@media (max-width:480px) { .money-editor .money-editor-heading { grid-template-columns: 48px minmax(0,1fr); gap: 14px; } .money-editor .money-editor-heading p { grid-column: 1 / -1; } .money-editor .money-editor-fields { grid-template-columns: minmax(0,1fr); } }
+@media (prefers-reduced-motion:reduce) { .money-editor .money-editor-planet::after,.market-disclosure[open] > div { animation: none; } :is(.constellation-card,.journey-entry-card,.money-editor) button,.market-disclosure summary::after { transition: none; } }
+.tax-invoice-form [hidden],.invoice-export-actions[hidden],.invoice-stage-actions [hidden] { display: none !important; }
+.tax-invoice-form .invoice-stage-nav { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; padding: 6px; border: 1px solid var(--outline); border-radius: 22px; background: var(--surface-solid); }
+.invoice-stage-nav button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px; min-height: 80px; border-radius: 17px; font-size: 12px; line-height: 1.3; color: var(--on-surface-secondary); transition: background 180ms,color 180ms; }
+.invoice-stage-nav button span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--outline); }
+.invoice-stage-nav button[aria-current=step] { color: var(--on-surface); background: color-mix(in srgb,var(--primary) 15%,var(--surface-elevated)); box-shadow: inset 0 -2px var(--primary); }
+.invoice-stage-nav button[aria-current=step] span { border-color: var(--primary); box-shadow: 0 0 0 4px color-mix(in srgb,var(--primary) 10%,transparent); }
+.tax-invoice-form .invoice-stage-nav { padding: 0; border: 0; border-radius: 0; background: transparent; gap: 6px; }
+.tax-invoice-form .invoice-stage-nav button { min-height: 44px; flex-direction: row; justify-content: center; gap: 6px; padding: 10px 6px; border-radius: 14px; }
+.tax-invoice-form .invoice-stage-nav button span { width: 7px; height: 7px; font-size: 0; background: currentColor; border: 0; opacity: .5; }
+.tax-invoice-form .invoice-content-stage { display: flex; flex-direction: column; gap: 14px; }
+.invoice-essential { display: grid; gap: 18px; padding: 20px; border: 1px solid var(--outline); border-radius: 24px; background: radial-gradient(ellipse at 95% 0,color-mix(in srgb,var(--primary) 10%,transparent),transparent 60%),var(--surface-elevated); }
+.tax-invoice-form .invoice-essential .tax-field-caption { font-size: 13px; color: var(--on-surface-secondary); }
+.tax-invoice-form .invoice-essential input { font-size: 16px; min-height: 52px; background: var(--surface-solid); }
+.tax-workspace-step.tax-invoice-form .invoice-essential .invoice-amount-field input { font-size: clamp(28px,7vw,40px); font-weight: 700; letter-spacing: -.025em; min-height: 72px; }
+.tax-workspace-step.tax-invoice-form .invoice-essential .invoice-amount-field input::placeholder { font-size: 30px; opacity: .5; }
+.tax-invoice-form .invoice-options > label,.tax-invoice-form .invoice-options > div { width: auto; }
+.invoice-line-items:has(#inv-extra-voci:empty) { display: flex; justify-content: flex-start; }
+.tax-invoice-form .invoice-sentence > div { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+@media (min-width:900px) { .invoice-essential { grid-template-columns: minmax(0,1.4fr) minmax(0,1fr); } .invoice-amount-field { grid-column: 2; grid-row: 1 / span 2; align-self: center; } }
+.invoice-stage-hint { font-size: 14px; color: var(--on-surface-secondary); margin: 2px 0 12px; }
+.invoice-stage-actions { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+.invoice-stage-actions button { min-height: 52px; border-radius: 18px; }
+.invoice-stage-actions button:disabled { opacity: .4; cursor: not-allowed; }
+.finance-footer-actions [hidden] { display: none !important; }
+.finance-workspace .debt-entry-panel { padding: 0; overflow: hidden; }
+.debt-entry-panel > summary { display: flex; align-items: center; gap: 14px; padding: 20px; min-height: 72px; font-size: 16px; font-weight: 650; cursor: pointer; list-style: none; }
+.debt-entry-panel > summary::-webkit-details-marker { display: none; }
+.debt-entry-panel > div { padding: 0 20px 20px; }
+.debt-entry-orbit { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--primary); border: 1px solid var(--primary); box-shadow: 0 0 0 5px color-mix(in srgb,var(--primary) 7%,transparent); font-size: 22px; transition: transform 180ms; }
+.debt-entry-panel[open] .debt-entry-orbit { transform: rotate(45deg); }
+.invoice-export-actions { margin-top: 12px; }
+.invoice-content-stage:not([hidden]),.invoice-review-stage:not([hidden]) { animation: constellation-reveal 220ms ease-out; }
+.tax-invoice-form #inv-add-voce,.tax-invoice-form #inv-oneline-fill { min-height: 46px; padding: 12px; font-size: 13px; border-radius: 14px; border: 1px solid var(--outline); text-decoration: none; }
+@media (prefers-reduced-motion:reduce) { .invoice-content-stage:not([hidden]),.invoice-review-stage:not([hidden]) { animation: none; } .invoice-stage-nav button { transition: none; } }

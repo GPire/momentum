@@ -1,5 +1,19 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Telemetria verificata e release locale, 2026-09-20:** il collector pubblico
+> `momentum-telemetry` è sulla versione Cloudflare `c84aad16`. Preflight dalla
+> produzione e scrittura di un probe `presence` con TTL sono stati verificati
+> nel KV autenticato; nessun dato utente è stato usato. Il client locale misura
+> PWA installata, apertura standalone, presenza approssimata e copertura mensile
+> delle feature con cataloghi chiusi e opt-out. `install` storico resta una prima
+> apertura browser, non viene retroattivamente chiamato installazione. Suite
+> completa: **394/394 file**; build portabile di produzione riuscita su 443
+> moduli. Dettagli e limiti in
+> [trip-enterprise-validation-2026-09-20.md](docs/trip-enterprise-validation-2026-09-20.md).
+> Il servizio aziendale rimane separato: non dichiarare connettori autenticati,
+> identità cloud o prove su dispositivi fisici finché non esistono account e
+> collaudi reali. Non riutilizzare il KV della telemetria per dati aziendali.
+
 > **Servizio policy aziendali, 2026-09-13:** vedere
 > [server/company/README.md](server/company/README.md). Worker separato con
 > verifica JWT Access, membership per azienda e policy versionate su D1.

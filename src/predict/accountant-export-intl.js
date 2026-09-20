@@ -12,7 +12,9 @@
 
 import { classifyIncome } from './tax.js';
 import { computeAvsIndipendente } from './tax-ch.js';
-import { retaIrpfPeriodo } from './tax-es.js';
+import { retaIrpfPeriodo, irpfEstatal } from './tax-es.js';
+import { collectionReport } from '../invoice/collection-report.js';
+import { invoiceCollectionsCopy, invoiceCollectionReportNote } from '../i18n/invoice-collections.js';
 
 function entrateFatturaAnno(transactions, year, opts = {}) {
   const flat = Object.values(transactions || {}).flat()
@@ -36,6 +38,7 @@ export function buildAccountantReportCh(transactions, year, opts = {}) {
   const avs = computeAvsIndipendente(incassato, { attivitaAccessoria: opts.attivitaAccessoria === true });
   return {
     paese: 'CH', valuta: 'CHF', anno: year, generatoIl: (opts.now || new Date()).toISOString(),
+    invoiceCollections: collectionReport(opts.invoices || [], transactions, opts.invoiceCollections || {}, 'CH', year),
     incassato, count: usaManuale ? 1 : fatture.length,
     contributi: avs.contributo !== null ? [{ voce: 'AVS indipendente', importo: avs.contributo }] : [],
     contributoNonCalcolabile: avs.contributo === null ? avs.nota : null,
@@ -51,21 +54,27 @@ export function buildAccountantReportCh(transactions, year, opts = {}) {
 // riusa retaIrpfPeriodo così com'è (già separa le due voci) — nessuna
 // somma "a mano" per non introdurre un secondo calcolo divergente.
 export function buildAccountantReportEs(transactions, year, opts = {}) {
-  const flat = Object.values(transactions || {}).flat()
-    .filter(t => t.type === 'entrata' && new Date(t.date).getFullYear() === year);
-  const r = retaIrpfPeriodo(flat, { learned: opts.learned, model: opts.model, baseElegida: opts.baseElegida, territorio: opts.territorio });
+  const annualInvoices = entrateFatturaAnno(transactions, year, opts);
+  const valid = annualInvoices.filter(t => Number.isFinite(Number(t.amount)) && Number(t.amount) >= 0);
+  const annualGross = +valid.reduce((sum,t) => sum + Number(t.amount),0).toFixed(2);
+  // The period engine expects ONE MONTH, never the entire year's receipts.
+  // A 12-month average is a declared scenario, not proof of months registered in RETA.
+  const r = retaIrpfPeriodo(valid.length ? [{ type:'entrata', taxable:true, amount:annualGross / 12 }] : [], { baseElegida: opts.baseElegida, territorio: opts.territorio });
   const cuotaRetaAnnua = r.reta ? +(r.reta.cuotaMensual * 12).toFixed(2) : 0;
   // Territorio foral (2026-09-06): irpfMensual è `null`, non 0 — MAI
   // trasformarlo in un IRPF annuo di €0 (sarebbe un numero inventato nella
   // direzione opposta, "non devi niente" invece di "non lo calcoliamo").
-  const irpfAnnuo = r.irpfMensual != null ? +(r.irpfMensual * 12).toFixed(2) : null;
+  const irpfAnnuo = r.irpfMensual != null ? irpfEstatal(annualGross) : null;
   return {
     paese: 'ES', valuta: 'EUR', anno: year, generatoIl: (opts.now || new Date()).toISOString(),
-    incassato: r.incassato, count: r.count,
-    contributi: r.reta ? [{ voce: 'RETA (cuota mensual × 12)', importo: cuotaRetaAnnua }] : [],
+    invoiceCollections: collectionReport(opts.invoices || [], transactions, opts.invoiceCollections || {}, 'ES', year),
+    incassato: annualGross, count: valid.length,
+    contributi: r.reta ? [{ voce: 'RETA (estimación sobre media anual × 12)', importo: cuotaRetaAnnua }] : [],
     contributoNonCalcolabile: null,
     imposta: r.count > 0 && irpfAnnuo != null ? { voce: 'IRPF (solo escalón estatal)', importo: irpfAnnuo } : null,
     noteOneste: [
+      'RETA: escenario sobre ingresos registrados / 12 meses; no acredita los meses reales de alta ni los rendimientos netos. Faltan gastos deducibles y regularización. No es una liquidación.',
+      ...(valid.length !== annualInvoices.length ? ['Hay importes inválidos excluidos del cálculo: revisa los movimientos originales.'] : []),
       ...(r.territorioForal
         ? ['Tu territorio (País Vasco/Navarra) tiene un sistema de IRPF foral propio: el IRPF NO está incluido en este informe, solo RETA — pídeselo a tu Hacienda Foral o gestor.']
         : ['El IRPF mostrado es solo el tramo ESTATAL: falta el tramo autonómico (17 comunidades, cada una con su escala) — el importe real de la declaración será distinto.']),
@@ -110,6 +119,8 @@ export function renderAccountantReportHTMLIntl(report, meta = {}) {
   const righeVoci = [...report.contributi, ...(report.imposta ? [report.imposta] : [])]
     .map(v => `<tr><td>${esc(v.voce)}</td><td class="r">${money(v.importo)}</td></tr>`).join('');
   const titolo = `${et.titolo} ${esc(meta.emitter || '')}`;
+  const c=invoiceCollectionsCopy(meta.lang || fallbackLang), collections=report.invoiceCollections;
+  const collectionHtml=collections && (collections.rows.length || collections.reviewCount) ? `<h2>${esc(c.title)}</h2><p>${esc(invoiceCollectionReportNote(meta.lang || fallbackLang))}</p>${collections.reviewCount ? `<p>${esc(c.stale)} (${collections.reviewCount})</p>` : ''}<table><thead><tr><th>${esc(c.invoice)}</th><th>${esc(c.receipt)}</th><th>${esc(c.amount)}</th><th>${esc(c.due)}</th></tr></thead><tbody>${collections.rows.map(r=>`<tr><td>${esc(r.invoiceNumber)}/${esc(r.invoiceYear)} · ${esc(r.client)}</td><td>${esc(r.date)} · ${esc(r.receiptId)}</td><td>${esc(r.amount)} ${esc(r.currency)}</td><td>${esc(r.remaining)} ${esc(r.currency)}</td></tr>`).join('')}</tbody></table>` : '';
   return `<!doctype html><html lang="${locale.split('-')[0]}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${titolo} — ${esc(report.anno)}</title>
 <style>
 *{box-sizing:border-box}
@@ -123,9 +134,10 @@ h1{font-size:19px;margin:0 0 2px}
 h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#334155;border-bottom:2px solid #1a1a1a;padding-bottom:4px;margin-top:28px}
 table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px}
 th{text-align:left;font-size:10px;text-transform:uppercase;color:#64748b;padding:6px 4px;border-bottom:1px solid #e2e8f0}
-td{padding:6px 4px;border-bottom:1px solid #f1f5f9}
+td{overflow-wrap:anywhere;padding:6px 4px;border-bottom:1px solid #f1f5f9}
 td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 .note{font-size:11px;color:#64748b;margin-top:24px;line-height:1.6;border-top:1px solid #e2e8f0;padding-top:12px}
+@media(max-width:480px){body{padding:16px}.grid{grid-template-columns:1fr}table{font-size:11px}}
 @media print{body{padding:16px}}
 </style></head><body>
 <h1>${titolo}</h1>
@@ -136,6 +148,7 @@ td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
 </div>
 ${righeVoci ? `<h2>${et.dettaglio}</h2><table><thead><tr><th>${et.voce}</th><th class="r">${et.importo}</th></tr></thead><tbody>${righeVoci}</tbody></table>` : ''}
 ${report.contributoNonCalcolabile ? `<p style="font-size:12px;color:#334155">${esc(report.contributoNonCalcolabile)}</p>` : ''}
+${collectionHtml}
 <div class="note">${report.noteOneste.map(esc).join('<br><br>')}<br><br>${et.nota}</div>
 </body></html>`;
 }

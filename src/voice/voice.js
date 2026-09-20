@@ -49,7 +49,8 @@ function linguaVoceAttiva() {
 const VoiceCore = {
   recognition: null,
   isListening: false,
-  init(container) {
+  init(container, onMetric = () => {}) {
+    const metric = key => { try { onMetric(key); } catch {} };
     const session = this._session = (this._session || 0) + 1;
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
@@ -93,6 +94,7 @@ const VoiceCore = {
     
     this.recognition.onstart = () => {
       if (session !== this._session) return;
+      metric('voice_listening_started');
       processedResults.clear();
       this._starting = false;
       this.isListening = true;
@@ -131,6 +133,8 @@ const VoiceCore = {
     // generico "errore" che non aiuta a risolvere.
     this.recognition.onerror = (e) => {
       if (session !== this._session) return;
+      const failure = { 'not-allowed':'voice_permission_denied', 'service-not-allowed':'voice_permission_denied', network:'voice_network_failed', 'no-speech':'voice_no_speech', 'audio-capture':'voice_capture_failed' }[e.error];
+      if (failure) metric(failure);
       this._starting = false;
       this.isListening = false;
       const btn = container.querySelector('#voice-rec-btn');
@@ -318,6 +322,7 @@ const VoiceCore = {
         AudioSynth.play('friction');
         flashMic('no');
         showToast(tVoice('voiceParseError', this._lingua), "error");
+        metric('voice_parse_failed');
       }
     };
     this.recognition.onresult = (event) => {
@@ -330,7 +335,7 @@ const VoiceCore = {
         if (!result.isFinal || processedResults.has(index)) continue;
         processedResults.add(index);
         const text = result[0]?.transcript?.trim();
-        if (text) processTranscript(text);
+        if (text) { metric('voice_result_received'); processTranscript(text); }
       }
     };
   },

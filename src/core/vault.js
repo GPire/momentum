@@ -6,6 +6,8 @@ import { findDuplicate, mergeTransaction } from './deduplicator.js';
 import { novelty } from '../predict/dispatcher.js';
 import { mergeTransactions, reconcileHead, markDeleted, pruneTombstones } from '../mesh/sync.js';
 import { reviseTripExpense, revisionDigest } from '../trips/expense-revisions.js';
+import { associateReimbursement, reimbursementLinkState } from '../trips/reimbursement-links.js';
+import { isTripDeleted } from '../trips/trip-engine.js';
 import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
 
@@ -630,6 +632,19 @@ const VaultDAO = {
     tx.category = newCategory;
     this.save();
     return { id, prima, dopo: newCategory };
+  },
+
+  associateTripCredit(id, tripId, unlink, eventId, expectedDigest) {
+    const trip = (this.state.businessTrips || []).find(row => row.id === tripId && !isTripDeleted(row));
+    const matches = Object.values(this.state.transactions || {}).flat().filter(tx => String(tx.id) === String(id));
+    if (!trip || matches.length !== 1 || String(id) in (this.state.deletedTx || {})) return null;
+    const tx = matches[0], link = reimbursementLinkState(tx);
+    if (link.conflict || tx.tripRevisionConflict || (!unlink && (tx.tripPersonal || tx.currency !== (trip.receiptPolicy?.currency || 'EUR')))
+      || (unlink ? link.tripId !== tripId : link.tripId !== null)) return null;
+    const next = associateReimbursement(tx, unlink ? null : tripId, eventId, expectedDigest);
+    tx.reimbursementLinks = next.reimbursementLinks;
+    this.save();
+    return next;
   },
 
   reviseTripTransaction(id, tripId, changes, revisionId, expectedDigest) {

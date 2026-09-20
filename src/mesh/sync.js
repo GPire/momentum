@@ -19,6 +19,8 @@
 // Funzioni PURE (nessun DOM/IndexedDB): testabili, riusabili nel worker.
 'use strict';
 import { mergeTripExpenseRevisions, revisionDigest } from '../trips/expense-revisions.js';
+import { mergeReimbursementLinks, reimbursementLinkDigest } from '../trips/reimbursement-links.js';
+const movementDigest = tx => revisionDigest(tx) + (tx.reimbursementLinks?.length ? ':' + reimbursementLinkDigest(tx) : '');
 
 // ── CANCELLAZIONI (lapidi) ───────────────────────────────────────────────────
 // BUG REALE, dimostrato prima di essere corretto: cancellare una spesa sul
@@ -63,7 +65,7 @@ export function pruneTombstones(tombstones = {}, maxAgeDays = 365, now = Date.no
 export function computeSyncDigest(transactions, tombstones = {}) {
   const digest = {};
   for (const [month, list] of Object.entries(transactions || {})) {
-    digest[month] = (list || []).map(t => ({ id: t.id, hash: t.hash, ...(t.tripRevisions?.length ? { revisions: revisionDigest(t) } : {}) }));
+    digest[month] = (list || []).map(t => ({ id: t.id, hash: t.hash, ...(t.tripRevisions?.length || t.reimbursementLinks?.length ? { revisions: movementDigest(t) } : {}) }));
   }
   if (tombstones && Object.keys(tombstones).length) digest[TOMBSTONE_KEY] = { ...tombstones };
   return digest;
@@ -88,7 +90,7 @@ export function transactionsMissingFromPeer(myTransactions, peerDigest, myTombst
   const peerTomb = tombstonesFromDigest(peerDigest);
   const toSend = {};
   for (const [month, list] of Object.entries(myTransactions || {})) {
-    const missing = (list || []).filter(t => (!peerIds.has(String(t.id)) || (t.tripRevisions?.length && revisionDigest(t) !== peerIds.get(String(t.id)))) && !(String(t.id) in peerTomb));
+    const missing = (list || []).filter(t => (!peerIds.has(String(t.id)) || ((t.tripRevisions?.length || t.reimbursementLinks?.length) && movementDigest(t) !== peerIds.get(String(t.id)))) && !(String(t.id) in peerTomb));
     if (missing.length) toSend[month] = missing;
   }
   // Lapidi che il peer non ha ancora (comprese quelle su spese che lui ha
@@ -127,7 +129,7 @@ export function mergeTransactions(localTransactions, incomingByMonth, localTombs
       if (location) {
         const existingMonth = location.month;
         const existing = location.row;
-        const next = mergeTripExpenseRevisions(existing, tx);
+        const next = mergeReimbursementLinks(mergeTripExpenseRevisions(existing, tx), tx);
         if (next !== existing) {
           merged[existingMonth].splice(merged[existingMonth].indexOf(existing), 1);
           const target = next.date.slice(0, 7);

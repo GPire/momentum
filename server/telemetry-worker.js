@@ -1,3 +1,4 @@
+import { PRODUCT_TELEMETRY_EVENTS } from '../src/core/product-telemetry-events.js';
 // Contatore ANONIMO di installazioni/utenti attivi di Momentum — l'UNICO
 // pezzo di infrastruttura server dell'intero progetto, e SOLO per questo:
 // dare a chi gestisce Momentum un numero reale (installazioni totali,
@@ -26,6 +27,7 @@
 // month?:'YYYY-MM', day?:'YYYY-MM-DD', platform?, source?} per contare;
 // GET /stats?token=IL_TUO_STATS_TOKEN per leggere i numeri.
 'use strict';
+import { TRIP_TELEMETRY_EVENTS } from '../src/core/trip-telemetry-events.js';
 
 // Elenchi chiusi (2026-08-28) per platform/source sull'evento 'install' —
 // STESSI elenchi del client (src/core/telemetry.js:PLATFORMS/INSTALL_SOURCES),
@@ -42,6 +44,8 @@ const INSTALL_SOURCES = new Set(['invito', 'diretto']);
 // questo file — un piccolo attrito voluto, mai un salvataggio automatico
 // di una chiave mai vista prima.
 const FEATURE_KEYS = new Set([
+  ...TRIP_TELEMETRY_EVENTS,
+  ...PRODUCT_TELEMETRY_EVENTS,
   'onboarding_completed', 'first_real_transaction', 'analysis_tensor_opened',
   'spain_tax_activated', 'swiss_tax_opened', 'italy_piva_activated', 'group_chat_used',
   'milestone_shared', 'app_invite_shared',
@@ -151,6 +155,11 @@ export async function computeStats(kv, { monthsBack = 6, now = new Date() } = {}
   const viralShare = totaleConProvenienza > 0 ? +((installsBySource.invito || 0) / totaleConProvenienza).toFixed(3) : null;
 
   const diagnosticKeys = await listAllKeys(kv, 'diagnostic:');
+  const installedPwa = await listAllKeys(kv, 'pwa_installed:');
+  const standalone = await listAllKeys(kv, 'standalone_opened:');
+  const installedDevices = new Set([...installedPwa.map(entry=>entry.name.slice('pwa_installed:'.length)), ...standalone.map(entry=>entry.name.slice('standalone_opened:'.length))]);
+  const presence = await listAllKeys(kv, 'presence:');
+  const recentDevices = presence.filter(entry => Number.isFinite(entry.metadata?.seenAt) && entry.metadata.seenAt <= now.getTime() && entry.metadata.seenAt > now.getTime()-300000).length;
   const diagnosticByDay = {};
   for (const entry of diagnosticKeys) {
     const [, day, key] = entry.name.split(':');
@@ -159,8 +168,19 @@ export async function computeStats(kv, { monthsBack = 6, now = new Date() } = {}
     diagnosticByDay[day][key] = (diagnosticByDay[day][key] || 0) + 1;
   }
   return {
+    featureReach: Object.entries(featureByMonth[months[0]] || {}).map(([key, devices]) => ({ key, devices })).sort((a,b) => b.devices-a.devices || a.key.localeCompare(b.key)),
+    featureMeasurement: 'unique_device_per_calendar_month_not_action_count',
     diagnosticByDay,
     totalInstallsEver: installs.length,
+    firstSeenDevices: installs.length,
+    legacyInstallMeaning: 'first_browser_start_not_installation',
+    confirmedPwaInstallDevices: installedPwa.length,
+    standaloneObservedDevices: standalone.length,
+    installedDevicesObserved: installedDevices.size,
+    installationCoverage: 'browser_confirmation_or_standalone_observed_since_instrumentation',
+    recentlyVisibleDevices: recentDevices,
+    presenceWindowSeconds: 300,
+    presenceConsistency: 'eventual_not_realtime',
     activeByMonth,
     currentMonthActive,
     currentDayActive,
@@ -196,7 +216,11 @@ export async function handleRequest(request, env) {
       return new Response('ok');
     }
     if (!id || typeof id !== 'string' || id.length > 128) return new Response('id mancante o non valido.', { status: 400 });
-    if (event === 'install') {
+    if (event === 'presence') {
+      await env.MOMENTUM_TELEMETRY.put(`presence:${id}`, '1', {expirationTtl:600,metadata:{seenAt:Date.now()}});
+    } else if (event === 'pwa_installed' || event === 'standalone_opened') {
+      await env.MOMENTUM_TELEMETRY.put(`${event}:${id}`, '1');
+    } else if (event === 'install') {
       await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()));
       // platform/source sono opzionali (client più vecchi non li mandano
       // ancora) e SOLO se dentro l'elenco chiuso — mai un valore libero.
@@ -216,4 +240,22 @@ export async function handleRequest(request, env) {
   return new Response('Momentum telemetry worker: solo POST / e GET /stats.', { status: 404 });
 }
 
-export default { fetch: handleRequest };
+// The PWA and collector have different origins. A JSON POST needs preflight.
+// Never expose /stats through this public CORS policy.
+export async function fetchTelemetry(request, env) {
+  const url = new URL(request.url), origin = request.headers.get('Origin');
+  if (url.pathname !== '/' || !origin) return handleRequest(request, env);
+  const allowed = new Set(['https://momentum-finance.pages.dev', ...(env.TELEMETRY_ORIGINS || '').split(',').map(value => value.trim()).filter(Boolean)]);
+  if (!allowed.has(origin)) return new Response('Origin not allowed', { status:403 });
+  const headers = { 'Access-Control-Allow-Origin':origin, 'Vary':'Origin' };
+  if (request.method === 'OPTIONS') {
+    const requested = (request.headers.get('Access-Control-Request-Headers') || '').toLowerCase().split(',').map(value=>value.trim()).filter(Boolean);
+    if (request.headers.get('Access-Control-Request-Method') !== 'POST' || requested.some(value=>value!=='content-type')) return new Response(null,{status:403,headers});
+    return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'POST','Access-Control-Allow-Headers':'Content-Type','Access-Control-Max-Age':'3600'}});
+  }
+  const response = await handleRequest(request,env);
+  const result = new Response(response.body,response);
+  for (const [name,value] of Object.entries(headers)) result.headers.set(name,value);
+  return result;
+}
+export default { fetch: fetchTelemetry };

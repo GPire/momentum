@@ -385,6 +385,7 @@ export function exportTripData(trip, allTransactions, { taxActiveCountry = null 
       mealType: MEAL_SUBTYPES.includes(t.mealType) ? t.mealType : null,
       descrizione: t.description || '',
       importo: t.amount,
+      valuta: t.currency || trip.receiptPolicy?.currency || 'EUR',
       scontrino: t.receiptImage || null,
       giustificativoMancante: needsReceipt(t, trip.receiptPolicy),
       avvisoTracciabilita: expenseNeedsTraceabilityWarning(t, trip),
@@ -397,7 +398,7 @@ export function exportTripData(trip, allTransactions, { taxActiveCountry = null 
     }));
   const offerti = [...(trip.offeredItems || [])]
     .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-    .map(it => ({ data: it.date, categoria: it.tripCategory, mealType: it.mealType, descrizione: it.description || '', importo: it.amount }));
+    .map(it => ({ data: it.date, categoria: it.tripCategory, mealType: it.mealType, descrizione: it.description || '', importo: it.amount, valuta: trip.receiptPolicy?.currency || 'EUR' }));
   const { totale, perCategoria } = tripTotals(trip, allTransactions);
   const offertiTotali = tripOfferedTotals(trip);
   // Ricerca reale (SAP Concur, reclami 2026): il motivo più citato per cui una
@@ -411,5 +412,5 @@ export function exportTripData(trip, allTransactions, { taxActiveCountry = null 
   // expenseNeedsTraceabilityWarning), non per il giustificativo mancante.
   const numeroAvvisiTracciabilita = expenses.filter(e => e.avvisoTracciabilita).length;
   const numeroAvvisiSpagna = expenses.filter(e => e.avvisoSpagna).length;
-  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna };
+  return { policyExceptionReason: trip.receiptPolicy?.exceptionReason || '', tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate, currency: trip.receiptPolicy?.currency || 'EUR', expenses, totale, perCategoria, offerti, offertiTotale: offertiTotali.totale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna };
 }

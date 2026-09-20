@@ -1,6 +1,8 @@
+import { PRODUCT_TELEMETRY_EVENTS } from './product-telemetry-events.js';
 // Conteggio attivo di default, disattivabile dall'utente. Rispetta l'opt-out salvato.
 // Un ID casuale resta un identificatore pseudonimo; il trasporto espone metadati.
 'use strict';
+import { TRIP_TELEMETRY_EVENTS } from './trip-telemetry-events.js';
 
 const ANON_ID_KEY = 'momentum_anon_id';
 const OPT_IN_KEY = 'momentum_telemetry_opt_in';
@@ -51,6 +53,8 @@ export const INSTALL_SOURCES = ['invito', 'diretto'];
 // deliberatamente altrove (vedi tax-rules.js: le regole SI PROPONGONO,
 // non si applicano mai senza conferma).
 export const FEATURE_KEYS = [
+  ...TRIP_TELEMETRY_EVENTS,
+  ...PRODUCT_TELEMETRY_EVENTS,
   'onboarding_completed',
   'first_real_transaction',
   'analysis_tensor_opened',
@@ -175,19 +179,52 @@ export async function sendTelemetryPings(endpoint, { storage = localStorage, fet
 // (dedup letta da FEATURE_SENT_KEY, un piccolo insieme "chiave:mese" già
 // inviati). Chiave fuori dall'elenco chiuso FEATURE_KEYS → no-op silenzioso
 // (mai un typo che manda testo libero per errore).
+const featureInFlight = new WeakMap();
+const observationLocks = new WeakMap();
+// Presence is approximate foreground activity, never a claim that a person is online.
+export async function sendAppObservation(endpoint, event, { storage = localStorage, fetchImpl = fetch, now = Date.now(), visible = true } = {}) {
+  if (!endpoint || !['presence', 'pwa_installed', 'standalone_opened'].includes(event) || !Number.isFinite(now) || (event === 'presence' && !visible)) return { sent:false };
+  let locks, owned = false;
+  const key = `momentum_observation_${event}`;
+  try {
+    if (!isTelemetryEnabled(storage)) return {sent:false};
+    const previous = storage.getItem(key);
+    if (event === 'presence' ? previous && now >= Number(previous) && now - Number(previous) < 120000 : previous === '1') return {sent:false};
+    locks = observationLocks.get(storage);
+    if (!locks) { locks = new Set(); observationLocks.set(storage,locks); }
+    if (locks.has(event)) return {sent:false};
+    locks.add(event); owned = true;
+    const response = await fetchImpl(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:getAnonId(storage),event})});
+    if (!response?.ok) return {sent:false};
+    storage.setItem(key,event === 'presence' ? String(now) : '1');
+    return {sent:true};
+  } catch { return {sent:false}; }
+  finally { if (owned) locks.delete(event); }
+}
 export async function sendFeatureEvent(endpoint, key, { storage = localStorage, fetchImpl = fetch, now = new Date() } = {}) {
-  if (!endpoint || !isTelemetryEnabled(storage) || !FEATURE_KEY_SET.has(key)) return { sent: false };
+  if (!endpoint || !FEATURE_KEY_SET.has(key) || !(now instanceof Date) || !Number.isFinite(now.getTime())) return { sent: false };
   const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const dedupKey = `${key}:${month}`;
-  let already;
-  try { already = new Set(JSON.parse(storage.getItem(FEATURE_SENT_KEY) || '[]')); } catch (_) { already = new Set(); }
-  if (already.has(dedupKey)) return { sent: false };
-  const id = getAnonId(storage);
+  let pending, ownsPending = false;
+  const read = () => {
+    try { const entries = JSON.parse(storage.getItem(FEATURE_SENT_KEY) || '[]'); return new Set(Array.isArray(entries) ? entries.filter(value => typeof value === 'string' && value.endsWith(`:${month}`) && FEATURE_KEY_SET.has(value.slice(0, -(month.length + 1)))) : []); }
+    catch { return new Set(); }
+  };
   try {
+    if (!isTelemetryEnabled(storage)) return { sent: false };
+    pending = featureInFlight.get(storage);
+    if (!pending) { pending = new Set(); featureInFlight.set(storage, pending); }
+    if (pending.has(dedupKey) || read().has(dedupKey)) return { sent: false };
+    pending.add(dedupKey);
+    ownsPending = true;
+    const id = getAnonId(storage);
     const response = await fetchImpl(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, event: 'feature', key, month }) });
     if (!response?.ok) throw new Error('Telemetry request rejected');
+    // Re-read after await: simultaneous different events must not overwrite each other.
+    const already = read();
     already.add(dedupKey);
     storage.setItem(FEATURE_SENT_KEY, JSON.stringify([...already]));
     return { sent: true };
-  } catch (_) { return { sent: false }; /* riprova al prossimo tentativo, mai bloccante */ }
+  } catch (_) { return { sent: false }; }
+  finally { if (ownsPending) pending.delete(dedupKey); }
 }

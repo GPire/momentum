@@ -1,3 +1,14 @@
+import { mountInvoiceJourney } from './ui/invoice-journey.js';
+import { taxHandoffGuide } from './ui/tax-handoff.js';
+import { taxServices, taxServiceGuide, taxTransmissionCopy } from './ui/tax-services.js';
+import { marketWorkspaceCopy } from './i18n/market-workspace.js';
+import './ui/constellation-workspace.css';
+import { invoiceBrandCopy } from './i18n/invoice-brand.js';
+import { taxReviewProgress } from './ui/tax-review.js';
+import { taxJourneyCopy } from './i18n/tax-journey.js';
+import { enhanceTaxFields } from './ui/tax-fields.js';
+import { taxWorkspaceCountry, TAX_WORKSPACE_COUNTRIES } from './ui/tax-workspace.js';
+import './ui/tax-workspace.css';
 import { tIntegration, formatPatternResult } from './i18n/integration-copy.js';
 import './ui/trip-workspace.css';
 import { tripStatusCopy } from './i18n/trip-status.js';
@@ -6,9 +17,14 @@ import { reviewHistoryCopy } from './i18n/review-history.js';
 import { rememberReview, reviewHistoryPage } from './trips/review-history.js';
 import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
-import { detectTripAmountAnomalies } from './trips/trip-anomaly.js';
+import { evaluateTripPredictions } from './trips/trip-prediction.js';
+import { tripReimbursementHtml } from './ui/trip-reimbursement.js';
+import { creditPickerHtml, bindCreditPicker } from './ui/trip-credit-picker.js';
+import { tripRouteWorkspaceHtml, bindTripRouteWorkspace } from './ui/trip-route-workspace.js';
+import { tripApprovalFlowCopy } from './i18n/trip-approval-flow.js';
+import { tripPredictionCopy } from './i18n/trip-prediction.js';
 import { FATTORI_CO2_KG_PER_KM, stimaCo2Kg, convertiInKm, modoAereoSuggerito, totaleCo2Trasferta } from './trips/trip-carbon.js';
-import { MOMENTUM_EXPORT_FIELDS, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
+import { MOMENTUM_EXPORT_FIELDS, standardMapping, defaultMapping, validateMapping, transactionToExportRecord, buildMappedExportPreview, mappedExportToCsv } from './trips/company-export-mapping.js';
 import { tripReadinessCopy, tripArchiveShareCopy } from './i18n/trip-readiness.js';
 import { tripAttachmentCopy } from './i18n/trip-attachment.js';
 import { tripChecksCopy, tripIssueLabel } from './i18n/trip-checks.js';
@@ -66,6 +82,10 @@ import { TARIFFA_KM_PER_PAESE } from './trips/trip-mileage-rates.js';
 import { rimborsoChilometrico } from './trips/trip-mileage.js';
 import { EXPENSE_PLATFORMS, trovaPiattaforma, indirizzoValido, nomeFileGiustificativo, scontriniDaInviare, scontriniGiaInviati } from './trips/expense-bridge.js';
 import { reconcileCardStatement } from './trips/card-reconciliation.js';
+import { tripReconciliationCopy } from './i18n/trip-reconciliation.js';
+import { TRIP_INTEGRATION_GUIDES } from './trips/integration-guides.js';
+import { suggestExportTemplate } from './trips/export-template.js';
+import { tripHandoffCopy, tripSenderCopy, tripTemplateCopy, tripExportExtraLabel } from './i18n/trip-handoff.js';
 import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js';
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva, VoiceParser, SPEECH_LOCALE } from './voice/voice.js';
@@ -120,7 +140,7 @@ import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
-import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, sendFeatureEvent, sendEssentialDiagnostic } from './core/telemetry.js';
+import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, sendFeatureEvent, sendEssentialDiagnostic, sendAppObservation } from './core/telemetry.js';
 
 // Endpoint del contatore anonimo (server/telemetry-worker.js) — distribuito
 // su Cloudflare Workers il 2026-08-28 (piano gratuito). Un id casuale non
@@ -133,6 +153,12 @@ const TELEMETRY_ENDPOINT = 'https://momentum-telemetry.momentum-finance.workers.
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
 // di chiamata: mai bloccante, mai un errore visibile all'utente.
 const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
+const pingPresence = () => {
+  sendAppObservation(TELEMETRY_ENDPOINT, 'presence', {visible:document.visibilityState === 'visible'}).catch(() => {});
+  if (document.visibilityState === 'visible') sendTelemetryPings(TELEMETRY_ENDPOINT, {platform:__telemetryPlatform,cameFromInvite:__telemetryCameFromInvite}).catch(() => {});
+};
+document.addEventListener('visibilitychange', pingPresence);
+setInterval(pingPresence, 120000);
 const sendDiagnostic = (key) => { sendEssentialDiagnostic(TELEMETRY_ENDPOINT, key, { platform: __telemetryPlatform, appVersion: '50.1.0' }).catch(() => {}); };
 // Piattaforma e provenienza per il ping "install" (2026-08-28, richiesto
 // esplicitamente: cosa chiederebbe un investitore oltre agli utenti al
@@ -209,15 +235,32 @@ import { buildAccountantReport, renderAccountantReportHTML } from './predict/acc
 import { accountantReportToCsv, accountantReportToJson } from './predict/accountant-export-structured.js';
 import { determinaPeriodicitaIva, upcomingIvaLiquidazioni, previsioneSuperamentoSogliaTrimestrale } from './predict/iva-liquidazione.js';
 import { matchInvoicePayments, cashBasisRevenue, accrualRevenue, ceilingStatusByCash, unpaidExposure } from './predict/tax-cash-basis.js';
-import { upcomingTaxDeadlines, taxCashWarning, overdueTaxDeadlines } from './predict/tax-deadlines.js';
+import { upcomingTaxDeadlines, taxCashWarning } from './predict/tax-deadlines.js';
 import { nextModelo130Deadline } from './predict/tax-deadlines-es.js';
 import { righeF24Iva, righeF24Imposte, f24Riepilogo, F24_WEB_UFFICIALE_URL } from './predict/f24.js';
-import { calcolaRavvedimento } from './predict/ravvedimento.js';
-import { taxReserveStatus, recordTaxPayment, removeTaxPayment } from './predict/tax-payments.js';
+
+import { taxReserveStatus, recordTaxPayment, removeTaxPayment, assignTaxPaymentYear } from './predict/tax-payments.js';
 import { rulesForYear, setActiveTaxRules } from './predict/tax-rules.js';
-import { computeInvoice, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
+import { computeInvoice, invoicePaymentSnapshot, nextInvoiceNumber, suggestFromHistory, detectRecurringClients, renderInvoiceHTML, buildInvoiceEmail, pendingSdiTransmission, INVOICE_THEMES, suggestInvoiceTheme } from './invoice/invoice-engine.js';
 import { invoicePdfBlob, invoiceFilename } from './invoice/invoice-pdf.js';
-import { selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
+import { invoiceCountry, selectableCountries as selectableInvoiceCountries } from './invoice/country-invoicing.js';
+import { taxDocumentCopy } from './i18n/tax-document.js';
+import { taxPaymentsCopy } from './i18n/tax-payments.js';
+import { invoiceReviewState, addInvoiceReviewEvent, previewInvoiceReviewImport } from './invoice/invoice-review.js';
+import { invoiceReviewImportCopy, invoiceReviewImportError } from './i18n/invoice-review-import.js';
+import { invoiceNextSteps } from './invoice/invoice-next-step.js';
+import { includeDocumentBackup, splitDocumentBackup, validateDocumentBundle, restoreDocumentBackup } from './invoice/document-backup.js';
+import { documentArchiveCopy } from './i18n/document-archive.js';
+import {invoicePaymentWindow} from './invoice/invoice-payment-window.js';
+import {observePaymentWindows} from './invoice/payment-window-observations.js';
+import {invoicePaymentWindowCopy} from './i18n/invoice-payment-window.js';
+import {recordSwissPaymentRequest} from './invoice/swiss-request-record.js';
+import {swissRequestCopy} from './i18n/swiss-request-record.js';
+import { suggestInvoiceReceipts } from './invoice/invoice-assistant.js';
+import { invoiceNextStepCopy, invoiceAssistantCopy } from './i18n/invoice-next-step.js';
+import { invoiceReviewCopy } from './i18n/invoice-review.js';
+import { collectionWorkspace, addCollectionEntry, collectionInvoiceId } from './invoice/collection-workspace.js';
+import { invoiceCollectionsCopy } from './i18n/invoice-collections.js';
 import { recommendInvoiceType, missingForFatturaPa, buildFatturaPaXML, buildFatturaPaAnnualExport } from './invoice/fatturapa-xml.js';
 import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa-import.js';
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
@@ -318,7 +361,7 @@ import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-pars
 import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
 import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
 import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
-import { buildOriginalCurrencyFields } from './trips/trip-currency.js';
+import { buildOriginalCurrencyFields, canChangeTripCurrency } from './trips/trip-currency.js';
 import { createTrip, tripExpenses, reimbursableTripExpenses, tripTotals, exportTripData, TRIP_CATEGORIES, MEAL_SUBTYPES, addOfferedItem, removeOfferedItem, tripOfferedTotals, needsReceipt, mergeTripLists, touchTrip, deleteTrip, restoreTrip, visibleTrips, pruneDeletedTrips, expenseNeedsTraceabilityWarning, expenseNeedsSpainCashWarning } from './trips/trip-engine.js';
 import { assertReviewDecision, encodeTripReview, decodeTripReview, extractTripReviewPayload, encodeTripVerdict, decodeTripVerdict, applyTripVerdict, markTripSentForReview } from './trips/trip-review.js';
 import { reviewConflictCopy } from './i18n/review-conflict.js';
@@ -430,6 +473,7 @@ async function prepareSemanticSimilarity(question) {
 // Punto unico delle risposte in linguaggio naturale (src/ai/qa-engine.js):
 // usato sia dalla card "Chiedi a Momentum" sia dalla console.
 function askMomentum(text, semanticSimilarity = null) {
+  pingFeature('assistant_question_started');
   const ctx = {
     uiLanguage: __uiLang,
     marketRiskSources: window.__marketRiskSources || {},
@@ -1048,6 +1092,7 @@ const attachFormListeners = (container, prefill = null) => {
   let type = 'uscita';
   let rawVal = '';
   let catId = null;
+  let categoryChosenManually = false;
   // BUG SEGNALATO DAL VIVO (2026-09-11): chi registra PIÙ spese arretrate di
   // fila (es. "recupero il weekend scorso") sceglieva la data una volta, ma
   // ad ogni salvataggio successivo il form ripartiva silenziosamente da
@@ -1221,6 +1266,7 @@ const attachFormListeners = (container, prefill = null) => {
   const resetForm = () => {
     rawVal = '';
     catId = null;
+    categoryChosenManually = false;
     competenzaSuggerita = null;
     competenzaAccettata = true;
     // Non torna sempre a "oggi": se l'ultima scelta a mano è recente (vedi
@@ -1339,7 +1385,7 @@ const attachFormListeners = (container, prefill = null) => {
   // Voice Activation
   const voiceBtn = container.querySelector('#voice-rec-btn');
   if (voiceBtn) {
-    VoiceCore.init(container);
+    VoiceCore.init(container, pingFeature);
     voiceBtn.onclick = () => VoiceCore.toggle();
   }
 
@@ -1440,34 +1486,25 @@ const attachFormListeners = (container, prefill = null) => {
         // Real-time dynamic auto-categorization
         const predictedCatId = pred.cat;
         const predictedType = pCat.type;
-
-        if (type !== predictedType) {
-          type = predictedType;
-          container.querySelectorAll('.type-toggle-pill').forEach(b => b.classList.remove('active-expense','active-income','active-invest'));
-          const tPill = container.querySelector(`[data-type="${type}"]`);
-          if (tPill) {
-            tPill.classList.add(type==='uscita'?'active-expense':type==='entrata'?'active-income':'active-invest');
-            tPill.classList.remove('type-toggle-pop'); void tPill.offsetWidth; tPill.classList.add('type-toggle-pop');
+        const applyPrediction = () => {
+          if (type !== predictedType) container.querySelector(`.type-toggle-pill[data-type="${predictedType}"]`)?.click();
+          if (type !== predictedType) return;
+          catId = predictedCatId;
+          const chip = container.querySelector(`[data-cat-id="${catId}"]`);
+          if (chip) {
+            container.querySelectorAll('.cat-chip').forEach(el=>el.classList.remove('selected'));
+            chip.classList.add('selected');
+            revealCategoryChip(chip);
           }
-          const scroll = container.querySelector('#cat-scroll');
-          if (scroll) {
-            scroll.innerHTML = buildCatChipsHTML(type);
-            attachCatClick();
-          }
-        }
-
-        catId = predictedCatId;
-        const chip = container.querySelector(`[data-cat-id="${catId}"]`);
-        if (chip) {
-          container.querySelectorAll('.cat-chip').forEach(el=>el.classList.remove('selected'));
-          chip.classList.add('selected');
-          revealCategoryChip(chip);
-        }
-        updateAmount();
-
+          updateAmount();
+        };
+        // A hypothesis must not reverse income/expense or replace an explicit category.
+        if (!pred.abstain && type === predictedType && !categoryChosenManually) applyPrediction();
         aiBtn.onclick = () => {
+          applyPrediction();
+          categoryChosenManually = true;
           aiPanel.classList.remove('active');
-        aiPanel.setAttribute('aria-hidden', 'true');
+          aiPanel.setAttribute('aria-hidden', 'true');
           haptic('heavy');
         };
       }
@@ -1480,6 +1517,7 @@ const attachFormListeners = (container, prefill = null) => {
       haptic('light');
       type = btn.dataset.type;
       catId = null;
+      categoryChosenManually = false;
 
       container.querySelectorAll('.type-toggle-pill').forEach(b => b.classList.remove('active-expense','active-income','active-invest'));
       btn.classList.add(type==='uscita'?'active-expense':type==='entrata'?'active-income':'active-invest');
@@ -1594,6 +1632,7 @@ const attachFormListeners = (container, prefill = null) => {
         haptic('light');
         AudioSynth.play('click');
         catId = c.dataset.catId;
+        categoryChosenManually = true;
         container.querySelectorAll('.cat-chip').forEach(el => {
           el.classList.remove('selected');
           if (el.dataset.catId !== '__nuova__') el.setAttribute('aria-pressed', String(el === c));
@@ -2283,11 +2322,12 @@ const attachFormListeners = (container, prefill = null) => {
       category: catId,
       description: desc?.value || getCatById(catId).name,
       date: selectedDate.toISOString(),
-      ...(currency ? { currency } : {}),
+      currency: currency || 'EUR',
     }, { dedupWindowHours: 0.25 });
     // Pietra miliare "attivazione" reale (mai per un import di massa, solo
     // dal tocco manuale): la primissima transazione VERA di questo
     // dispositivo, non un doppione fuso dal dedup.
+    if (!duplicate) pingFeature('transaction_saved');
     if (eraLaPrima && !duplicate) pingFeature('first_real_transaction');
 
     // Registro affidabilità per canale (source-registry.js, 2026-08-28):
@@ -2652,6 +2692,7 @@ const openTransactionModal = () => {
 // tiene davvero): mai due copie divergenti della stessa funzione, quindi
 // estratta qui sotto e riusata da entrambi i punti di ingresso.
 window.openPrefilledAdd = (prefill = {}) => {
+  pingFeature('transaction_editor_opened');
   haptic('light');
   openModal(getTxFormHTML(), getTxFormFooterHTML());
   attachFormListeners($('#modal-body'), prefill);
@@ -3483,6 +3524,7 @@ function renderTransactionRecurring() {
   list.innerHTML = agendaItems.map((item, index) => `<article class="recurring-row"><span class="recurring-planet" aria-hidden="true"></span><div class="recurring-row-copy"><strong>${escapeHtml(item.name)}</strong><time datetime="${item.date}">${new Date(item.date + 'T12:00:00').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'long', year: 'numeric' })}</time><small>${tCh(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', __uiLang)}</small></div><div class="recurring-row-action"><span>${item.amount === null ? '—' : formatMoney(item.amount)}</span><button type="button" class="agenda-edit" onclick="window.openPaymentEditor(${index})"><span>${tCh('agendaEditDate', __uiLang)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M7 17L17 7M7 7h10v10"/></svg></button></div></article>`).join('');
 }
 window.openPaymentEditor = (index = null, draft = null) => {
+  pingFeature('payment_schedule_opened');
   const selected = Number.isInteger(index) ? agendaItems[index] : null;
   const item = draft || (selected?.parentKey ? (VaultDAO.state.paymentDeclarations || []).find(p => p.key === selected.parentKey) : selected);
   if (index !== null && !item) return;
@@ -4514,6 +4556,7 @@ function findTx(month, id) {
 // Apre il selettore di categoria per un movimento. Filtrato per TYPE: cambiare
 // una spesa in "Stipendio" (un'entrata) non ha senso, non e' nell'elenco.
 window.openCategoryPicker = (month, id) => {
+  pingFeature('category_editor_opened');
   const tx = findTx(month, id);
   if (!tx) return;
   const scelte = getCatsByType(tx.type);
@@ -5292,7 +5335,14 @@ function renderTaxCashBlocks(proj, regime) {
           html += `<div class="text-[11px] text-amber-300 mt-1.5 leading-snug">${escapeHtml(previsione.messaggio)}</div>`;
         }
       }
-      const esp = unpaidExposure(matched, { now: Date.now() });
+      const collections = collectionWorkspace(invoices, VaultDAO.state.transactions || {}, VaultDAO.state.invoiceCollections || {});
+      const explicitIds = new Set(collections.entries.map(e=>e.invoiceId));
+      const esp = unpaidExposure({nonIncassate:matched.nonIncassate.filter(m=>!explicitIds.has(JSON.stringify([m.fattura.country || 'IT',m.fattura.year,m.fattura.number])))}, { now: Date.now() });
+      if (collections.entries.length) {
+        const c=invoiceCollectionsCopy(__uiLang);
+        const residuals=collections.ok ? collections.result.invoices.filter(i=>explicitIds.has(i.id)).map(i=>`${new Intl.NumberFormat(__uiLocale,{style:'currency',currency:i.currency}).format(i.remaining)}`).join(' · ') : c.stale;
+        html += `<button type="button" class="btn-action tax-handoff-entry" onclick="window.openInvoiceCollections()">${escapeHtml(c.title)} · ${escapeHtml(collections.ok ? c.due + ': ' + residuals : residuals)}</button>`;
+      }
       if (esp.numero > 0) {
         const col = esp.inRitardo > 0 ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
         html += `<div class="text-[11px] ${col} mt-1.5 leading-snug">${escapeHtml(esp.messaggio)}</div>`;
@@ -5303,30 +5353,16 @@ function renderTaxCashBlocks(proj, regime) {
     // versato" viene dai versamenti che l'utente ha dichiarato
     // (tax-payments.js): mai dare per scontato che non abbia pagato nulla.
     const versamenti = VaultDAO.state.taxPayments || [];
-    const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti);
+    const riserva = taxReserveStatus(proj.estimatedAnnualTax, versamenti, {year:new Date().getFullYear()});
     const deadlines = upcomingTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
-
-    // SCADENZE SALTATE (colma un vuoto reale): prima una scadenza non
-    // versata spariva semplicemente dalla lista al giorno dopo, come se non
-    // fosse mai esistita. Ora si vede, col ravvedimento operoso già calcolato
-    // — il momento più delicato per chi non ha un commercialista.
-    const overdue = overdueTaxDeadlines(proj.estimatedAnnualTax, { giaVersato: riserva.versato });
-    if (overdue.length) {
-      const o = overdue[0];
-      const rav = calcolaRavvedimento(o.importo, o.giorniDiRitardo);
-      html += `<div class="rounded-xl border border-orange-400/40 bg-orange-500/10 px-3 py-2.5 mt-1.5">
-        <div class="text-[11px] font-bold text-orange-300 leading-snug">Scadenza del ${escapeHtml(o.date)} non ancora versata (${o.giorniDiRitardo} giorni di ritardo).</div>
-        <div class="text-[11px] text-orange-200/90 mt-1 leading-snug">Con il ravvedimento operoso oggi pagheresti ${escapeHtml(formatMoney(rav.totale))}: ${escapeHtml(formatMoney(o.importo))} dovuto + ${escapeHtml(formatMoney(rav.sanzioneRidotta))} di sanzione ridotta (${escapeHtml(rav.fascia)}) + ${escapeHtml(formatMoney(rav.interessi))} di interessi. Più aspetti, più sale.</div>
-        <div class="text-[10px] text-orange-200/70 mt-1.5 leading-snug">${escapeHtml(rav.nota)}</div>
-        <button onclick="window.openRegistraVersamento(${o.importo}, 'Scadenza del ${escapeHtml(o.date)}')" class="text-[11px] font-bold text-orange-200 underline mt-2">L'ho già versata</button>
-      </div>`;
-      urgent = true;
-      maybeNotifyTaxUrgency(
-        `overdue:${o.id}`,
-        'Una scadenza fiscale ti aspetta',
-        `Il ${o.date} non risulta versato. Con il ravvedimento oggi costerebbe ${formatMoney(rav.totale)} — ho già fatto i conti, dai un'occhiata quando puoi.`,
-      );
+    if(riserva.unassignedCount) {
+      const c=taxPaymentsCopy(__uiLang);
+      html+=`<button class="btn-action tax-handoff-entry" type="button" onclick="window.openVersamentiFiscali()">${escapeHtml(c.unknown)} · ${riserva.unassignedCount}</button>`;
     }
+
+    // Current projections cannot establish a historical unpaid liability.
+    // Keep prospective estimates; overdue notices require confirmed obligations
+    // and payments linked to their exact period, which this workflow lacks.
 
     // BUG REALE TROVATO (2026-08-06): taxCashWarning veniva chiamata con
     // `forecast: null` — l'UNICA funzione di questa card pensata apposta per
@@ -5488,8 +5524,7 @@ function renderTaxCashBlocks(proj, regime) {
   const haFattureEmesse = (VaultDAO.state.invoices || []).length > 0;
   const haEntrateFattura = (proj?.invoicedYTD || 0) > 0;
   if (haFattureEmesse || haEntrateFattura) {
-    html += `<button onclick="window.exportAccountantReport()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Esporta riepilogo per il commercialista</button>`;
-    html += `<div class="mt-1.5 flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __uiLang)}</span><button onclick="window.exportAccountantReportCsv()" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportJson()" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>`;
+    html += `<button onclick="window.openTaxExportPicker('it')" class="btn-action w-full mt-3">${taxJourneyCopy(__uiLang).exportTitle}</button>`;
   }
   return html;
 }
@@ -5511,12 +5546,28 @@ function downloadTextFile(content, filename, mimeType) {
 // scheda pronta per "Stampa → Salva come PDF", stesso schema già verificato
 // per la fattura di cortesia. Nessun account, nessun login — un file che si
 // apre e basta.
+// A single format choice reuses the existing country-specific exports.
+window.openTaxExportPicker = (country = 'it', income = null) => {
+  pingFeature('tax_export_opened');
+  if (!TAX_WORKSPACE_COUNTRIES.includes(country)) return;
+  const copy = taxJourneyCopy(__uiLang);
+  if (country === 'ch' && !(Number.isFinite(income) && income > 0)) return;
+  const actions = country === 'ch'
+    ? [`window.exportAccountantReportCh(${income})`, `window.exportAccountantReportChCsv(${income}, 'csv')`, `window.exportAccountantReportChCsv(${income}, 'json')`]
+    : country === 'es'
+      ? ['window.exportAccountantReportEs()', "window.exportAccountantReportEsCsv('csv')", "window.exportAccountantReportEsCsv('json')"]
+      : ['window.exportAccountantReport()', 'window.exportAccountantReportCsv()', 'window.exportAccountantReportJson()'];
+  window.openModal(`<section class="tax-workspace-step tax-export-choice"><header><h3>${copy.exportTitle}</h3><p>${copy.exportHint}</p></header>
+    ${['print','csv','json'].map((format,i) => `<button type="button" class="btn-action ${i === 0 ? 'btn-primary' : ''}" onclick="${actions[i]}"><span>${copy[format]}</span><span aria-hidden="true">${i === 0 ? 'PDF' : format.toUpperCase()}</span></button>`).join('')}
+    <button type="button" class="btn-action" onclick="window.closeModal()">${tCh('esclForfCloseBtn', __uiLang)}</button></section>`);
+};
+
 window.exportAccountantReport = () => {
   const anno = new Date().getFullYear();
   const regime = VaultDAO.state.taxRegime || 'forfettario';
   const report = buildAccountantReport(
     VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
-    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+    { invoiceReviewEvents: VaultDAO.state.invoiceReviewEvents || [], invoiceCollections: VaultDAO.state.invoiceCollections || {}, taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel, cassaPropria: VaultDAO.state.taxCassaPropria || null, altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura },
   );
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
@@ -5541,10 +5592,10 @@ window.exportAccountantReportCsv = () => {
   const regime = VaultDAO.state.taxRegime || 'forfettario';
   const report = buildAccountantReport(
     VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
-    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+    { invoiceReviewEvents: VaultDAO.state.invoiceReviewEvents || [], invoiceCollections: VaultDAO.state.invoiceCollections || {}, taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel, cassaPropria: VaultDAO.state.taxCassaPropria || null, altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura },
   );
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
-  downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-commercialista-${anno}.csv`, 'text/csv');
+  downloadTextFile(accountantReportToCsv(report, { emitter, lang: __uiLang }), `momentum-commercialista-${anno}.csv`, 'text/csv');
   showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
 };
 window.exportAccountantReportJson = () => {
@@ -5552,7 +5603,7 @@ window.exportAccountantReportJson = () => {
   const regime = VaultDAO.state.taxRegime || 'forfettario';
   const report = buildAccountantReport(
     VaultDAO.state.invoices || [], VaultDAO.state.transactions || {}, anno, regime,
-    { taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel },
+    { invoiceReviewEvents: VaultDAO.state.invoiceReviewEvents || [], invoiceCollections: VaultDAO.state.invoiceCollections || {}, taxPayments: VaultDAO.state.taxPayments || [], learned: VaultDAO.state.taxLearned, model: window.__incomeModel, cassaPropria: VaultDAO.state.taxCassaPropria || null, altraCoperturaPrevidenziale: !!VaultDAO.state.taxAltraCopertura },
   );
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-commercialista-${anno}.json`, 'application/json');
@@ -5570,6 +5621,7 @@ window.exportAccountantReportEs = async () => {
   const report = buildAccountantReportEs(VaultDAO.state.transactions || {}, anno, {
     learned: VaultDAO.state.taxLearned, model: window.__incomeModel, baseElegida,
     territorio: VaultDAO.state.esTerritorio || 'comun',
+    invoices: VaultDAO.state.invoices || [], invoiceCollections: VaultDAO.state.invoiceCollections || {},
   });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
@@ -5592,10 +5644,11 @@ window.exportAccountantReportEsCsv = async (formato) => {
   const report = buildAccountantReportEs(VaultDAO.state.transactions || {}, anno, {
     learned: VaultDAO.state.taxLearned, model: window.__incomeModel, baseElegida,
     territorio: VaultDAO.state.esTerritorio || 'comun',
+    invoices: VaultDAO.state.invoices || [], invoiceCollections: VaultDAO.state.invoiceCollections || {},
   });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   if (formato === 'json') downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-gestor-${anno}.json`, 'application/json');
-  else downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-gestor-${anno}.csv`, 'text/csv');
+  else downloadTextFile(accountantReportToCsv(report, { emitter, lang: __uiLang }), `momentum-gestor-${anno}.csv`, 'text/csv');
   showToast(tCh('esExportAccountantToast', __esLang), 'success');
 };
 
@@ -5712,69 +5765,64 @@ window.confermaCambioRegoleVisto = () => {
   renderAnalysis({ skipHeavyForecast: true });
 };
 
-window.registraVersamentoFiscale = (importo, nota = '') => {
-  const n = +importo;
-  if (!Number.isFinite(n) || n <= 0) { showToast('Inserisci un importo valido.', 'error'); return false; }
-  VaultDAO.state.taxPayments = recordTaxPayment(VaultDAO.state.taxPayments || [], n, { note: nota });
-  VaultDAO.save();
-  showToast(`Versamento di ${formatMoney(n)} registrato: non te lo chiederò più.`, 'success');
-  closeModal();
-  renderAnalysis({ skipHeavyForecast: true });
-  renderDashboard();
-  return true;
-};
-
-window.rimuoviVersamentoFiscale = (id) => {
-  VaultDAO.state.taxPayments = removeTaxPayment(VaultDAO.state.taxPayments || [], id);
-  VaultDAO.save();
-  showToast('Versamento rimosso.', 'info');
-  renderAnalysis({ skipHeavyForecast: true });
-  renderDashboard();
-  window.openVersamentiFiscali();
-};
-
-// Chiede l'importo con un valore già proposto (quello della scadenza o del
-// totale F24): la persona conferma invece di digitare, ma può correggere —
-// un versamento parziale è normale e non va reso impossibile.
-window.openRegistraVersamento = (importoProposto = 0, etichetta = '') => {
-  const val = Number.isFinite(+importoProposto) && +importoProposto > 0 ? (+importoProposto).toFixed(2) : '';
-  openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
-      ${tl1Icon('<path d="M20 6 9 17l-5-5"/>', '--positive')}
-      <div>
-        <h3 class="text-lg font-black leading-tight">L'hai versato?</h3>
-        <p class="card-sub !mb-0 mt-1.5">${etichetta ? escapeHtml(etichetta) + '. ' : ''}Segnandolo qui smetto di contarlo fra quelli da mettere da parte, e sparisce dagli avvisi di ritardo.</p>
-      </div>
-      <input id="vers-importo" type="number" inputmode="decimal" step="0.01" value="${escapeHtml(val)}" placeholder="Quanto hai versato (€)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-4 text-2xl font-mono text-center" name="vers-importo" aria-label="Quanto hai versato (€)" />
-      <input id="vers-nota" type="text" maxlength="60" placeholder="Nota (facoltativa): es. F24 giugno" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-sm" name="vers-nota" aria-label="Nota (facoltativa): es. F24 giugno" />
-      <button onclick="window.registraVersamentoFiscale(document.getElementById('vers-importo').value, document.getElementById('vers-nota').value)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Sì, l'ho versato</button>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">Se hai versato solo una parte, scrivi quella: il resto continuo a tenerlo da conto.</p>
-    </div>`);
-  setTimeout(() => document.getElementById('vers-importo')?.focus(), 60);
+window.openRegistraVersamento = (importoProposto = 0, etichetta = '', paymentId = null) => {
+  const c=taxPaymentsCopy(__uiLang), d=taxDocumentCopy(__uiLang), esc=escapeHtml;
+  const previous=(VaultDAO.state.taxPayments || []).find(p=>p.id===paymentId);
+  if(paymentId && !previous) return;
+  const val=previous?.amount ?? (Number(importoProposto)>0 ? Number(importoProposto) : '');
+  openModal(`<section class="finance-workspace collection-workspace">
+    <header><h3>${esc(previous ? c.assign : c.title)}</h3><p>${esc(c.intro)}</p></header>
+    ${etichetta ? `<p>${esc(etichetta)}</p>` : ''}
+    ${previous ? `<p>${formatMoney(previous.amount)} · ${esc(previous.note || '')}</p>` : `<label>${esc(c.amount)}<input id="vers-importo" type="text" inputmode="decimal" maxlength="15" value="${esc(val)}" placeholder="150,00" /></label><label><span>${esc(c.date)}</span><input id="vers-date" type="date" value="${new Date().toISOString().slice(0,10)}" /></label>`}
+    <label>${esc(c.year)}<input id="vers-year" type="text" inputmode="numeric" maxlength="4" value="${esc(previous?.taxYear || '')}" placeholder="2025" aria-describedby="vers-hint" /></label>
+    <p id="vers-hint">${esc(c.hint)}</p>
+    ${previous ? '' : `<label>${esc(c.note)}<input id="vers-nota" type="text" maxlength="60" /></label>`}
+    ${previous ? '' : `<button type="button" id="vers-doc-toggle" class="btn-action" aria-expanded="false" aria-controls="vers-document">${esc(d.open)}</button><div id="vers-document" hidden><p>${esc(d.note)}</p><label>${esc(d.code)}<input id="vers-code" type="text" inputmode="numeric" maxlength="4" placeholder="1792" /></label><label>${esc(d.credit)}<input id="vers-credit" type="text" inputmode="decimal" value="0" /></label><label>${esc(d.reference)}<input id="vers-reference" type="text" maxlength="120" /></label><a class="btn-action" href="https://telematici.agenziaentrate.gov.it/Main/Versamenti.jsp" target="_blank" rel="noopener noreferrer">Agenzia delle Entrate · F24</a></div>`}
+    <p id="vers-status" role="status" aria-live="polite"></p>
+    <button id="vers-save" type="button" class="btn-action btn-primary">${esc(previous ? c.assign : c.save)}</button>
+  </section>`);
+  const docToggle=document.getElementById('vers-doc-toggle');
+  if(docToggle) docToggle.onclick=()=>{
+    const panel=document.getElementById('vers-document'); panel.hidden=!panel.hidden;
+    docToggle.setAttribute('aria-expanded',String(!panel.hidden));
+  };
+  document.getElementById('vers-save').onclick=()=>{
+    const yearText=document.getElementById('vers-year').value.trim(), taxYear=Number(yearText);
+    const yearOk=/^\d{4}$/.test(yearText) && taxYear>=1900;
+    document.getElementById('vers-year').setAttribute('aria-invalid',String(!yearOk));
+    const payments=VaultDAO.state.taxPayments || [];
+    let next=payments;
+    if(yearOk && previous) next=assignTaxPaymentYear(payments,paymentId,taxYear);
+    else if(yearOk) {
+      const raw=document.getElementById('vers-importo').value.trim();
+      const date=document.getElementById('vers-date').value;
+      const n=/^\d+(?:[.,]\d{1,2})?$/.test(raw) ? Number(raw.replace(',','.')) : NaN;
+      const withDocument=!document.getElementById('vers-document').hidden;
+      const documentData=withDocument ? {code:document.getElementById('vers-code').value,credit:document.getElementById('vers-credit').value.trim().replace(',','.'),reference:document.getElementById('vers-reference').value} : undefined;
+      const valid=Number.isFinite(n) && (n>0 || (n===0 && withDocument));
+      document.getElementById('vers-importo').setAttribute('aria-invalid',String(!valid));
+      if(valid) next=recordTaxPayment(payments,n,{taxYear,date,note:document.getElementById('vers-nota').value,document:documentData});
+    }
+    if(next===payments || (!previous && next.length===payments.length)) { document.getElementById('vers-status').textContent=c.invalid; return; }
+    VaultDAO.state.taxPayments=next; VaultDAO.save();
+    showToast(c.saved,'success'); renderTax(monthKey(new Date())); renderDashboard();
+    window.openVersamentiFiscali();
+  };
 };
 
 window.openVersamentiFiscali = () => {
-  const versamenti = VaultDAO.state.taxPayments || [];
-  openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
-      ${tl1Icon('<path d="M3 6h18M3 12h18M3 18h12"/>', '--primary')}
-      <div>
-        <h3 class="text-lg font-black leading-tight">Versamenti che hai dichiarato</h3>
-        <p class="card-sub !mb-0 mt-1.5">Solo quelli che mi hai detto tu: Momentum non vede il tuo conto e non può saperlo da solo.</p>
-      </div>
-      ${!versamenti.length ? `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessuno, per ora.</p>` : `
-      <div class="w-full flex flex-col gap-2 text-left">
-        ${versamenti.slice().reverse().map((p) => `
-        <div class="flex items-center justify-between gap-2 rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-2.5">
-          <div class="min-w-0">
-            <div class="font-mono font-bold text-sm">${formatMoney(p.amount)}</div>
-            <div class="text-[10px] text-[var(--on-surface-secondary)] truncate">${escapeHtml(giornoLocale(p.date) || '')}${p.note ? ' · ' + escapeHtml(p.note) : ''}</div>
-          </div>
-          <button onclick="window.rimuoviVersamentoFiscale('${escapeHtml(p.id)}')" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">Rimuovi</button>
-        </div>`).join('')}
-      </div>`}
-      <button onclick="window.openRegistraVersamento(0)" class="btn-action w-full py-3 text-xs rounded-xl">Aggiungi un versamento</button>
-    </div>`);
+  const c=taxPaymentsCopy(__uiLang), d=taxDocumentCopy(__uiLang), esc=escapeHtml, payments=VaultDAO.state.taxPayments || [];
+  openModal(`<section class="finance-workspace collection-workspace">
+    <header><h3>${esc(c.history)}</h3><p>${esc(c.intro)}</p></header>
+    <button type="button" id="vers-add" class="btn-action btn-primary">${esc(c.add)}</button>
+    ${payments.map((p,i)=>`<article class="collection-entry"><strong>${formatMoney(p.amount)}</strong><p>${esc(p.taxYear || c.unknown)} · ${esc(giornoLocale(p.date) || '')}</p><p>${esc(p.note || '')}</p>${p.document ? `<p>${esc(d.code)}: ${esc(p.document.code)} · ${esc(d.credit)}: ${formatMoney(p.document.credit)}</p><p>${esc(d.reference)}: ${esc(p.document.reference)}</p><p>${esc(p.document.status==='needs-review' ? invoiceCollectionsCopy(__uiLang).stale : d.note)}</p>` : ''}<button type="button" class="btn-action" data-payment-year="${i}">${esc(c.assign)}</button><button type="button" class="btn-action" data-payment-remove="${i}">${esc(c.remove)}</button></article>`).join('')}
+  </section>`);
+  document.getElementById('vers-add').onclick=()=>window.openRegistraVersamento();
+  document.querySelectorAll('[data-payment-year]').forEach(b=>b.onclick=()=>window.openRegistraVersamento(0,'',payments[Number(b.dataset.paymentYear)].id));
+  document.querySelectorAll('[data-payment-remove]').forEach(b=>b.onclick=()=>{
+    VaultDAO.state.taxPayments=removeTaxPayment(VaultDAO.state.taxPayments || [],payments[Number(b.dataset.paymentRemove)].id);
+    VaultDAO.save(); renderTax(monthKey(new Date())); renderDashboard(); window.openVersamentiFiscali();
+  });
 };
 
 window.openF24Precompilato = () => {
@@ -5986,6 +6034,7 @@ function renderTax(monthK) {
   const card = $('#tax-card'), setEl = $('#tax-setaside'), noteEl = $('#tax-note'), extraEl = $('#tax-extra');
   if (!card) return;
   if (extraEl) extraEl.innerHTML = '';
+  if (taxWorkspaceCountry(VaultDAO.state) !== 'it') { card.classList.add('hidden'); return; }
   // Reset ad ogni render: il segnale di attenzione si riaccende SOLO se
   // renderTaxCashBlocks trova di nuovo un motivo vero — mai uno stantio.
   card.classList.remove('tax-alert');
@@ -5997,36 +6046,8 @@ function renderTax(monthK) {
   // c'è mai stata una fattura, resta nascosto (niente modulo per chi non serve).
   const everInvoice = hasInvoiceIncome();
   const incomeModel = (typeof window !== 'undefined' && window.__incomeModel) || null;
-  // LIVELLO 0 — "non ho ancora la Partita IVA": prima la card spariva del
-  // tutto, lasciando fuori esattamente chi sta VALUTANDO se aprirla (nessun
-  // portale copre questo momento). Ora mostra un invito leggero alla
-  // simulazione invece di sparire nel nulla.
-  if (!regime && !everInvoice) {
-    // Chi ha già detto "sono dipendente, non mi serve" non deve continuare a
-    // vedere l'invito ogni mese — ricordarlo è rispetto, non insistenza.
-    if (VaultDAO.state.noPartitaIva) { card.classList.add('hidden'); return; }
-    card.classList.remove('hidden');
-    setEl.textContent = '';
-    noteEl.textContent = tCh('taxLvl0Note', __uiLang);
-    // I link CH/ES qui sotto sono stati tolti (2026-08-27): ridondanti con i
-    // badge IT/CH/ES già in cima alla card unica in Momentum Vault — averli
-    // in due punti della stessa card sarebbe di nuovo l'affollamento appena
-    // corretto (vedi il commento sulla card in index.html).
-    if (extraEl) extraEl.innerHTML = `
-      <button onclick="window.openTaxLevel1()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--gold)] text-[var(--gold)]">${tCh('taxSimulateBtn', __uiLang)}</button>
-      <button onclick="window.setNoPartitaIva(true)" class="text-[11px] text-[var(--on-surface-secondary)] underline ml-2">${tCh('taxNotSelfEmployedBtn', __uiLang)}</button>`;
-    return;
-  }
-  // Un solo Paese alla volta mostrato per esteso (2026-08-27, segnalato
-  // dall'utente: Italia e Spagna comparivano impilate insieme nella stessa
-  // card — realistico solo per un vero freelance con redditi in due Paesi,
-  // fuorviante per chiunque altro). Nessun dato viene perso: entrambi restano
-  // attivi nello stato, cambia solo QUALE dei due si vede qui — l'altro è a
-  // un tocco (badge IT/CH/ES in cima, o il link "mostra" sotto).
-  if (VaultDAO.state.taxActiveCountry === 'es' && VaultDAO.state.esActive) {
-    card.classList.add('hidden');
-    return;
-  }
+  // The entry choice is already in tax-settings-body; avoid a second invitation.
+  if (!regime && !everInvoice) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
 
   // ── INTELLIGENZA REGIME: senza regime NON si inventa un numero (IRPEF/INPS/
@@ -6122,7 +6143,6 @@ function renderTax(monthK) {
       </div>`;
     }
     // ── CREA FATTURA: azione contestuale, appare solo qui (per chi fattura) ──
-    html += `<button onclick="window.openCreateInvoice()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-3 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tCh('taxCreateInvoiceBtn', __uiLang)}</button>`;
     // Entrambi i Paesi attivi (raro, ma reale): l'Italia si mostra per
     // default, uno switch esplicito porta alla Spagna — mai le due insieme.
     if (VaultDAO.state.esActive) {
@@ -6148,7 +6168,7 @@ function renderTaxEs(monthK) {
   // Un solo Paese alla volta (vedi lo stesso guard in renderTax): con un
   // regime italiano attivo E senza uno switch esplicito verso la Spagna,
   // l'Italia resta quella mostrata di default — mai le due impilate insieme.
-  if (VaultDAO.state.taxRegime && VaultDAO.state.taxActiveCountry !== 'es') {
+  if (taxWorkspaceCountry(VaultDAO.state) !== 'es') {
     card.classList.add('hidden');
     return;
   }
@@ -6249,8 +6269,7 @@ function renderTaxEs(monthK) {
   // non ci sono fatture strutturate (nessun equivalente FatturaPA per la
   // Spagna), quindi basta almeno una entrata già riconosciuta come fattura.
   if (r.count > 0) {
-    html += `<button onclick="window.exportAccountantReportEs()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esExportAccountant', __esLang)}</button>`;
-    html += `<div class="mt-1.5 flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __esLang)}</span><button onclick="window.exportAccountantReportEsCsv('csv')" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportEsCsv('json')" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>`;
+    html += `<button onclick="window.openTaxExportPicker('es')" class="btn-action w-full mt-3">${taxJourneyCopy(__uiLang).exportTitle}</button>`;
   }
   html += `<button onclick="window.openEsTerritorioPicker()" class="mt-2 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] block">${tCh('esTerritorioBtn', __esLang)}</button>`;
   html += `<button onclick="window.setEsActive(false)" class="text-[11px] text-[var(--on-surface-secondary)] underline mt-2">${tCh('esDeactivate', __esLang)}</button>`;
@@ -6264,8 +6283,10 @@ function renderTaxEs(monthK) {
 // (2026-08-27, segnalato dall'utente: Italia e Spagna comparivano impilate
 // nella stessa card). Nessun dato tolto: cambia solo quale card è visibile.
 window.setTaxActiveCountry = (paese) => {
+  if (!TAX_WORKSPACE_COUNTRIES.includes(paese)) return;
   VaultDAO.state.taxActiveCountry = paese;
   VaultDAO.save();
+  renderTaxSettings();
   renderTax(monthKey(new Date()));
   renderTaxEs(monthKey(new Date()));
 };
@@ -6283,6 +6304,8 @@ window.setEsActive = (val) => {
   showToast(tCh(val ? 'esActivatedToast' : 'esDeactivatedToast', __esLang), val ? 'success' : 'info');
   if (val) pingFeature('spain_tax_activated');
   window.closeModal?.();
+  renderTaxSettings();
+  renderTax(monthKey(new Date()));
   renderTaxEs(monthKey(new Date()));
   renderDashboard();
 };
@@ -6342,9 +6365,244 @@ function hasInvoiceIncome() {
 //    regime e calcolo tasse+contributi giusti" (mai un numero inventato).
 //  · niente di tutto ciò → invito discreto per chi HA la Partita IVA ad
 //    attivarla, senza imporla a chi non fattura.
+function mountTaxHandoff(root, country, onDone = () => window.closeModal(), task = 'documents') {
+  let guide = taxHandoffGuide(country, __uiLang);
+  if (task !== 'documents') {
+    const service = taxServiceGuide(country, task, __uiLang, VaultDAO.state.esTerritorio || 'comun');
+    if (!service || !guide) return;
+    guide = { ...guide, ...service, steps: guide.steps.map((step,i) => ({ ...step, body:service.bodies[i] })) };
+  }
+  if (!root || !guide) return;
+  let step = 0;
+  const render = (focus = false) => {
+    const current = guide.steps[step];
+    root.innerHTML = `<header class="tax-handoff-heading"><span class="tax-handoff-orbit" aria-hidden="true">${step + 1}</span><div><p>${escapeHtml(guide.name)}</p><h3 tabindex="-1">${escapeHtml(current.title)}</h3></div><span class="tax-handoff-count" role="status" aria-live="polite" aria-atomic="true">${step + 1} / ${guide.steps.length}</span></header>
+      <p class="tax-handoff-instruction">${escapeHtml(current.body)}</p>
+      ${step === 1 || step === 2 ? `<a class="btn-action btn-primary tax-handoff-link" href="${guide.url}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(guide.open)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a><p class="tax-handoff-domain">${escapeHtml(new URL(guide.url).hostname)}</p><p class="tax-handoff-notice">${escapeHtml(guide.external)}</p>` : ''}
+      <a class="tax-handoff-help" href="${guide.help}" target="_blank" rel="noopener noreferrer">${escapeHtml(guide.helpLabel)} · ${escapeHtml(new URL(guide.help).hostname)}</a>
+      <nav class="tax-handoff-actions"><button type="button" class="btn-action" data-guide-back ${step === 0 ? 'disabled' : ''}>${escapeHtml(guide.back)}</button><button type="button" class="btn-action btn-primary" data-guide-next>${escapeHtml(step === guide.steps.length - 1 ? guide.steps[3].title : guide.next)}</button></nav>
+      <p class="tax-handoff-notice">${escapeHtml(guide.note)}</p>`;
+    root.querySelector('[data-guide-back]').onclick = () => { if (step > 0) { step--; render(true); } };
+    root.querySelector('[data-guide-next]').onclick = () => { if (step < guide.steps.length - 1) { step++; render(true); } else { onDone(); showToast(guide.note); } };
+    if (focus) root.querySelector('h3').focus({ preventScroll: true });
+  };
+  render();
+}
+window.openTaxHandoff = (country, task = null) => {
+  pingFeature('tax_official_guide_opened');
+  const service = taxServices(country, __uiLang, VaultDAO.state.esTerritorio || 'comun');
+  if (!service) return;
+  if (task && !service.tasks.some(t => t.id === task)) return;
+  if (!task) {
+    window.openModal(`<section class="tax-workspace-step tax-service-picker"><header><h3>${escapeHtml(service.title)}</h3><p>${escapeHtml(service.hint)}</p></header>
+      ${service.regional ? `<p role="status">${escapeHtml(service.regional)}</p><button type="button" class="btn-action" onclick="window.openEsTerritorioPicker()">${escapeHtml(tCh('esTerritorioBtn', __uiLang))}</button>` : ''}
+      ${service.tasks.map(t => `<button type="button" class="btn-action tax-service-choice" onclick="window.openTaxHandoff('${country}','${t.id}')"><span>${escapeHtml(t.title)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></button>`).join('')}
+      <div class="tax-service-accountant"><h4>${escapeHtml(service.accountant)}</h4><p>${escapeHtml(service.exportHint)}</p>${service.regional ? '' : `<button type="button" class="btn-action" id="tax-service-export">${escapeHtml(country === 'ch' ? tCh('chSimCta', __uiLang) : service.export)}</button>`}</div></section>`);
+    $('#tax-service-export')?.addEventListener('click', () => country === 'ch' ? window.openTaxDiscover() : window.openTaxExportPicker(country));
+    return;
+  }
+  window.openModal(`<section class="tax-workspace-step"><button type="button" class="btn-action" onclick="window.openTaxHandoff('${country}')">${escapeHtml(service.back)}</button><section class="tax-handoff" id="tax-handoff-modal"></section></section>`);
+  mountTaxHandoff($('#tax-handoff-modal'), country, () => window.openTaxHandoff(country), task);
+};
+
+window.openInvoiceReview = (invoiceId=null) => {
+  pingFeature('invoice_review_opened');
+  const c=invoiceReviewCopy(__uiLang), esc=escapeHtml;
+  const invoices=(VaultDAO.state.invoices || []).filter(f=>['IT','CH','ES'].includes(f.country || 'IT') && (invoiceId ? collectionInvoiceId(f)===invoiceId : (f.country || 'IT')===taxWorkspaceCountry(VaultDAO.state).toUpperCase()));
+  const invoice=invoices.find(f=>collectionInvoiceId(f)===invoiceId);
+  const events=VaultDAO.state.invoiceReviewEvents || [];
+  const state=invoice ? invoiceReviewState(invoice,events) : null;
+  const rows=state ? state.history.filter(e=>e.type==='request') : [];
+  openModal(`<section class="finance-workspace collection-workspace">
+    <header><h3>${esc(c.title)}</h3><p>${esc(c.intro)}</p></header>
+    <button type="button" class="btn-action" id="ir-import">${esc(invoiceReviewImportCopy(__uiLang).title)}</button>
+    ${!invoice ? `<div class="collection-list">${invoices.map((f,i)=>`<button type="button" class="collection-choice" data-review-invoice="${i}"><span>${esc(f.number)}/${esc(f.year)} · ${esc(f.client)}</span><span>${invoiceReviewState(f,events).open.length} · ${esc(c.open)}</span></button>`).join('') || `<p>${esc(invoiceCollectionsCopy(__uiLang).empty)}</p>`}</div>` : `
+      <button type="button" class="btn-action" id="ir-back">${esc(invoiceCollectionsCopy(__uiLang).back)}</button>
+      <h4>${esc(invoice.number)}/${esc(invoice.year)} · ${esc(invoice.client)}</h4>
+      ${state.invalid ? `<p role="alert">${esc(c.error)}</p>` : ''}
+      ${state.stale.length ? `<p role="status">${esc(c.stale)}</p>` : ''}
+      <label>${esc(c.note)}<textarea id="ir-note" rows="3" maxlength="1000"></textarea></label>
+      <p id="ir-error" role="status"></p><button type="button" id="ir-add" class="btn-action btn-primary">${esc(c.add)}</button>
+      <div class="collection-list">${rows.map((r,i)=>`<article class="collection-item"><div><strong>${esc(r.note)}</strong><p>${esc(new Date(r.at).toLocaleString(__uiLocale))}</p>${state.open.some(o=>o.id===r.id) ? `<button type="button" class="btn-action" data-review-resolve="${i}">${esc(c.resolve)}</button>` : `<p>${esc(c.done)}</p>`}</div></article>`).join('') || `<p>${esc(c.empty)}</p>`}</div>
+      <button type="button" class="btn-action" id="ir-export">${esc(c.export)}</button>`}
+  </section>`);
+  const root=document.getElementById('modal-body');
+  root.querySelector('#ir-import').onclick=()=>window.openInvoiceReviewImport();
+  root.querySelectorAll('[data-review-invoice]').forEach(b=>b.onclick=()=>window.openInvoiceReview(collectionInvoiceId(invoices[Number(b.dataset.reviewInvoice)])));
+  root.querySelector('#ir-back')?.addEventListener('click',()=>window.openInvoiceReview());
+  const add=(type,extra)=>{
+    const next=addInvoiceReviewEvent(VaultDAO.state.invoices || [],VaultDAO.state.invoiceReviewEvents || [],{id:crypto.randomUUID(),invoiceId,type,at:new Date().toISOString(),...extra});
+    if(!next.ok){root.querySelector('#ir-error').textContent=c.error;return;}
+    VaultDAO.state.invoiceReviewEvents=next.events;VaultDAO.save();window.openInvoiceReview(invoiceId);
+  };
+  root.querySelector('#ir-add')?.addEventListener('click',()=>add('request',{note:root.querySelector('#ir-note').value}));
+  root.querySelectorAll('[data-review-resolve]').forEach(b=>b.onclick=()=>add('resolve',{requestId:rows[Number(b.dataset.reviewResolve)].id}));
+  root.querySelector('#ir-export')?.addEventListener('click',()=>downloadTextFile(JSON.stringify({format:'momentum-invoice-review',version:1,note:c.intro,invoice,review:invoiceReviewState(invoice,VaultDAO.state.invoiceReviewEvents || [])},null,2),'momentum-invoice-review.json','application/json'));
+};
+
+window.openInvoiceReviewImport = () => {
+  const c=invoiceReviewImportCopy(__uiLang), esc=escapeHtml;
+  openModal(`<section class="finance-workspace collection-workspace"><header><h3>${esc(c.title)}</h3><p>${esc(c.intro)}</p></header><button type="button" class="btn-action" id="iri-back">${esc(invoiceCollectionsCopy(__uiLang).back)}</button><button type="button" class="btn-action btn-primary" id="iri-file">${esc(c.title)}</button><input type="file" accept=".json,application/json" id="iri-input" hidden><div id="iri-preview"></div><p role="status" id="iri-status"></p></section>`);
+  const root=document.getElementById('modal-body'), input=root.querySelector('#iri-input'), area=root.querySelector('#iri-preview'), status=root.querySelector('#iri-status');
+  root.querySelector('#iri-back').onclick=()=>window.openInvoiceReview();
+  root.querySelector('#iri-file').onclick=()=>input.click();
+  let generation=0;
+  input.onchange=async()=>{
+    const run=++generation, file=input.files?.[0];area.replaceChildren();status.textContent='';
+    if(!file)return;
+    if(file.size>1000000){status.textContent=c.error;return;}
+    try {
+      const text=await file.text();if(run!==generation || !root.contains(area))return;
+      const check=()=>previewInvoiceReviewImport(VaultDAO.state.invoices || [],VaultDAO.state.invoiceReviewEvents || [],text);
+      const result=check();if(!result.ok){status.textContent=invoiceReviewImportError(__uiLang,result.reason);return;}
+      const matched=(VaultDAO.state.invoices || []).find(f=>collectionInvoiceId(f)===result.invoiceId);
+      area.innerHTML=`<h4>${esc(c.preview)}</h4><p>${esc(c.duplicates)}: ${result.duplicates} · ${esc(c.ignored)}: ${result.ignored}</p><div class="collection-list">${result.requests.map(e=>`<article class="collection-item"><strong>${esc(e.note)}</strong></article>`).join('') || `<p>${esc(c.empty)}</p>`}</div>${result.requests.length?`<button class="btn-action btn-primary" type="button" id="iri-save">${esc(c.save)}</button>`:''}`;
+      area.querySelector('#iri-save')?.addEventListener('click',()=>{
+        const fresh=check();if(!fresh.ok){status.textContent=invoiceReviewImportError(__uiLang,fresh.reason);return;}
+        VaultDAO.state.invoiceReviewEvents=fresh.events;VaultDAO.save();window.openInvoiceReview(fresh.invoiceId);
+      });
+      const heading=document.createElement('p');heading.textContent=`${matched.number}/${matched.year} · ${matched.client || ''}`;area.prepend(heading);
+    } catch {status.textContent=c.error;}
+  };
+};
+
+window.openInvoiceWorkspace = () => {
+  pingFeature('invoice_workspace_opened');
+  const observation=observePaymentWindows(VaultDAO.state,taxWorkspaceCountry(VaultDAO.state).toUpperCase(),new Date().toISOString().slice(0,10));
+  if(observation.changed){VaultDAO.state.paymentWindowObservations=observation.observations;VaultDAO.save();}
+  const c=invoiceNextStepCopy(__uiLang), a=invoiceAssistantCopy(__uiLang), esc=escapeHtml;
+  openModal(`<section class="finance-workspace collection-workspace"><header><h3>${esc(c.title)}</h3><p>${esc(c.intro)}</p></header><label>${esc(c.search)}<input type="search" id="in-search" autocomplete="off"></label><div id="in-list" class="collection-list"></div></section>`);
+  const root=document.getElementById('modal-body');let limit=15;
+  const draw=()=>{
+    const query=root.querySelector('#in-search').value.toLocaleLowerCase();
+    const rows=invoiceNextSteps(VaultDAO.state,taxWorkspaceCountry(VaultDAO.state).toUpperCase()).filter(r=>r.label.toLocaleLowerCase().includes(query));
+    const visible=rows.slice(0,limit), area=root.querySelector('#in-list');
+    area.innerHTML=visible.map((r,i)=>`<article class="collection-item"><div><strong>${esc(r.label)}</strong><p>${esc(c[r.reason])}${r.open?` · ${r.open}`:''}${r.remaining!==undefined?` · ${esc(new Intl.NumberFormat(__uiLocale,{style:'currency',currency:r.currency}).format(r.remaining))}`:''}</p><button type="button" class="btn-action" data-next="${i}">${esc(['journal','review'].includes(r.reason)?c.checks:c.receipts)}</button>${r.reason!=='journal'&&r.reason!=='review'?`<button type="button" class="btn-action" data-check="${i}">${esc(c.checks)}</button>`:''}<div data-hints="${i}"></div></div></article>`).join('') || `<p>${esc(c.empty)}</p>`;
+    visible.forEach((r,i)=>{
+      area.querySelector(`[data-next="${i}"]`).onclick=()=>['journal','review'].includes(r.reason)?window.openInvoiceReview(r.id):window.openInvoiceCollections(r.id);
+      area.querySelector(`[data-check="${i}"]`)?.addEventListener('click',()=>window.openInvoiceReview(r.id));
+      const documents=document.createElement('button');documents.type='button';documents.className='btn-action';documents.textContent=documentArchiveCopy(__uiLang).title;
+      documents.onclick=async()=>{const {mountDocumentArchive}=await import('./ui/document-archive.js');openModal('');mountDocumentArchive(document.getElementById('modal-body'),{country:taxWorkspaceCountry(VaultDAO.state).toUpperCase(),invoiceId:r.id,lang:__uiLang,store:DurableStore});};
+      area.querySelector(`[data-hints="${i}"]`).before(documents);
+      if(r.reason!=='collect')return;
+      const suggestions=suggestInvoiceReceipts(VaultDAO.state,r.id), holder=area.querySelector(`[data-hints="${i}"]`);
+      const timing=invoicePaymentWindow(VaultDAO.state,r.id);
+      if(timing){const text=invoicePaymentWindowCopy(__uiLang),p=document.createElement('p'),fmt=d=>new Intl.DateTimeFormat(__uiLocale,{dateStyle:'medium',timeZone:'UTC'}).format(new Date(d));p.textContent=`${text.title}: ${fmt(timing.from)} – ${fmt(timing.to)} · ${timing.samples} ${text.note}`;holder.append(p);}
+      suggestions.forEach(s=>{const b=document.createElement('button');b.type='button';b.className='collection-choice';
+        const receipt=Object.values(VaultDAO.state.transactions||{}).flat().find(t=>String(t?.id)===s.receiptId);
+        b.textContent=`${a.title}: ${receipt?.description||''} · ${s.reasons.map(reason=>a[reason]).join(' · ')}`;
+        b.onclick=()=>window.openInvoiceCollections(r.id,s.receiptId);holder.append(b);
+      });
+    });
+    if(rows.length>limit){const b=document.createElement('button');b.className='btn-action';b.textContent=`+ ${Math.min(15,rows.length-limit)}`;b.onclick=()=>{limit+=15;draw();};area.append(b);}
+  };
+  root.querySelector('#in-search').oninput=()=>{limit=15;draw();};draw();
+};
+
+window.openInvoiceCollections = (initialInvoice=null,initialReceipt=null) => {
+  pingFeature('invoice_collections_opened');
+  const c=invoiceCollectionsCopy(__uiLang), esc=escapeHtml;
+  let selected=initialInvoice, receiptId=initialReceipt, query='', limit=20, currency='EUR';
+  const read=()=>collectionWorkspace(VaultDAO.state.invoices || [],VaultDAO.state.transactions || {},VaultDAO.state.invoiceCollections || {});
+  const money=(n,code)=>new Intl.NumberFormat(__uiLocale,{style:'currency',currency:['EUR','CHF'].includes(code)?code:'EUR'}).format(n);
+  const dateLabel=value=>Number.isFinite(Date.parse(value))?new Intl.DateTimeFormat(__uiLocale,{dateStyle:'medium'}).format(new Date(value)):'';
+  const amount=value=>/^\d+(?:[.,]\d{1,2})?$/.test(value.trim()) ? Number(value.trim().replace(',','.')) : NaN;
+  const persist=ledger=>{ VaultDAO.state.invoiceCollections=ledger; VaultDAO.save(); renderTax(monthKey(new Date())); };
+  const back=()=>{ receiptId=null; selected=null; query=''; limit=20; draw(); };
+  function draw() {
+    const w=read(), ledger=VaultDAO.state.invoiceCollections || {};
+    const f=w.bills.find(f=>f.id===selected), t=w.receipts.find(t=>t.id===receiptId);
+    const balance=w.result.invoices.find(i=>i.id===selected);
+    const remaining=balance?.remaining;
+    let content='';
+    if (!selected) {
+      content=`${!w.bills.length?`<p>${esc(c.empty)}</p><button class="btn-action btn-primary" id="ic-create">${esc(c.create)}</button>`:`<label class="task-field"><span>${esc(c.search)}</span><input type="search" id="ic-search" autocomplete="off" value="${esc(query)}"></label><div id="ic-list" class="collection-list"></div>`}`;
+      if (w.entries.length) content+=`<h3>${esc(c.history)}</h3><div class="collection-list">${w.entries.map((e,i)=>`<article class="collection-item"><div><strong>${esc(w.bills.find(f=>f.id===e.invoiceId)?.label || c.invoice)}</strong><span>${esc(e.amount)} · ${esc(w.receipts.find(t=>t.id===e.receiptId)?.label || c.receipt)}</span></div><button type="button" class="btn-action" data-remove="${i}">${esc(c.remove)}</button></article>`).join('')}</div><button type="button" class="btn-action" id="ic-export">${esc(c.export)}</button>`;
+    } else if (!f) { back(); return; }
+    else if (!balance) {
+      content=`<p>${esc(c.unknown)}</p><label class="task-field"><span>${esc(c.confirm)}</span><input id="ic-due" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00"></label><div class="collection-currencies" role="group" aria-label="${esc(c.currency)}">${['EUR','CHF'].map(code=>`<button type="button" class="btn-action" data-currency="${code}" aria-pressed="${currency===code}">${code}</button>`).join('')}</div><button class="btn-action btn-primary" id="ic-confirm-due">${esc(c.confirm)}</button>`;
+    } else if (!t) {
+      content=`<div class="collection-balance"><span>${esc(c.due)}</span><strong>${esc(money(remaining,f.currency))}</strong></div><h3>${esc(c.choose)}</h3><label class="task-field"><span>${esc(c.search)}</span><input type="search" id="ic-search" autocomplete="off" value="${esc(query)}"></label><div id="ic-list" class="collection-list"></div>`;
+    } else {
+      const r=w.result.receipts.find(r=>r.id===t.id), available=r?.remaining ?? t.amount;
+      content=`<article class="collection-item"><div><strong>${esc(t.label || c.receipt)}</strong><span>${esc(dateLabel(t.date))}</span></div><strong>${esc(money(available,t.currency || f.currency))}</strong></article>
+      ${!t.currency?`<label class="collection-confirm"><input type="checkbox" id="ic-currency-confirm">${esc(c.currencyNote)} <strong>${esc(f.currency)}</strong></label>`:''}
+      <label class="task-field"><span>${esc(c.amount)} · ${esc(f.currency)}</span><input type="text" id="ic-amount" inputmode="decimal" autocomplete="off" value="${Math.min(remaining,available).toFixed(2)}"></label>
+      <div class="collection-balance"><span>${esc(c.due)}</span><strong id="ic-after">${esc(money(remaining,f.currency))}</strong></div><button type="button" id="ic-save" class="btn-action btn-primary">${esc(c.save)}</button>`;
+    }
+    openModal(`<section class="finance-workspace collection-workspace"><header><div class="collection-orbit" aria-hidden="true"></div><h2>${esc(c.title)}</h2><p>${esc(c.intro)}</p></header>${selected?`<button id="ic-back" class="btn-action">${esc(c.back)}</button><h3>${esc(f?.label || '')}</h3>`:''}${!w.ok?`<p role="alert" class="collection-error">${esc(c.stale)}</p>`:''}${content}<p id="ic-status" role="status" aria-live="polite"></p></section>`);
+    const root=$('#modal-body'), status=()=>root.querySelector('#ic-status');
+    root.querySelector('#ic-back')?.addEventListener('click',()=>{ if(receiptId){receiptId=null;draw();}else back(); });
+    root.querySelector('#ic-create')?.addEventListener('click',()=>window.openCreateInvoice());
+    function list() {
+      const items=selected ? w.receipts.filter(t=>Number.isFinite(t.amount)&&t.amount>0&&(!t.currency||t.currency===f.currency)&&((w.result.receipts.find(r=>r.id===t.id)?.remaining??t.amount)>0)) : w.bills;
+      const filtered=items.filter(x=>`${x.label} ${x.date || ''}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+      const area=root.querySelector('#ic-list'); if(!area)return;
+      area.innerHTML=filtered.slice(0,limit).map((x,i)=>`<button type="button" class="collection-choice" data-item="${i}" ${!w.ok?'disabled':''}><span><strong>${esc(x.label || c.receipt)}</strong><small>${esc(dateLabel(x.date))}</small></span><span>${selected?esc(money(w.result.receipts.find(r=>r.id===x.id)?.remaining??x.amount,x.currency||f.currency)):x.amountDue?esc(money(w.result.invoices.find(r=>r.id===x.id)?.remaining??x.amountDue,x.currency)):esc(c.unknown)}</span></button>`).join('') || `<p>${esc(c.none)}</p>`;
+      if(filtered.length>limit)area.innerHTML+=`<button type="button" id="ic-more" class="btn-action">+ ${Math.min(20,filtered.length-limit)}</button>`;
+      area.querySelectorAll('[data-item]').forEach(b=>b.addEventListener('click',()=>{const x=filtered[Number(b.dataset.item)]; if(selected)receiptId=x.id;else selected=x.id;query='';limit=20;draw();}));
+      area.querySelector('#ic-more')?.addEventListener('click',()=>{limit+=20;list();});
+    }
+    list();
+    root.querySelector('#ic-search')?.addEventListener('input',e=>{query=e.target.value;limit=20;list();});
+    root.querySelectorAll('[data-currency]').forEach(b=>b.addEventListener('click',()=>{currency=b.dataset.currency;root.querySelectorAll('[data-currency]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}));
+    root.querySelector('#ic-confirm-due')?.addEventListener('click',()=>{
+      const value=amount(root.querySelector('#ic-due').value);
+      if(!(value>0)||!Number.isSafeInteger(Math.round(value*100))){status().textContent=c.invalid;return;}
+      persist({...ledger,targets:{...ledger.targets,[f.id]:{amountDue:value,currency,version:f.baseVersion}}});draw();
+    });
+    const updateAmount=()=>{const field=root.querySelector('#ic-amount'),value=amount(field.value);const available=w.result.receipts.find(r=>r.id===t?.id)?.remaining??t?.amount??0;const valid=Number.isFinite(value)&&value>0&&value<=remaining&&value<=available;root.querySelector('#ic-after').textContent=valid?money(remaining-value,f.currency):'—';field.setAttribute('aria-invalid',String(!valid));status().textContent='';};
+    root.querySelector('#ic-amount')?.addEventListener('input',updateAmount);
+    if(root.querySelector('#ic-amount'))updateAmount();
+    root.querySelector('#ic-save')?.addEventListener('click',()=>{
+      if(!t.currency&&!root.querySelector('#ic-currency-confirm')?.checked){status().textContent=c.currencyNote;return;}
+      const current=VaultDAO.state.invoiceCollections || {};
+      const next=!t.currency?{...current,currencies:{...current.currencies,[t.id]:{currency:f.currency,version:t.baseVersion}}}:current;
+      const added=addCollectionEntry(VaultDAO.state.invoices || [],VaultDAO.state.transactions || {},next,{id:crypto.randomUUID(),invoiceId:f.id,receiptId:t.id,amount:amount(root.querySelector('#ic-amount').value)});
+      if(!added.ok){status().textContent=c.invalid;return;}
+      persist(added.ledger);back();showToast(c.saved,'success');
+    });
+    root.querySelectorAll('[data-remove]').forEach(b=>b.addEventListener('click',()=>{persist({...ledger,entries:w.entries.filter((_,i)=>i!==Number(b.dataset.remove))});draw();showToast(c.removed,'info');}));
+    root.querySelector('#ic-export')?.addEventListener('click',()=>{
+      const fresh=read();const usedInvoices=new Set(fresh.entries.map(e=>e.invoiceId)),usedReceipts=new Set(fresh.entries.map(e=>e.receiptId));const blob=new Blob([JSON.stringify({format:'momentum-invoice-collections',version:1,generatedAt:new Date().toISOString(),note:c.intro,valid:fresh.ok,invoices:fresh.bills.filter(f=>usedInvoices.has(f.id)),receipts:fresh.receipts.filter(t=>usedReceipts.has(t.id)),allocations:fresh.entries,balances:{invoices:fresh.result.invoices.filter(f=>usedInvoices.has(f.id)),receipts:fresh.result.receipts.filter(t=>usedReceipts.has(t.id))}},null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='momentum-invoice-collections.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    });
+  }
+  draw();
+};
+
 function renderTaxSettings() {
   const body = $('#tax-settings-body');
   if (!body) return;
+  const country = taxWorkspaceCountry(VaultDAO.state);
+  const handoff = $('#tax-handoff-entry');
+  if (handoff && !$('#invoice-collections-entry')) {
+    const button=document.createElement('button');button.id='invoice-collections-entry';button.type='button';button.className='btn-action tax-handoff-entry';
+    button.addEventListener('click',()=>window.openInvoiceWorkspace());handoff.after(button);
+  }
+  if ($('#invoice-collections-entry')) $('#invoice-collections-entry').textContent=invoiceNextStepCopy(__uiLang).title;
+  if(handoff && !document.getElementById('invoice-review-entry')) {
+    const button=document.createElement('button');button.type='button';button.id='invoice-review-entry';button.className='btn-action tax-handoff-entry';button.onclick=()=>window.openInvoiceReview();handoff.after(button);
+  }
+  const reviewButton=document.getElementById('invoice-review-entry');
+  if(reviewButton){reviewButton.textContent=invoiceReviewCopy(__uiLang).title;reviewButton.hidden=true;}
+
+  if (handoff) {
+    handoff.innerHTML = `<button type="button" class="btn-action tax-handoff-entry" onclick="window.openTaxHandoff('${country}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h7a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h7"/></svg><span>${escapeHtml(taxHandoffGuide(country, __uiLang).title)}</span></button>`;
+  }
+  document.querySelectorAll('[data-tax-country]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.taxCountry === country));
+  });
+  body.dataset.country = country;
+  if (country !== 'it') {
+    const prefix = country === 'ch' ? 'ch' : 'es';
+    body.innerHTML = `<div class="tax-workspace-intro">
+      <h4>${tCh(prefix + 'SimTitle', __uiLang)}</h4>
+      <p>${tCh(prefix + 'SimSubtitle', __uiLang)}</p>
+      <button type="button" onclick="window.openTaxDiscover()" class="btn-action btn-primary tax-workspace-primary">${tCh(prefix + 'SimCta', __uiLang)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+    </div>`;
+    return;
+  }
   const regime = VaultDAO.state.taxRegime;
   const everInvoice = hasInvoiceIncome();
   const regimeButtons = (accent) => `<div class="flex flex-wrap gap-2">${Object.entries(REGIMI).map(([k, v]) =>
@@ -6627,7 +6885,7 @@ const __chLang = __uiLang;
 window.openSwissSimulator = () => {
   pingFeature('swiss_tax_opened');
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chSimTitle', __chLang)}</h3>
@@ -6639,10 +6897,10 @@ window.openSwissSimulator = () => {
         <button type="button" id="ch-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <button id="ch-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('chSimCta', __chLang)}</button>
-      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chSimBack', __chLang)}</button>
+      <button onclick="window.closeModal()" class="btn-action tax-back-action">${tCh('chSimBack', __chLang)}</button>
     </div>`);
   const input = document.getElementById('ch-amount');
-  input?.focus();
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) input?.focus();
   document.getElementById('ch-step-down')?.addEventListener('click', () => { input.value = Math.max(0, (+input.value || 0) - 1000); });
   document.getElementById('ch-step-up')?.addEventListener('click', () => { input.value = (+input.value || 0) + 1000; });
   document.getElementById('ch-go')?.addEventListener('click', () => {
@@ -6674,7 +6932,7 @@ window.openSwissSimulatorResult = (reddito) => {
       </div>`;
   const ivaColor = iva.obbligatoria ? 'orange-300' : 'emerald-300';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chResultTitle', __chLang, Math.round(reddito).toLocaleString('it-CH'))}</h3>
@@ -6695,9 +6953,8 @@ window.openSwissSimulatorResult = (reddito) => {
       </div>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chCantonNote', __chLang)}</p>
       <button onclick="window.closeModal(); window.openCreateInvoiceCH();" class="btn-action btn-primary w-full py-3 font-bold rounded-xl text-sm">${tCh('chCreateInvoice', __chLang)}</button>
-      <button onclick="window.exportAccountantReportCh(${reddito})" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('chExportAccountant', __chLang)}</button>
-      <div class="flex items-center gap-2 text-[10.5px]"><span class="text-[var(--on-surface-secondary)]">${tCh('accExportForSoftware', __chLang)}</span><button onclick="window.exportAccountantReportChCsv(${reddito}, 'csv')" class="font-bold text-[var(--on-surface-secondary)] underline">CSV</button><span class="text-[var(--on-surface-secondary)]">·</span><button onclick="window.exportAccountantReportChCsv(${reddito}, 'json')" class="font-bold text-[var(--on-surface-secondary)] underline">JSON</button></div>
-      <button onclick="window.openSwissSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chRecalculate', __chLang)}</button>
+      <button onclick="window.openTaxExportPicker('ch', ${reddito})" class="btn-action w-full">${taxJourneyCopy(__uiLang).exportTitle}</button>
+      <button onclick="window.openSwissSimulator()" class="btn-action tax-back-action">${tCh('chRecalculate', __chLang)}</button>
     </div>`);
 };
 
@@ -6718,7 +6975,7 @@ window.setChAttivitaTipo = (tipo, reddito) => {
 window.exportAccountantReportCh = async (reddito) => {
   const { buildAccountantReportCh, renderAccountantReportHTMLIntl } = await import('./predict/accountant-export-intl.js');
   const attivitaAccessoria = VaultDAO.state.chAttivitaTipo === 'accessoria';
-  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria });
+  const report = buildAccountantReportCh(VaultDAO.state.transactions || {}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria, invoices: VaultDAO.state.invoices || [], invoiceCollections: VaultDAO.state.invoiceCollections || {} });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const win = window.open('', '_blank');
   if (win) {
@@ -6736,11 +6993,11 @@ window.exportAccountantReportCh = async (reddito) => {
 window.exportAccountantReportChCsv = async (reddito, formato) => {
   const { buildAccountantReportCh } = await import('./predict/accountant-export-intl.js');
   const attivitaAccessoria = VaultDAO.state.chAttivitaTipo === 'accessoria';
-  const report = buildAccountantReportCh({}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria });
+  const report = buildAccountantReportCh(VaultDAO.state.transactions || {}, new Date().getFullYear(), { redditoManuale: reddito, attivitaAccessoria, invoices: VaultDAO.state.invoices || [], invoiceCollections: VaultDAO.state.invoiceCollections || {} });
   const emitter = ((VaultDAO.state.invoiceProfile || {}).emitter) || '';
   const anno = new Date().getFullYear();
   if (formato === 'json') downloadTextFile(accountantReportToJson(report, { emitter }), `momentum-fiduciario-${anno}.json`, 'application/json');
-  else downloadTextFile(accountantReportToCsv(report, { emitter }), `momentum-fiduciario-${anno}.csv`, 'text/csv');
+  else downloadTextFile(accountantReportToCsv(report, { emitter, lang: __uiLang }), `momentum-fiduciario-${anno}.csv`, 'text/csv');
   showToast(tCh('vaultExportAccountantToast', __uiLang), 'success');
 };
 
@@ -6757,8 +7014,9 @@ window.exportAccountantReportChCsv = async (reddito, formato) => {
 const __esLang = __uiLang;
 
 window.openSpainSimulator = () => {
+  pingFeature('spain_simulator_opened');
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('esSimTitle', __esLang)}</h3>
@@ -6770,10 +7028,10 @@ window.openSpainSimulator = () => {
         <button type="button" id="es-step-up" aria-label="+" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <button id="es-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('esSimCta', __esLang)}</button>
-      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('esSimBack', __esLang)}</button>
+      <button onclick="window.closeModal()" class="btn-action tax-back-action">${tCh('esSimBack', __esLang)}</button>
     </div>`);
   const input = document.getElementById('es-amount');
-  input?.focus();
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) input?.focus();
   document.getElementById('es-step-down')?.addEventListener('click', () => { input.value = Math.max(0, (+input.value || 0) - 100); });
   document.getElementById('es-step-up')?.addEventListener('click', () => { input.value = (+input.value || 0) + 100; });
   document.getElementById('es-go')?.addEventListener('click', () => {
@@ -6796,7 +7054,7 @@ window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
   const netoMensile = rendimientoNetoMensual - reta.cuotaMensual - irpfMensile;
   const esMaxima = VaultDAO.state.esBaseChoice === 'maxima';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--gold')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('esResultTitle', __esLang, Math.round(rendimientoNetoMensual).toLocaleString('es-ES'))}</h3>
@@ -6823,7 +7081,7 @@ window.openSpainSimulatorResult = (rendimientoNetoMensual) => {
         <div class="text-[11px] text-[var(--on-surface-secondary)] text-left px-1">${tCh('esBaseChoiceNote', __esLang, Math.round(reta.baseUsata))}</div>
       </div>
       <button onclick="window.setEsActive(true)" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('esActivateReal', __esLang)}</button>
-      <button onclick="window.openSpainSimulator()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('esRecalculate', __esLang)}</button>
+      <button onclick="window.openSpainSimulator()" class="btn-action tax-back-action">${tCh('esRecalculate', __esLang)}</button>
     </div>`);
 };
 
@@ -6846,9 +7104,10 @@ window.setEsBaseChoice = (choice, rendimientoNetoMensual) => {
 // schema di VaultDAO.state.invoiceProfile per l'Italia — ma un oggetto
 // separato: i campi non corrispondono (IBAN/QR-IBAN invece di Partita IVA).
 window.openCreateInvoiceCH = () => {
+  pingFeature('swiss_invoice_opened');
   const prof = VaultDAO.state.chInvoiceProfile || {};
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v18M3 12h18"/><rect x="4" y="4" width="16" height="16" rx="2"/>', '--red')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chInvTitle', __chLang)}</h3>
@@ -6884,7 +7143,8 @@ window.openCreateInvoiceCH = () => {
     const postalCode = document.getElementById('ch-inv-cap').value.trim();
     const town = document.getElementById('ch-inv-city').value.trim();
     const client = document.getElementById('ch-inv-client').value.trim();
-    const amount = parseFloat(String(document.getElementById('ch-inv-amount').value).replace(',', '.'));
+    const rawAmount=String(document.getElementById('ch-inv-amount').value).trim();
+    const amount=/^\d+(?:[.,]\d{1,2})?$/.test(rawAmount)?Number(rawAmount.replace(',','.')):NaN;
     const desc = document.getElementById('ch-inv-desc').value.trim();
     if (!iban || !name || !postalCode || !town) { showToast(tCh('chInvErrMissing', __chLang), 'error'); return; }
     if (!(amount > 0)) { showToast(tCh('chInvErrAmount', __chLang), 'error'); return; }
@@ -6912,9 +7172,11 @@ window.openCreateInvoiceCH = () => {
 };
 
 window.openCreateInvoiceCHResult = (r, meta) => {
+  const request={id:crypto.randomUUID(),date:new Date().toISOString().slice(0,10),amount:meta.amount,client:meta.client,description:meta.desc,payload:r.payload};
+  const requestCopy=swissRequestCopy(__uiLang);
   const svg = qrSvg(r.payload, { moduleSize: 5, quiet: 3 });
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
       <div>
         <h3 class="text-lg font-black leading-tight">${tCh('chResTitle', __chLang)}</h3>
@@ -6923,8 +7185,14 @@ window.openCreateInvoiceCHResult = (r, meta) => {
       <div class="bg-white rounded-xl p-3 inline-block">${svg}</div>
       ${meta.referenceType === 'QRR' ? `<div class="text-[11px] font-mono text-[var(--on-surface-secondary)]">${tCh('chRefLabel', __chLang)}: ${escapeHtml(formatQrrReference(meta.reference))}</div>` : ''}
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('chResDisclaimer', __chLang)}</p>
-      <button onclick="window.openCreateInvoiceCH()" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('chResNewInvoice', __chLang)}</button>
+      <p>${escapeHtml(requestCopy.note)}</p><button type="button" id="ch-request-save" class="btn-action btn-primary">${escapeHtml(requestCopy.save)}</button><p id="ch-request-status" role="status"></p>
+      <button onclick="window.openCreateInvoiceCH()" class="btn-action tax-back-action">${tCh('chResNewInvoice', __chLang)}</button>
     </div>`);
+  document.getElementById('ch-request-save').onclick=()=>{
+    const result=recordSwissPaymentRequest(VaultDAO.state.invoices||[],request);
+    if(!result.ok){document.getElementById('ch-request-status').textContent=tCh('chInvErrAmount',__chLang);return;}
+    VaultDAO.state.invoices=result.invoices;VaultDAO.save();window.openInvoiceCollections(collectionInvoiceId(result.record));
+  };
 };
 
 // Punto d'ingresso unico dalla card di scoperta in Dashboard (generica,
@@ -6938,26 +7206,26 @@ window.openCreateInvoiceCHResult = (r, meta) => {
 // dichiarato; chi non l'ha mai detto (o ha risposto "non lo so") resta sul
 // percorso italiano, il mercato più coperto oggi.
 window.openTaxDiscover = () => {
-  const country = VaultDAO.state.taxActiveCountry;
+  const country = taxWorkspaceCountry(VaultDAO.state);
   if (country === 'ch') { window.openSwissSimulator(); return; }
   if (country === 'es') { window.openSpainSimulator(); return; }
   window.openTaxLevel1();
 };
 window.openTaxLevel1 = () => {
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/>')}
       <div>
         <h3 class="text-lg font-black leading-tight">Partita IVA</h3>
-        <p class="card-sub !mb-0 mt-1.5">Una domanda per volta — dimmi solo questo, il resto lo capisco io.</p>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('taxStartChoiceHint', __uiLang)}</p>
       </div>
       <div class="w-full flex flex-col gap-2.5">
         <button onclick="window.closeModal(); window.openTaxRegimePicker();" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl justify-between">
-          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Sì, ce l'ho già</span>
+          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>${tCh('taxStartRegistered', __uiLang)}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
         </button>
         <button onclick="window.openTaxLevel1Simulate()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
-          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Non ancora, la sto valutando</span>
+          <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>${tCh('taxStartConsidering', __uiLang)}</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
         </button>
       </div>
@@ -6967,8 +7235,9 @@ window.openTaxLevel1 = () => {
 // Passo 2: una sola domanda numerica. Nessuna configurazione (regime, ATECO,
 // cassa) chiesta qui — sarebbe gergo proprio a chi ancora non sa cosa sia.
 window.openTaxLevel1Simulate = () => {
+  pingFeature('italy_simulator_opened');
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', '--gold')}
       ${tl1Dots(1)}
       <div>
@@ -7035,7 +7304,7 @@ window.openTaxLevel1Simulate = () => {
         </label>
       </details>
       <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
-      <button onclick="window.openTaxLevel1()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Torna indietro</button>
+      <button onclick="window.openTaxLevel1()" class="btn-action tax-back-action">${taxJourneyCopy(__uiLang).back}</button>
     </div>`);
   const input = document.getElementById('tl1-amount');
   input?.focus();
@@ -7156,7 +7425,7 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
       </div>
     </div>` : '';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>', '--gold')}
       ${tl1Dots(2)}
       <h3 class="text-base font-black leading-tight">Con ~${Math.round(fatturato).toLocaleString('it-IT')}€/anno${s.atecoLabel ? ` <span class="font-normal text-[var(--on-surface-secondary)] text-xs">(${s.atecoLabel.split('(')[0].trim()})</span>` : ''}</h3>
@@ -7176,7 +7445,7 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
         <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>Ok, come si apre davvero?</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
       </button>
-      <button onclick="window.openTaxLevel1Simulate()" class="text-[11px] text-[var(--on-surface-secondary)] underline">← Rifai con un altro importo</button>
+      <button onclick="window.openTaxLevel1Simulate()" class="btn-action tax-back-action">← Rifai con un altro importo</button>
       <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
     </div>`);
   // Micro-animazione: il numero arriva con un pop invece di comparire di
@@ -7238,7 +7507,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
         </button>
       </div>` : '';
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12l2 2 4-4M7.8 3.6a9 9 0 1 1-4.2 4.2"/>', '--primary')}
       <div>
         <h3 class="text-lg font-black leading-tight">Come si apre, davvero</h3>
@@ -7349,7 +7618,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
 window.openTaxRegimePicker = () => {
   const cur = VaultDAO.state.taxRegime;
   window.openModal(`
-    <div class="p-1">
+    <div class="tax-workspace-step tax-regime-choice p-1">
       <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
       <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Scegli il tuo: cambia come calcolo imposta e contributi. Puoi modificarlo quando vuoi.</p>
       <div class="space-y-2">
@@ -7374,34 +7643,53 @@ window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.
 // l'utente non saprebbe rispondere da solo. Non cambia nulla in automatico:
 // informa, non decide al posto dell'utente (serve comunque il
 // commercialista per i casi limite, dichiarato in chiaro nel risultato).
-window.openVerificaEsclusioneForfettario = () => {
-  const cause = Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO);
-  window.openModal(`
-    <div class="flex flex-col gap-3 p-1 text-left">
-      <div class="text-center mb-1">
-        <h3 class="text-lg font-black leading-tight">${tCh('esclForfTitle', __uiLang)}</h3>
-        <p class="text-xs text-[var(--on-surface-secondary)] mt-1">${tCh('esclForfSub', __uiLang)}</p>
-      </div>
-      <div class="flex flex-col gap-2">
-        ${cause.map(([chiave, c]) => `
-          <label class="flex items-start gap-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 cursor-pointer">
-            <input type="checkbox" id="escl-${chiave}" class="mt-0.5 w-4 h-4 shrink-0 accent-[var(--primary)]" />
-            <span class="text-[12px] leading-snug text-[var(--on-surface)]">${escapeHtml(c.label)}</span>
-          </label>`).join('')}
-      </div>
-      <button onclick="window.verificaEsclusioneForfettarioSubmit()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl mt-1">${tCh('esclForfCheckBtn', __uiLang)}</button>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('esclForfDisclaimer', __uiLang)}</p>
-    </div>`);
+let taxReviewAnswers = {}, taxReviewStep = 0;
+window.openVerificaEsclusioneForfettario = (resume = false) => {
+  pingFeature('tax_eligibility_opened');
+  if (!resume) { taxReviewAnswers = {}; taxReviewStep = 0; }
+  const questions = Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO);
+  const [key, question] = questions[taxReviewStep];
+  const copy = taxJourneyCopy(__uiLang);
+  const answered = typeof taxReviewAnswers[key] === 'boolean' || taxReviewAnswers[key] === 'unknown';
+  window.openModal(`<section class="tax-workspace-step tax-review">
+    <header><p class="tax-eyebrow">${copy.question} ${taxReviewStep + 1} / ${questions.length}</p>
+      <h3>${tCh('esclForfTitle', __uiLang)}</h3></header>
+    <progress value="${taxReviewStep + 1}" max="${questions.length}" aria-label="${copy.question}"></progress>
+    <fieldset><legend>${escapeHtml(question.label)}</legend>
+      <div class="tax-answer-grid">${[['yes',true],['no',false],['unknown','unknown']].map(([label,value]) => `<button type="button" data-tax-answer="${label}" aria-pressed="${taxReviewAnswers[key] === value}" onclick="window.answerTaxReview('${label}')">${copy[label]}</button>`).join('')}</div>
+    </fieldset>
+    <p class="tax-disclaimer">${tCh('esclForfDisclaimer', __uiLang)}</p>
+  </section>`, `<div class="tax-step-actions">
+    <button type="button" class="btn-action" onclick="window.moveTaxReview(-1)" ${taxReviewStep === 0 ? 'disabled' : ''}>${copy.back}</button>
+    <button type="button" class="btn-action btn-primary" onclick="${taxReviewStep === questions.length - 1 ? 'window.verificaEsclusioneForfettarioSubmit()' : 'window.moveTaxReview(1)'}" ${answered ? '' : 'disabled'}>${answered ? (taxReviewStep === questions.length - 1 ? tCh('esclForfCheckBtn', __uiLang) : copy.next) : copy.answerFirst}</button>
+  </div>`);
 };
-
+window.answerTaxReview = choice => {
+  if (!['yes','no','unknown'].includes(choice)) return;
+  taxReviewAnswers[Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)[taxReviewStep]] = choice === 'unknown' ? choice : choice === 'yes';
+  window.openVerificaEsclusioneForfettario(true);
+  document.querySelector(`#modal-body [data-tax-answer="${choice}"]`)?.focus({preventScroll:true});
+};
+window.moveTaxReview = delta => {
+  const keys = Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO);
+  if (delta > 0 && !taxReviewProgress([keys[taxReviewStep]], taxReviewAnswers).complete) return;
+  taxReviewStep = Math.max(0, Math.min(keys.length - 1, taxReviewStep + delta));
+  window.openVerificaEsclusioneForfettario(true);
+};
 window.verificaEsclusioneForfettarioSubmit = () => {
-  const risposte = {};
-  for (const chiave of Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO)) {
-    risposte[chiave] = !!document.getElementById(`escl-${chiave}`)?.checked;
+  const review = taxReviewProgress(Object.keys(CAUSE_ESCLUSIONE_FORFETTARIO), taxReviewAnswers);
+  if (!review.complete) return;
+  if (review.uncertain.length) {
+    const copy = taxJourneyCopy(__uiLang);
+    window.openModal(`<section class="tax-workspace-step tax-review"><h3>${copy.uncertainTitle}</h3>
+      <p>${copy.uncertainHint}</p><ul>${Object.entries(CAUSE_ESCLUSIONE_FORFETTARIO).filter(([key]) => taxReviewAnswers[key] !== false).map(([,cause]) => `<li>${escapeHtml(cause.label)}</li>`).join('')}</ul>
+      <button type="button" class="btn-action btn-primary" onclick="window.openVerificaEsclusioneForfettario(true)">${copy.review}</button>
+      <p class="tax-disclaimer">${tCh('esclForfDisclaimer', __uiLang)}</p></section>`);
+    return;
   }
-  const { escluso, cause } = verificaEsclusioneForfettario(risposte);
+  const { escluso, cause } = verificaEsclusioneForfettario(review.answers);
   window.openModal(`
-    <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
+    <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${escluso
         ? tl1Icon('<path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>', '--red')
         : tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/>', '--green')}
@@ -7522,6 +7810,7 @@ function bindSplitMoneyInput(input, onChange) {
 }
 
 window.openSplitExpense = (prefill = {}) => {
+  pingFeature('split_quick_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => esc(formatSplitMoney(n, { baseCurrency: 'EUR' }, __uiLocale));
   const tr = (key, ...values) => tSplit(key, __uiLang, ...values);
@@ -8173,6 +8462,7 @@ function renderGhostForecast() {
 // VaultDAO.state.fixedCommitments (campo additivo). Un mutuo/prestito può avere
 // una durata (rate) → l'app sa quando finisce. Collega anche l'editor stipendio.
 window.openCommitmentsManager = (onDone = null) => {
+  pingFeature('commitments_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const list = () => VaultDAO.state.fixedCommitments || [];
@@ -8189,7 +8479,7 @@ window.openCommitmentsManager = (onDone = null) => {
       </div>`;
     }).join('');
     openModal(`
-      <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="finance-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div>
           <p class="eyebrow !mb-0 text-[var(--primary)]">${tCh('fcEyebrow', __uiLang)}</p>
           <h3 class="text-base font-black">${tCh('fcTitle', __uiLang)}</h3>
@@ -8499,6 +8789,8 @@ window.setTelemetryOptIn = (checked) => {
   if (checked) sendTelemetryPings(TELEMETRY_ENDPOINT, { platform: __telemetryPlatform, cameFromInvite: __telemetryCameFromInvite }).catch(() => {});
 };
 function initTelemetryToggle() {
+  pingPresence();
+  if (window.matchMedia?.('(display-mode: standalone)').matches || navigator.standalone === true) sendAppObservation(TELEMETRY_ENDPOINT,'standalone_opened').catch(() => {});
   document.querySelectorAll('[data-telemetry-toggle]').forEach(input => { input.checked = isTelemetryEnabled(); });
   const cb = document.getElementById('telemetry-opt-in');
   if (cb) cb.checked = isTelemetryEnabled();
@@ -8865,6 +9157,7 @@ window.selectAsset = async (idx) => {
 // target. Costo dichiarato PRIMA di partire (richiesta esplicita: mai
 // bruciare la quota giornaliera dell'utente senza dirlo).
 window.showAssetComps = async (symbol) => {
+  pingFeature('asset_comparables_opened');
   const box = document.getElementById(`comps-result-${symbol}`);
   const btn = document.getElementById(`comps-btn-${symbol}`);
   if (!box) return;
@@ -9021,6 +9314,7 @@ window.downloadCompsCsv = async () => {
 // CORS-aperto verificato dal vivo, nessuna chiave utente necessaria (a
 // differenza dei comps azionari, che dipendono da Alpha Vantage).
 window.showCryptoPosizionamento = async (symbol) => {
+  pingFeature('crypto_positioning_opened');
   const box = document.getElementById(`deriv-result-${symbol}`);
   const btn = document.getElementById(`deriv-btn-${symbol}`);
   if (!box) return;
@@ -9357,6 +9651,7 @@ window.removePriceAlertUI = (id) => {
 // marchio — può sbagliare su un caso raro). "Non è un piano a rate" persiste
 // l'id nel vault (mlData.bnplDismissed, additivo): non richiede mai di nuovo.
 window.openBnplManager = (onDone = null) => {
+  pingFeature('bnpl_opened');
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const dayName = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString(__uiLocale, { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -9430,6 +9725,7 @@ window.openBnplManager = (onDone = null) => {
 // puoi correggerli. L'override vince sul rilevato (resolveSalary). onDone()
 // ridisegna la schermata chiamante così il nuovo stipendio si applica subito.
 window.openSalaryEditor = (onDone = null) => {
+  pingFeature('salary_editor_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const detected = resolveSalary(VaultDAO.state, VaultDAO.state.transactions);
@@ -9478,6 +9774,7 @@ window.openSalaryEditor = (onDone = null) => {
 // PayPal, Revolut, Satispay, o un link tuo), Momentum lo ricorda e prepara la
 // richiesta giusta. onDone() prosegue l'azione che l'aveva richiesto.
 window.openPayoutSetup = (onDone = null) => {
+  pingFeature('payout_setup_opened');
   const saved = VaultDAO.state.payoutProfile || resolvePayout(VaultDAO.state) || {};
   let method = PAYOUT_METHODS.includes(saved.method) ? saved.method : 'paypal';
   const drafts = { [method]: { value: saved.value || '', holder: saved.holder || '' } };
@@ -9528,6 +9825,7 @@ async function copySplitText(text, success = tPayout('copied', __uiLang)) {
 }
 
 window.openRequestPayment = ({ amount = 0, fromName = '', note = '', momentumLink = '', currency = 'EUR', direction = 'request', onBack = null } = {}) => {
+  pingFeature('payment_request_opened');
   if (!Number.isFinite(Number(amount)) || Number(amount) <= 0 || !/^[A-Z]{3}$/.test(currency)) { showToast(tSplit('invalid', __uiLang), 'error'); return; }
   const payout = direction === 'owe' ? { method: null } : resolvePayout(VaultDAO.state);
   const reopen = () => window.openRequestPayment({ amount, fromName, note, momentumLink, currency, direction, onBack });
@@ -10112,6 +10410,7 @@ function currencyOptionsHtml(selected, escludi) {
 }
 
 window.openSplitGroup = (openId = null) => {
+  pingFeature('split_group_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const myIban = ((VaultDAO.state.invoiceProfile || {}).fiscale || {}).iban || '';
   const groups = () => VaultDAO.state.splitGroups || [];
@@ -10545,6 +10844,7 @@ window.openExpenseChat = (groupId, expenseId) => {
 // diventa una sequenza leggibile e verificata passo-passo, mai solo un
 // risultato da fidarsi sulla parola.
 window.openSettlementVerification = (groupId) => {
+  pingFeature('split_settlement_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
@@ -10589,6 +10889,7 @@ window.openSettlementVerification = (groupId) => {
 // nasce da qui non è diversa da una divisione a quote esatte già esistente,
 // stesso motore, nessuna seconda strada.
 window.openItemSplitEditor = (groupId) => {
+  pingFeature('split_items_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const g = (VaultDAO.state.splitGroups || []).find(x => x.id === groupId);
   if (!g) { window.openSplitGroup(); return; }
@@ -10707,11 +11008,13 @@ window.openItemSplitEditor = (groupId) => {
 // vs palla di neve), mai un consiglio ("estingui prima questo"), le due
 // strategie mostrate affiancate, la scelta resta dell'utente.
 window.openDebiti = () => {
+  pingFeature('debts_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const debiti = () => VaultDAO.state.debiti || [];
   const persist = (d) => { VaultDAO.state.debiti = d; VaultDAO.save(); };
   const form = { nome: '', saldo: '', tasso: '', pagamentoMinimo: '', tipo: 'altro', penaleEstinzione: false, tassoVariabile: false, hasPromo: false, promoFino: '', tassoPostPromo: '', avanzate: false };
+  let addingDebt = !debiti().length;
   let strategia = 'valanga';
   let extraMensile = VaultDAO.state.debitiExtraMensile || 0;
   const dataFraMesi = (n) => {
@@ -10828,12 +11131,12 @@ window.openDebiti = () => {
     }
 
     openModal(`
-      <div class="debt-planner-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="finance-workspace debt-planner-modal task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">${tCh('debtScreenTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtScreenSub', __uiLang)}</p></div>
         <div class="card p-3">${righeForm}${listaRighe}</div>
         ${dtiHtml}
-        <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${tCh('debtAddSectionTitle', __uiLang)}</div>
+        <details id="dt-entry" class="card debt-entry-panel" ${addingDebt ? 'open' : ''}>
+          <summary><span class="debt-entry-orbit" aria-hidden="true">+</span>${tCh('debtAddSectionTitle', __uiLang)}</summary>
           <div class="flex flex-col gap-2">
             <label class="task-field"><span>${tCh('debtNameLabel', __uiLang)}</span><input id="dt-nome" value="${esc(form.nome)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${tCh('debtNameExample',__uiLang)}" name="dt-nome" /></label>
             <div class="task-field-pair">
@@ -10842,7 +11145,7 @@ window.openDebiti = () => {
             </div>
             <label class="task-field"><span>${tCh('debtPaymentLabel', __uiLang)}</span><input id="dt-min" type="number" inputmode="decimal" value="${esc(form.pagamentoMinimo)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="50" name="dt-min" /></label>
             <div class="task-field"><span>${tCh('debtTypeLabel', __uiLang)}</span>
-              <div class="flex flex-wrap gap-1.5 mt-1">${TIPI.map(([k, lbl]) => `<button type="button" data-debttipo="${k}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.tipo === k ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(lbl())}</button>`).join('')}</div>
+              <div class="flex flex-wrap gap-1.5 mt-1">${TIPI.map(([k, lbl]) => `<button type="button" data-debttipo="${k}" aria-pressed="${form.tipo === k}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.tipo === k ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(lbl())}</button>`).join('')}</div>
             </div>
             <!-- Percorso base: 4 campi + tipo + Aggiungi, punto. Tutto il
                  resto (tasso variabile/promo/penale mutuo — 3 feature reali
@@ -10852,7 +11155,7 @@ window.openDebiti = () => {
                  conflitto con "deve essere semplicissimo da utilizzare"
                  ripetuto più volte nella stessa sessione — nessuna feature
                  rimossa, solo nascosta finché non serve. -->
-            <button type="button" id="dt-toggle-avanzate" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline self-start">${form.avanzate ? tCh('debtAdvancedHide', __uiLang) : tCh('debtAdvancedShow', __uiLang)}</button>
+            <button type="button" id="dt-toggle-avanzate" aria-expanded="${form.avanzate}" class="text-[11px] font-bold text-[var(--on-surface-secondary)] underline self-start">${form.avanzate ? tCh('debtAdvancedHide', __uiLang) : tCh('debtAdvancedShow', __uiLang)}</button>
             ${form.avanzate ? `
             <label class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] py-1">
               <input id="dt-tasso-var" type="checkbox" ${form.tassoVariabile ? 'checked' : ''} class="w-4 h-4 accent-[var(--gold)]" />
@@ -10876,23 +11179,24 @@ window.openDebiti = () => {
             </label>
             <p class="text-[10.5px] text-[var(--on-surface-secondary)] opacity-80 -mt-1">${tCh('debtMortgagePenaltyHint', __uiLang)}</p>` : ''}
             ` : ''}
-            <button id="dt-add" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('debtAddBtn', __uiLang)}</button>
+
           </div>
-        </div>
+        </details>
         ${ds.length ? `
         <div class="card p-3">
           <div class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>${tCh('debtExtraTitle', __uiLang)}</div>
           <input id="dt-extra" type="number" inputmode="decimal" value="${extraMensile || ''}" class="w-full bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono" placeholder="${tCh('debtExtraPlaceholder', __uiLang)}" name="dt-extra" aria-label="${tCh('debtExtraPlaceholder', __uiLang)}" />
           <div class="flex gap-2 mt-2">
-            <button data-strat="valanga" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratAvalancheBtn', __uiLang)}</button>
-            <button data-strat="palla-di-neve" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratSnowballBtn', __uiLang)}</button>
+            <button data-strat="valanga" aria-pressed="${strategia === 'valanga'}" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'valanga' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratAvalancheBtn', __uiLang)}</button>
+            <button data-strat="palla-di-neve" aria-pressed="${strategia === 'palla-di-neve'}" class="flex-1 text-[11px] font-bold px-2.5 py-2 rounded-full border ${strategia === 'palla-di-neve' ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${tCh('debtStratSnowballBtn', __uiLang)}</button>
           </div>
         </div>
         <div id="dt-risultato-wrap">${calcolaRisultato(ds)}</div>
         ${ds.length >= 2 ? `<button onclick="window.openConsolidamento()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtConsolidationBtn', __uiLang)}</button>` : ''}
         <button onclick="window.openConfrontaOfferte()" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${tCh('debtOffersTitle', __uiLang)}</button>` : ''}
-      </div>`, `<button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
+      </div>`, `<div class="finance-footer-actions"><button id="dt-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button><button id="dt-add" ${addingDebt ? '' : 'hidden'} class="btn-action btn-primary">${tCh('debtAddBtn', __uiLang)}</button></div>`);
 
+    $('#dt-entry')?.addEventListener('toggle', event => { addingDebt = event.target.open; $('#dt-add').hidden = !addingDebt; });
     $('#dt-close')?.addEventListener('click', () => closeModal());
     $('#dt-toggle-avanzate')?.addEventListener('click', () => { form.avanzate = !form.avanzate; render(); });
     $('#dt-nome')?.addEventListener('input', (e) => { form.nome = e.target.value; });
@@ -10919,13 +11223,14 @@ window.openDebiti = () => {
         promoFino: form.hasPromo && form.promoFino ? form.promoFino : null,
         tassoPostPromo: Number.isFinite(tassoPostPromo) ? tassoPostPromo : null,
       }]);
+      addingDebt = false;
       form.nome = ''; form.saldo = ''; form.tasso = ''; form.pagamentoMinimo = ''; form.tipo = 'altro'; form.penaleEstinzione = false; form.tassoVariabile = false; form.hasPromo = false; form.promoFino = ''; form.tassoPostPromo = '';
       render();
     });
     // Solo aggiornaRisultato() qui, MAI render(): vedi commento su
     // calcolaRisultato sopra — questo è il fix del bug tastiera.
     $('#dt-extra')?.addEventListener('input', (e) => { extraMensile = parseFloat(String(e.target.value).replace(',', '.')) || 0; VaultDAO.state.debitiExtraMensile = extraMensile; VaultDAO.save(); aggiornaRisultato(); });
-    document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; aggiornaRisultato(); document.querySelectorAll('[data-strat]').forEach(x => { const on = x.dataset.strat === strategia; x.classList.toggle('border-[var(--gold)]', on); x.classList.toggle('text-[var(--gold)]', on); x.classList.toggle('border-[var(--outline)]', !on); x.classList.toggle('text-[var(--on-surface-secondary)]', !on); }); }));
+    document.querySelectorAll('[data-strat]').forEach(b => b.addEventListener('click', () => { strategia = b.dataset.strat; aggiornaRisultato(); document.querySelectorAll('[data-strat]').forEach(x => { const on = x.dataset.strat === strategia; x.setAttribute('aria-pressed', String(on)); x.classList.toggle('border-[var(--gold)]', on); x.classList.toggle('text-[var(--gold)]', on); x.classList.toggle('border-[var(--outline)]', !on); x.classList.toggle('text-[var(--on-surface-secondary)]', !on); }); }));
     document.querySelectorAll('[data-deldebito]').forEach(b => b.addEventListener('click', () => { persist(debiti().filter(d => d.id !== b.dataset.deldebito)); render(); }));
     document.querySelectorAll('[data-regpay]').forEach(b => b.addEventListener('click', () => window.openRegistraPagamento(b.dataset.regpay)));
   };
@@ -10943,7 +11248,7 @@ window.openRegistraPagamento = (debtId) => {
   const debito = (VaultDAO.state.debiti || []).find(d => d.id === debtId);
   if (!debito) return;
   openModal(`
-    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="finance-workspace task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${tCh('debtRegisterPaymentTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtRegisterPaymentSub', __uiLang)}</p></div>
       <div class="card p-3">
         <p class="text-[12.5px] font-bold mb-2">${esc(debito.nome)} · ${eur(debito.saldo)}</p>
@@ -10988,7 +11293,7 @@ window.openConsolidamento = () => {
   const aggiornaEsito = () => { const el = document.getElementById('dc-esito'); if (el) el.innerHTML = calcolaEsito(); };
 
   openModal(`
-    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="finance-workspace task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${tCh('debtConsolidationTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtConsolidationSub', __uiLang)}</p></div>
       <div class="card p-3">
         <div class="flex flex-col gap-2">
@@ -11018,6 +11323,7 @@ window.openConsolidamento = () => {
 // digitare in un campo aggiorna SOLO #co-esito — stesso fix del bug
 // tastiera già documentato su calcolaRisultato/aggiornaRisultato sopra.
 window.openConfrontaOfferte = () => {
+  pingFeature('loan_comparison_opened');
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const debitiEsistenti = () => VaultDAO.state.debiti || [];
@@ -11070,7 +11376,7 @@ window.openConfrontaOfferte = () => {
       </div>`).join('');
 
     openModal(`
-      <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+      <div class="finance-workspace task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">${tCh('debtOffersTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('debtOffersSub', __uiLang)}</p></div>
         ${campiOfferte}
         <button id="co-add" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${tCh('debtOffersAddAnother', __uiLang)}</button>
@@ -11121,6 +11427,7 @@ function allTransactionsFlat() { return Object.values(VaultDAO.state.transaction
 // davvero transazioni nell'anno precedente (mai un confronto con zero dati
 // travestito da "hai risparmiato tutto l'anno scorso").
 window.openBankFees = () => {
+  pingFeature('bank_fees_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   const txs = allTransactionsFlat();
@@ -11138,7 +11445,7 @@ window.openBankFees = () => {
   const confrontoHtml = haDatiAnnoPrec ? `<p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug mt-2 pt-2 border-t border-[var(--outline)]">${esc(tCh('bankFeesYearCompare', __uiLang, annoCorrente - 1, eur(sPrecedente.totaleCommissioni)))}</p>` : '';
 
   openModal(`
-    <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
+    <div class="finance-workspace task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${tCh('bankFeesModalTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('bankFeesModalSub', __uiLang)}</p></div>
       ${sCorrente.conteggioCommissioni === 0 ? `
         <p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('bankFeesEmptyHint', __uiLang)}</p>
@@ -11356,13 +11663,13 @@ function bridgeCardHtml(state, expenses = []) {
   const platformIdBozza = state.bridgePlatformBozza ?? bridge?.platformId ?? null;
   const piattaformaBozza = trovaPiattaforma(platformIdBozza);
   const indirizzoBozza = state.bridgeAddressBozza ?? (piattaformaBozza?.indirizzoFisso || bridge?.address || '');
-  const chips = EXPENSE_PLATFORMS.map(p => `<button type="button" data-bridgeplat="${p.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${platformIdBozza === p.id ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">${esc(p.nome)}</button>`).join('');
+  const chips = EXPENSE_PLATFORMS.map(p => `<button type="button" data-bridgeplat="${p.id}" aria-pressed="${platformIdBozza === p.id}" style="min-height:44px" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${platformIdBozza === p.id ? 'border-[var(--gold)] text-[var(--gold)] bg-[color-mix(in_srgb,var(--gold)_10%,transparent)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'}">${esc(p.id === 'altro' ? tCh('bridgePlatformOther', __uiLang) : p.nome)}</button>`).join('');
   return `
     <div class="card p-3">
       <div class="eyebrow">${iconaInvio}${esc(tCh('bridgeTitle', __uiLang))}</div>
       <p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(tCh('bridgeEmptyHint', __uiLang))}</p>
       <div class="flex flex-wrap gap-1.5 mb-1.5">${chips}</div>
-      ${piattaformaBozza ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(piattaformaBozza.nota)}</p>` : ''}
+      ${piattaformaBozza ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${esc(tripSenderCopy(__uiLang)[piattaformaBozza.indirizzoFisso ? 0 : 1])}</p>` : ''}
       <div class="flex gap-1.5">
         <input id="bridge-address" type="email" ${piattaformaBozza?.indirizzoFisso ? 'readonly' : ''} value="${esc(indirizzoBozza)}" placeholder="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" class="flex-1 min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2.5 py-2 text-[12px]" name="bridge-address" aria-label="${esc(tCh('bridgeAddressPlaceholder', __uiLang))}" />
         <button type="button" id="bridge-save" class="px-3.5 py-2 rounded-lg bg-[var(--primary)] text-white text-[11px] font-bold active:scale-95 transition-transform">${esc(tCh('bridgeSaveBtn', __uiLang))}</button>
@@ -11476,9 +11783,9 @@ function co2EstimatorHtml(state, lang) {
 }
 
 window.openBusinessTrips = () => {
+  pingFeature('trips_opened');
   const requestedCompany = new URLSearchParams(location.search).get('company');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   // Mai le trasferte cancellate: restano nel vault come lapidi (servono a non
   // farle resuscitare da un dispositivo rimasto indietro), ma non si vedono.
   // Le lapidi vecchie di oltre un anno perdono i dati e tengono solo l'id.
@@ -11504,7 +11811,7 @@ window.openBusinessTrips = () => {
     const { totale, numeroSpese } = tripTotals(t, allTx);
     return `<button data-trip="${t.id}" class="w-full text-left p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] flex items-center justify-between mb-2">
       <span><span class="font-bold block">${esc(t.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${esc(tCh('tripExpenseCount', __uiLang, numeroSpese))}</span></span>
-      <span class="font-mono font-bold">${eur(totale)}</span>
+      <span class="font-mono font-bold">${formatMoney(totale, t.receiptPolicy?.currency || 'EUR')}</span>
     </button>`;
   }).join('');
 
@@ -11591,15 +11898,20 @@ window.openBusinessTrips = () => {
 };
 
 window.openBusinessTrip = (tripId) => {
+  pingFeature('trip_detail_opened');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
   let trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) { window.openBusinessTrips(); return; }
+  const eur = (n) => formatMoney(+n || 0, trip.receiptPolicy?.currency || 'EUR');
   // Il trip stesso ospita le voci OFFERTE (addOfferedItem/removeOfferedItem
   // sono pure, ritornano un nuovo oggetto) — persistere significa sostituire
   // il trip nell'elenco E aggiornare il riferimento locale, altrimenti i
   // render successivi userebbero ancora la versione vecchia.
   const persistTrip = (nuovoTrip) => {
+    if (!canChangeTripCurrency(trip, nuovoTrip.receiptPolicy?.currency || 'EUR', allTransactionsFlat())) {
+      showToast(tCh('tripCurrencyLocked', __uiLang), 'error');
+      return;
+    }
     // Il timbro dell'ultima modifica serve al merge fra dispositivi: senza,
     // due copie della stessa trasferta non saprebbero quale è la più recente.
     trip = touchTrip(nuovoTrip);
@@ -11631,8 +11943,11 @@ window.openBusinessTrip = (tripId) => {
     // punti nella sola trasferta aperta non darebbero mai un segnale
     // statisticamente onesto), il risultato si mostra SOLO per le spese di
     // QUESTA trasferta.
-    const tripAnomalies = detectTripAmountAnomalies(allTx.filter(tx => tx?.businessTripId))
-      .filter(a => a.tx.businessTripId === trip.id);
+    const predictionReview = evaluateTripPredictions(allTx);
+    const predictionCopy = tripPredictionCopy(__uiLang);
+    const expenseById = new Map(expenses.map(tx => [tx.id, tx]));
+    const tripAnomalies = predictionReview.predictions.filter(row => row.unusual && expenseById.has(row.transactionId))
+      .map(row => ({ tx: expenseById.get(row.transactionId), average: row.expected }));
     const { totale, perCategoria } = tripTotals(trip, allTx);
     // CO2 (src/trips/trip-carbon.js): su TUTTE le spese di trasporto della
     // trasferta, incluse quelle personali/bleisure — il viaggio è avvenuto
@@ -11762,9 +12077,6 @@ window.openBusinessTrip = (tripId) => {
     // già mandata? mi hanno risposto?"). Qui la trasferta lo dice sempre.
     const appr = trip.approval || null;
     if (appr?.reportFingerprint && !appr.invalidatedAt) {
-      if (verdict.state === 'approvata' && inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy).blockingCount) {
-        showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
-      }
       const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
       fingerprintTripSnapshot(snapshot).then(hash => {
         const current = (VaultDAO.state.businessTrips || []).find(t => t.id === trip.id);
@@ -11835,6 +12147,9 @@ window.openBusinessTrip = (tripId) => {
           <div class="trip-summary-breakdown">${totaliCat}</div>
           ${co2Trip.kg > 0 ? `<p class="trip-summary-count" title="${esc(tCh('tripCo2Disclaimer', __uiLang))}">${esc(tCh('tripCo2TripTotal', __uiLang, co2Trip.kg))}</p>` : ''}
         </section>
+        ${tripReimbursementHtml(trip, allTx, __uiLang)}
+        ${creditPickerHtml(__uiLang)}
+        ${tripRouteWorkspaceHtml(__uiLang)}
         <!-- PERIODO — richiesta esplicita, confermata dalla ricerca (SAP
              Concur/Rydoo/Mobilexpense): la diaria pasti in Germania dipende
              dalle ORE di assenza, non dai giorni, e "solo la data" rende
@@ -11936,7 +12251,7 @@ window.openBusinessTrip = (tripId) => {
           <div class="flex items-center justify-between text-[11px] pt-1.5 mt-1 border-t border-[var(--outline)] font-bold"><span>${esc(tCh('tripOfferedTotalLabel', __uiLang))}</span><span class="font-mono">${eur(offertiTotale)}</span></div>
         </div>` : ''}
         <div class="card p-3">
-          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${esc(tCh('tripAddExpense', __uiLang))}</div>
+          <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>${esc(state.editingId !== null ? tripEditCopy(__uiLang, 0) : tCh('tripAddExpense', __uiLang))}</div>
           <label class="flex items-center justify-center gap-2 border border-dashed border-[var(--outline)] rounded-xl py-3 cursor-pointer text-[12px] font-bold text-[var(--primary)] mb-2">
             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             ${state.ocrBusy ? esc(tCh('tripOcrBusy', __uiLang)) : (state.receiptDataUrl ? esc(tCh('tripReceiptAttached', __uiLang)) : esc(tCh('tripAttachReceipt', __uiLang)))}
@@ -12073,17 +12388,17 @@ window.openBusinessTrip = (tripId) => {
             ${esc(tCh('tripPersonalToggle', __uiLang))}
           </button>
           ${state.tripPersonal ? `<p class="text-[10px] text-[var(--on-surface-secondary)] -mt-1 mb-2">${esc(tCh('tripPersonalHint', __uiLang))}</p>` : ''}
+          <div class="trip-editor-actions">
           ${state.editingId !== null ? '<button id="trip-edit-cancel" class="btn-action w-full py-3 mb-2">' + esc(tripEditCopy(__uiLang, 2)) + '</button>' : ''}
           <button id="trip-save" ${state.ocrBusy ? 'disabled' : ''} class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${esc(state.editingId !== null ? tripEditCopy(__uiLang, 1) : state.offerto ? tCh('tripSaveOffered', __uiLang) : tCh('tripSaveExpense', __uiLang))}</button>
+          </div>
         </div>
         ${state.editingId !== null && expenses.find(tx => tx.id === state.editingId)?.tripRevisionConflict ? '<section class="trip-company"><h4>' + esc(tripEditCopy(__uiLang, 3)) + '</h4><p>' + esc(tripEditCopy(__uiLang, 5)) + '</p>' + (() => { const tx = expenses.find(tx => tx.id === state.editingId); const heads = new Set(revisionHeads(tx)); return tx.tripRevisions.filter(row => heads.has(row.id)).map(row => '<p>' + esc(row.values.date) + ' · ' + eur(row.values.amount) + ' · ' + esc(row.values.description || '') + '</p>').join(''); })() + '</section>' : ''}
         ${expenses.some(t => t.receiptImage) ? `<details class="trip-company" ${state.bridgeConfigAperto ? 'open' : ''}><summary>${esc(tCh('bridgeTitle', __uiLang))}</summary>${bridgeCardHtml(state, expenses)}</details>` : ''}
-        ${expenses.length ? `<div class="flex gap-2">
+        ${expenses.length ? `<div hidden>
           <button id="trip-export-csv" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportCsv', __uiLang))}</button>
           <button id="trip-export-print" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripExportPrint', __uiLang))}</button>
         </div>
-        <button onclick="window.openCompanyExportMapping('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyExportBtn', __uiLang))}</button>
-        <button onclick="window.openCardReconciliation('${trip.id}')" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileBtn', __uiLang))}</button>
         <details class="trip-company">
           <summary>${esc(tripPolicyCopy(__uiLang, 0))}</summary>
           <label for="trip-receipt-threshold" class="block text-sm mt-3 mb-2">${esc(tripPolicyCopy(__uiLang, 1))}</label>
@@ -12107,6 +12422,11 @@ window.openBusinessTrip = (tripId) => {
           <h4 class="font-bold mb-2">${esc(tripChecksCopy(__uiLang, 0))}</h4>
           <p class="text-sm mb-3">${esc(tripChecksCopy(__uiLang, 1))}: ${exportChecks.transactionCount} · ${esc(tripChecksCopy(__uiLang, 2))}: ${exportChecks.attachmentCount}</p>
           ${tripAnomalyHtml(tripAnomalies, __uiLang)}
+          <details class="trip-export-checks mb-3">
+            <summary>${esc(predictionCopy[0])}</summary>
+            <p>${esc(predictionCopy[1])}</p>
+            ${predictionReview.metrics.length ? predictionReview.metrics.map(metric => `<dl class="trip-prediction-metrics"><div><dt>${esc(predictionCopy[2])} · ${esc(metric.currency)}</dt><dd>${metric.cases}</dd></div><div><dt>${esc(predictionCopy[3])}</dt><dd>${esc(formatMoney(metric.mae, metric.currency))}</dd></div><div><dt>${esc(predictionCopy[4])}</dt><dd>${esc(formatMoney(metric.baselineMae, metric.currency))}</dd></div></dl>`).join('') : `<p>${esc(predictionCopy[5])}</p>`}
+          </details>
           <section id="trip-preflight" tabindex="-1" class="trip-preflight">
             <h4>${esc(tripReadinessCopy(__uiLang, 0))}</h4>
             <p>${exportChecks.blockingCount ? esc(tripReadinessCopy(__uiLang, 1)) + ': ' + exportChecks.blockingCount : esc(tripReadinessCopy(__uiLang, 3))}</p>
@@ -12127,6 +12447,22 @@ window.openBusinessTrip = (tripId) => {
       </div>`);
 
     $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
+    bindTripRouteWorkspace({ lang: __uiLang, checks: exportChecks, select: mode => pingFeature(['trip_route_personal','trip_route_company','trip_route_companion','trip_route_finance'][mode]), action: action => {
+      if (action === 'check') pingFeature('trip_validation_blocked');
+      if (action === 'export') return window.openCompanyExportMapping(trip.id);
+      if (action === 'reconcile') return window.openCardReconciliation(trip.id);
+      if (action === 'review') return window.openTripReviewShare(trip.id);
+      if (action === 'print') return $('#trip-export-print')?.click();
+      if (action === 'csv') return $('#trip-export-csv')?.click();
+      const target = action === 'credits' ? $('#trip-credit-search') : action === 'check' ? document.querySelector('.trip-preflight') : $('#trip-amt');
+      if (target) { const details = target.closest('details'); if (details) details.open = true; target.scrollIntoView({block:'center'}); if (action === 'check') target.tabIndex = -1; target.focus(); }
+    } });
+    bindCreditPicker({ trip, transactions: allTx, lang: __uiLang, associate: (...args) => VaultDAO.associateTripCredit(...args), changed: unlink => {
+      pingFeature(unlink ? 'trip_credit_unlinked' : 'trip_credit_linked');
+      render();
+      const summary = document.querySelector('.trip-reimbursement');
+      if (summary) { summary.open = true; summary.querySelector('summary')?.focus(); summary.scrollIntoView({ block: 'nearest' }); }
+    }, notify: showToast });
     $('#trip-jump-expense')?.addEventListener('click', () => {
       const input = $('#trip-amt');
       input?.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -12205,7 +12541,13 @@ window.openBusinessTrip = (tripId) => {
     };
     $('#trip-desc')?.addEventListener('change', suggerisciCategoriaTrip);
     $('#trip-amt')?.addEventListener('change', suggerisciCategoriaTrip);
-    document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => { state.tripCategory = b.dataset.tripcat; state.tripCategoryManuale = true; render(); }));
+    document.querySelectorAll('[data-tripcat]').forEach(b => b.addEventListener('click', () => {
+      state.tripCategory = b.dataset.tripcat;
+      state.tripCategoryManuale = true;
+      const category = { vitto: 'ristoranti', trasporto: 'trasporti', alloggio: 'viaggi' }[state.tripCategory];
+      if (category && getCatById(category)) state.catReale = category;
+      render();
+    }));
     document.querySelectorAll('[data-triptransport]').forEach(b => b.addEventListener('click', () => { state.transportMode = state.transportMode === b.dataset.triptransport ? null : b.dataset.triptransport; render(); }));
     // Calcolatore chilometrico: `change` non `input` — un render() completo
     // a ogni tasto chiuderebbe la tastiera mobile (stesso bug già
@@ -12413,17 +12755,18 @@ window.openBusinessTrip = (tripId) => {
       reader.onabort = reader.onerror;
       reader.readAsDataURL(f);
     });
-    const resetEdit = () => {
-      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: null, ocrOriginalCurrency: null, ocrExchangeRate: null, ocrConverting: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, tripPersonal: false, co2Modo: null, co2Distanza: '', co2PickerOpen: false, mealType: null, data: giornoLocale(new Date()) });
+    const resetEdit = (keepDate = false) => {
+      Object.assign(state, { editingId: null, editingDigest: '', amount: '', description: '', amountFromOcr: false, descriptionFromOcr: false, receiptDataUrl: null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: null, ocrOriginalCurrency: null, ocrExchangeRate: null, ocrConverting: false, tripCategory: null, tripCategoryManuale: false, catReale: null, offerto: false, tripPersonal: false, paymentMethod: null, transportMode: null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', co2Modo: null, co2Distanza: '', co2Unita: 'km', co2PickerOpen: false, mealType: null, data: keepDate ? state.data : giornoLocale(new Date()) });
       render();
     };
-    $('#trip-edit-cancel')?.addEventListener('click', resetEdit);
+    $('#trip-edit-cancel')?.addEventListener('click', () => resetEdit());
     document.querySelectorAll('[data-trip-edit]').forEach(button => button.addEventListener('click', () => {
       const tx = expenses.find(row => String(row.id) === button.dataset.tripEdit);
       if (!tx) return;
-      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: tx.originalCurrency ? tx.originalAmount : null, ocrOriginalCurrency: tx.originalCurrency || null, ocrExchangeRate: tx.originalCurrency ? tx.exchangeRate : null, ocrConverting: false, mealType: tx.mealType || null, offerto: false, tripPersonal: tx.tripPersonal === true, co2Modo: tx.co2?.modo || null, co2Distanza: tx.co2?.distanzaKm ? String(tx.co2.distanzaKm) : '', co2Unita: 'km', co2PickerOpen: false });
+      Object.assign(state, { editingId: tx.id, editingDigest: revisionDigest(tx), amount: String(tx.amount), description: tx.description || '', amountFromOcr: false, descriptionFromOcr: false, data: giornoLocale(tx.date), tripCategory: tx.tripCategory || 'altro', tripCategoryManuale: true, catReale: tx.category, receiptDataUrl: tx.receiptImage || null, ocrReport: null, ocrLangOverride: null, ocrLangPickerOpen: false, ocrOriginalAmount: tx.originalCurrency ? tx.originalAmount : null, ocrOriginalCurrency: tx.originalCurrency || null, ocrExchangeRate: tx.originalCurrency ? tx.exchangeRate : null, ocrConverting: false, mealType: tx.mealType || null, paymentMethod: tx.paymentMethod || null, transportMode: tx.transportMode || null, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '', offerto: false, tripPersonal: tx.tripPersonal === true, co2Modo: tx.co2?.modo || null, co2Distanza: tx.co2?.distanzaKm ? String(tx.co2.distanzaKm) : '', co2Unita: 'km', co2PickerOpen: false });
       render();
-      $('#trip-amt')?.focus();
+      $('#trip-amt')?.focus({ preventScroll: true });
+      $('#trip-amt')?.scrollIntoView({ block: 'center', behavior: 'instant' });
     }));
     $('#trip-save')?.addEventListener('click', () => {
       if (state.ocrBusy) return;
@@ -12458,7 +12801,8 @@ window.openBusinessTrip = (tripId) => {
         try {
           const result = VaultDAO.reviseTripTransaction(state.editingId, trip.id, {
             amount: amt, description: state.description, date: oggi,
-            tripCategory: state.tripCategory, mealType: state.mealType,
+            ...(state.catReale && getCatById(state.catReale) ? { category: state.catReale } : {}),
+            tripCategory: state.tripCategory, mealType: state.mealType, paymentMethod: state.paymentMethod, transportMode: state.transportMode,
             receiptImage: state.receiptDataUrl || null, tripPersonal: state.tripPersonal, co2,
             originalAmount: originalCurrencyFields.originalAmount ?? null,
             originalCurrency: originalCurrencyFields.originalCurrency ?? null,
@@ -12484,8 +12828,7 @@ window.openBusinessTrip = (tripId) => {
           const nuovoTrip = addOfferedItem(trip, { description: state.description, amount: amt || 0, tripCategory: state.tripCategory, mealType: state.mealType, date: oggi });
           persistTrip(nuovoTrip);
         } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
-        state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.ocrOriginalAmount = null; state.ocrOriginalCurrency = null; state.ocrExchangeRate = null; state.ocrConverting = false; state.offerto = false; state.tripPersonal = false; state.co2Modo = null; state.co2Distanza = ''; state.co2PickerOpen = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
-        render();
+        resetEdit(true);
         return;
       }
 
@@ -12507,7 +12850,7 @@ window.openBusinessTrip = (tripId) => {
       const tx = {
         id: Date.now() + Math.random().toString(36).slice(2, 8),
         type: 'uscita', amount: Math.round((amt + Number.EPSILON) * 100) / 100, category: catReale, description: state.description,
-        date: oggi, businessTripId: trip.id, tripCategory: state.tripCategory,
+        date: oggi, currency: trip.receiptPolicy?.currency || 'EUR', businessTripId: trip.id, tripCategory: state.tripCategory,
         ...(state.mealType ? { mealType: state.mealType } : {}),
         ...(state.paymentMethod ? { paymentMethod: state.paymentMethod } : {}),
         ...(state.transportMode ? { transportMode: state.transportMode } : {}),
@@ -12529,7 +12872,7 @@ window.openBusinessTrip = (tripId) => {
       VaultDAO.addTransaction(monthKey(new Date(oggi)), tx, { dedupWindowHours: 0.25 });
       try { learnInBackground([{ description: state.description, category: catReale, amount: amt, date: oggi }]); } catch (_) {}
       VaultDAO.save();
-      state.amount = ''; state.description = ''; state.amountFromOcr = false; state.descriptionFromOcr = false; state.tripCategory = null; state.tripCategoryManuale = false; state.catReale = null; state.receiptDataUrl = null; state.ocrReport = null; state.ocrLangOverride = null; state.ocrLangPickerOpen = false; state.ocrOriginalAmount = null; state.ocrOriginalCurrency = null; state.ocrExchangeRate = null; state.ocrConverting = false; state.offerto = false; state.tripPersonal = false; state.co2Modo = null; state.co2Distanza = ''; state.co2PickerOpen = false; state.mealType = null; state.paymentMethod = null; state.transportMode = null;
+      resetEdit(true);
       // BUG REALE trovato dal vivo: la spesa è una transazione vera (deve
       // incidere sul budget), ma la Dashboard sottostante restava con lo
       // snapshot di quando il modale si era aperto — chiudendo il modale
@@ -12554,6 +12897,7 @@ window.openBusinessTrip = (tripId) => {
     document.querySelectorAll('[data-tripexpdup]').forEach(b => b.addEventListener('click', () => {
       const orig = expenses.find(e => String(e.id) === b.dataset.tripexpdup);
       if (!orig) return;
+      Object.assign(state, { ocrOriginalAmount: null, ocrOriginalCurrency: null, ocrExchangeRate: null, ocrConverting: false, kmDistanza: '', kmUnita: 'km', kmTariffaPersonalizzata: '' });
       state.editingId = null; state.editingDigest = '';
       state.amount = String(orig.amount);
       state.description = orig.description || '';
@@ -12605,7 +12949,7 @@ window.openBusinessTrip = (tripId) => {
         if (value === null) { field.setAttribute('aria-invalid', 'true'); field.focus(); return; }
         dailyLimits[field.dataset.policyDaily] = value;
       }
-      const receiptPolicy = { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, dailyLimits, currency: 'EUR', exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) };
+      const receiptPolicy = { ...trip.receiptPolicy, receiptThreshold: threshold, expenseLimits, dailyLimits, currency: trip.receiptPolicy?.currency || 'EUR', exceptionReason: $('#trip-policy-reason').value.trim().slice(0, 500) };
       if ($('#trip-policy-default').checked) VaultDAO.state.tripPolicyTemplate = { version: crypto.randomUUID(), rules: tripPolicyFromTemplate({ rules: receiptPolicy }) };
       persistTrip({ ...trip, receiptPolicy });
       render();
@@ -12700,7 +13044,12 @@ window.openBusinessTrip = (tripId) => {
       render();
     });
     $('#trip-custom-currency')?.addEventListener('change', (e) => {
-      const code = String(e.target.value).trim().toUpperCase().slice(0, 3);
+      const code = String(e.target.value).trim().toUpperCase();
+      if (!VALUTE_ISO4217.has(code)) {
+        e.target.setAttribute('aria-invalid', 'true');
+        showToast(tCh('tripCustomCurrencyInvalid', __uiLang), 'error');
+        return;
+      }
       persistTrip(touchTrip({ ...trip, receiptPolicy: { ...(trip.receiptPolicy || {}), currency: code || 'EUR' } }));
       render();
     });
@@ -12926,8 +13275,8 @@ window.exportTripCsv = (tripId) => {
   // in CSV senza il numero di partenza e il tasso che lo spiegano — lo stesso
   // principio di audit di ogni altra colonna qui.
   const notaValuta = (e) => e.valutaOriginale ? `${(+e.importoOriginale).toFixed(2).replace('.', ',')} ${e.valutaOriginale} (${tCh('tripOcrExchangeRateLabel', __uiLang, e.tassoCambio)})` : '';
-  righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('tripCsvColOriginalCurrency', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
-  expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, notaValuta(e), e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
+  righe.push([tCh('vaultExportCsvColDate', __uiLang), tCh('tripCsvColCategory', __uiLang), tCh('vaultExportCsvColDesc', __uiLang), tCh('vaultExportCsvColAmount', __uiLang), tCh('companyExportFieldCurrency', __uiLang), tCh('tripCsvColOriginalCurrency', __uiLang), tCh('tripCsvColReceipt', __uiLang)]);
+  expenses.forEach(e => righe.push([e.data, etichettaVoce(e), e.descrizione, e.importo, e.valuta, notaValuta(e), e.giustificativoMancante ? tCh('tripReceiptMissing', __uiLang) : '']));
   righe.push([]);
   righe.push([tCh('itemSplitTotalLabel', __uiLang), totale]);
   // Voci OFFERTE in una sezione a parte, mai mescolate col totale
@@ -12967,12 +13316,15 @@ const CAMPO_EXPORT_LABEL_KEY = {
   revisionFlag: 'companyExportFieldRevision', provenance: 'companyExportFieldProvenance',
 };
 window.openCompanyExportMapping = (tripId) => {
+  pingFeature('trip_export_opened');
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const handoff = tripHandoffCopy(__uiLang), templateCopy = tripTemplateCopy(__uiLang);
+  const fieldLabel = field => tripExportExtraLabel(field, __uiLang) || tCh(CAMPO_EXPORT_LABEL_KEY[field], __uiLang);
   const records = reimbursableTripExpenses(trip, allTransactionsFlat()).map(tx => transactionToExportRecord(tx, trip));
   if (!records.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
-  const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : defaultMapping();
+  const mapping = VaultDAO.state.companyExportMapping ? JSON.parse(JSON.stringify(VaultDAO.state.companyExportMapping)) : standardMapping();
   // Un salvataggio precedente potrebbe non coprire un campo aggiunto dopo:
   // mai un crash su una chiave mancante, retrocompatibile per costruzione.
   for (const f of MOMENTUM_EXPORT_FIELDS) if (!mapping[f]) mapping[f] = { column: '', required: false };
@@ -12980,7 +13332,7 @@ window.openCompanyExportMapping = (tripId) => {
   const calcolaEsito = () => {
     const preview = buildMappedExportPreview(records, mapping);
     const errRighe = preview.mappingErrors.map(e => {
-      const campoLbl = tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang);
+      const campoLbl = fieldLabel(e.field);
       return `<p class="text-[11px] text-amber-400 leading-snug">${esc(e.code === 'missing_column' ? tCh('companyExportMappingErrorMissing', __uiLang, campoLbl) : tCh('companyExportMappingErrorDuplicate', __uiLang, e.column))}</p>`;
     }).join('');
     // Anteprima capata alle prime 50 righe per non appesantire il DOM su una
@@ -12989,15 +13341,15 @@ window.openCompanyExportMapping = (tripId) => {
       <div class="flex flex-col gap-0.5 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0 ${r.errors.length ? 'opacity-70' : ''}">
         <div class="flex items-center justify-between gap-2">
           <span class="min-w-0 truncate">${esc(r.record.date || '—')} · ${esc(r.record.description || '')}</span>
-          <span class="text-[var(--on-surface-secondary)] shrink-0">${Number.isFinite(r.record.amount) ? r.record.amount.toFixed(2) : '—'}</span>
+          <span class="text-[var(--on-surface-secondary)] shrink-0">${Number.isFinite(r.record.amount) ? esc(formatMoney(r.record.amount, r.record.currency)) : '—'}</span>
         </div>
-        ${r.errors.map(e => `<span class="text-[10.5px] text-amber-400">${esc(tCh('companyExportRowErrorMissing', __uiLang, tCh(CAMPO_EXPORT_LABEL_KEY[e.field], __uiLang)))}</span>`).join('')}
+        ${r.errors.map(e => `<span class="text-[10.5px] text-amber-400">${esc(tCh('companyExportRowErrorMissing', __uiLang, fieldLabel(e.field)))}</span>`).join('')}
       </div>`).join('');
     return `
       <div class="card p-3">
         <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M7 17l5-5 5 5M7 7l5 5 5-5"/></svg>${tCh('companyExportPreviewTitle', __uiLang)}</div>
         ${errRighe}
-        <p class="text-[12px] font-bold mt-1">${esc(tCh('companyExportRowsReady', __uiLang, preview.readyCount))} · ${esc(tCh('companyExportRowsError', __uiLang, preview.errorCount))}</p>
+        <p class="text-[12px] font-bold mt-1">${esc(tCh('companyExportRowsReady', __uiLang, preview.mappingErrors.length ? 0 : preview.readyCount))} · ${esc(tCh('companyExportRowsError', __uiLang, preview.errorCount))}</p>
         ${righeTabella}
       </div>`;
   };
@@ -13011,36 +13363,61 @@ window.openCompanyExportMapping = (tripId) => {
   // resta comunque contenuto nella colonna — stesso principio già in uso
   // per .task-field-pair.
   const campiForm = MOMENTUM_EXPORT_FIELDS.map(f => `
-    <div class="grid items-center gap-2 py-1.5 border-b border-[var(--outline)] last:border-0" style="grid-template-columns:1fr 8rem auto">
-      <span class="text-[12.5px] font-bold min-w-0 truncate">${esc(tCh(CAMPO_EXPORT_LABEL_KEY[f], __uiLang))}</span>
-      <input data-cem-col="${f}" value="${esc(mapping[f].column)}" placeholder="${esc(tCh('companyExportColumnPlaceholder', __uiLang))}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[11.5px]" name="cem-col-${f}" />
+    <div class="trip-mapping-field">
+      <label for="cem-col-${f}">${esc(fieldLabel(f))}</label>
+      <input id="cem-col-${f}" data-cem-col="${f}" value="${esc(mapping[f].column)}" placeholder="${esc(tCh('companyExportColumnPlaceholder', __uiLang))}" class="min-w-0 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-lg px-2 py-1.5 text-[11.5px]" name="cem-col-${f}" />
       <label class="flex items-center gap-1" title="${esc(tCh('companyExportRequiredLabel', __uiLang))}">
-        <input data-cem-req="${f}" type="checkbox" ${mapping[f].required ? 'checked' : ''} class="w-3.5 h-3.5 accent-[var(--gold)]" />
+        <input aria-label="${esc(fieldLabel(f))} · ${esc(tCh('companyExportRequiredLabel', __uiLang))}" data-cem-req="${f}" type="checkbox" ${mapping[f].required ? 'checked' : ''} class="w-3.5 h-3.5 accent-[var(--gold)]" />
       </label>
     </div>`).join('');
 
   openModal(`
     <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${tCh('companyExportTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('companyExportSub', __uiLang)}</p></div>
-      <div class="card p-3">${campiForm}</div>
+      <section class="trip-handoff card p-3"><h4>${esc(handoff[0])}</h4><ol><li>${esc(handoff[1])}</li><li>${esc(handoff[2])}</li><li>${esc(handoff[3])}</li></ol><p class="card-sub">${esc(handoff[4])}</p><details class="trip-export-checks"><summary>${esc(handoff[6])}</summary><nav aria-label="${esc(handoff[6])}"><a href="https://www.zoho.com/ca/expense/help/reports/creating-reports/" target="_blank" rel="noopener noreferrer">${esc(handoff[7])}</a><a href="https://developer.concur.com/api-reference/authentication/getting-started.html" target="_blank" rel="noopener noreferrer">${esc(handoff[8])}</a><a href="https://integrations.expensify.com/Integration-Server/doc/getting_started.html" target="_blank" rel="noopener noreferrer">${esc(handoff[9])}</a>${TRIP_INTEGRATION_GUIDES.map(guide => `<a href="${guide.url}" target="_blank" rel="noopener noreferrer">${esc(guide.name)}</a>`).join('')}</nav></details></section>
+      <section class="card p-3"><label for="cem-template" class="font-bold">${esc(templateCopy[0])}</label><p id="cem-template-help" class="card-sub">${esc(templateCopy[1])}</p><input id="cem-template" type="text" maxlength="4096" autocomplete="off" aria-describedby="cem-template-help" placeholder="${esc(templateCopy[2])}" /><button id="cem-template-apply" class="btn-action w-full mt-3">${esc(templateCopy[3])}</button><p id="cem-template-feedback" role="status" class="card-sub"></p></section>
+      <details id="cem-columns" class="trip-export-checks"><summary>${esc(handoff[5])}</summary><div class="card p-3">${campiForm}</div></details>
       <div id="cem-esito">${calcolaEsito()}</div>
-      <div class="flex gap-2">
+      <div class="trip-handoff-actions">
         <button id="cem-save" class="flex-1 px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-sm">${tCh('companyExportSaveMappingBtn', __uiLang)}</button>
         <button id="cem-download" class="flex-1 btn-action btn-primary px-4 py-3 font-bold rounded-xl text-sm">${tCh('companyExportDownloadBtn', __uiLang)}</button>
       </div>
     </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('trustCenterClose', __uiLang)}</button>`);
 
+  $('#cem-template-apply')?.addEventListener('click', () => {
+    const suggestion = suggestExportTemplate($('#cem-template')?.value || '');
+    const feedback = $('#cem-template-feedback');
+    if (suggestion.issues.length) {
+      if (feedback) feedback.textContent = templateCopy[5];
+      $('#cem-template')?.setAttribute('aria-invalid', 'true');
+      $('#cem-columns')?.setAttribute('open', '');
+      return;
+    }
+    for (const field of MOMENTUM_EXPORT_FIELDS) {
+      mapping[field] = suggestion.mapping[field];
+      const input = document.querySelector(`[data-cem-col="${field}"]`);
+      const required = document.querySelector(`[data-cem-req="${field}"]`);
+      if (input) input.value = mapping[field].column;
+      if (required) required.checked = mapping[field].required;
+    }
+    $('#cem-template')?.removeAttribute('aria-invalid');
+    if (feedback) feedback.textContent = templateCopy[4];
+    aggiornaEsito();
+  });
   document.querySelectorAll('[data-cem-col]').forEach(el => el.addEventListener('input', (e) => { mapping[el.dataset.cemCol].column = e.target.value; aggiornaEsito(); }));
   document.querySelectorAll('[data-cem-req]').forEach(el => el.addEventListener('change', (e) => { mapping[el.dataset.cemReq].required = e.target.checked; aggiornaEsito(); }));
   $('#cem-save')?.addEventListener('click', () => {
+    if ($('#cem-template')?.getAttribute('aria-invalid') === 'true') { showToast(templateCopy[5], 'error'); return; }
     VaultDAO.state.companyExportMapping = mapping;
     VaultDAO.save();
     showToast(tCh('companyExportMappingSaved', __uiLang), 'success');
   });
   $('#cem-download')?.addEventListener('click', () => {
+    if ($('#cem-template')?.getAttribute('aria-invalid') === 'true') { showToast(templateCopy[5], 'error'); return; }
     const preview = buildMappedExportPreview(records, mapping);
-    const csv = mappedExportToCsv(preview, mapping);
-    if (!csv) { showToast(tCh('companyExportDownloadBlocked', __uiLang), 'error'); return; }
+    const csv = preview.errorCount || !preview.readyCount ? null : mappedExportToCsv(preview, mapping);
+    if (!csv) { pingFeature('trip_export_blocked'); showToast(tCh('companyExportDownloadBlocked', __uiLang), 'error'); return; }
+    pingFeature('trip_export_download_requested');
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
@@ -13051,24 +13428,26 @@ window.openCompanyExportMapping = (tripId) => {
   });
 };
 
-// Riconciliazione estratto conto carta aziendale (gap reale trovato in
-// ricerca: 30-45 minuti/mese/persona di incrocio a mano — vedi
-// src/trips/card-reconciliation.js per la formula e le fonti). Riusa il
-// parser CSV bank-agnostico già esistente (mai un secondo parser) e la
-// stessa lettura file (UTF-8/windows-1252) già collaudata per l'import.
+// Confronto locale e non distruttivo con il parser CSV condiviso.
 window.openCardReconciliation = (tripId) => {
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const copy = tripReconciliationCopy(__uiLang);
+  const amountLabel = tx => {
+    const amount = Number(tx.amount);
+    if (!Number.isFinite(amount)) return '—';
+    const currency = String(tx.currency || '').trim().toUpperCase();
+    return VALUTE_ISO4217.has(currency) ? formatMoney(amount, currency) : `${amount.toLocaleString(__uiLocale)} · ${copy[2]}`;
+  };
   const spese = tripExpenses(trip, allTransactionsFlat());
   if (!spese.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
   const dataLabel = (d) => { try { const dt = d instanceof Date ? d : new Date(d); return isNaN(dt) ? String(d ?? '') : dt.toLocaleDateString(__uiLocale); } catch (_) { return String(d ?? ''); } };
 
   const rigaVoce = (tx, nota = '') => `
-    <div class="flex items-center justify-between gap-2 py-1.5 text-[11.5px] border-b border-[var(--outline)] last:border-0">
-      <span class="min-w-0 truncate">${esc(dataLabel(tx.date))} · ${esc(tx.description || '')}${nota}</span>
-      <span class="text-[var(--on-surface-secondary)] shrink-0">${eur(tx.amount)}</span>
+    <div class="trip-reconciliation-row">
+      <span class="trip-reconciliation-description">${esc(dataLabel(tx.date))} · ${esc(tx.description || '')}${nota}</span>
+      <span class="trip-reconciliation-amount">${esc(amountLabel(tx))}</span>
     </div>`;
 
   const renderEsito = (esito) => {
@@ -13082,7 +13461,7 @@ window.openCardReconciliation = (tripId) => {
       <div class="card p-3">
         <div class="eyebrow">${esc(tCh('companyReconcileUnmatchedChargesTitle', __uiLang))}</div>
         <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileUnmatchedChargesHint', __uiLang))}</p>
-        ${esito.unmatchedCharges.map(u => rigaVoce(u.carta)).join('')}
+        ${esito.unmatchedCharges.map(u => `<div class="trip-reconciliation-case">${rigaVoce(u.carta)}${u.motivo === 'corrispondenza_ambigua' ? `<p class="trip-reconciliation-review"><strong>${esc(copy[0])}</strong> · ${esc(copy[1])}</p>${u.candidati.map(candidate => rigaVoce(candidate)).join('')}` : ''}</div>`).join('')}
       </div>` : ''}
       ${esito.expensesWithoutCharge.length ? `
       <div class="card p-3">
@@ -13090,10 +13469,7 @@ window.openCardReconciliation = (tripId) => {
         <p class="text-[11px] text-[var(--on-surface-secondary)] mb-1">${esc(tCh('companyReconcileMissingChargesHint', __uiLang))}</p>
         ${esito.expensesWithoutCharge.map(s => rigaVoce(s)).join('')}
       </div>` : ''}
-      ${esito.matched.filter(m => m.altriCandidati > 0).length ? `
-      <div class="card p-3">
-        ${esito.matched.filter(m => m.altriCandidati > 0).map(m => rigaVoce(m.carta, esc(tCh('companyReconcileAltCandidate', __uiLang, m.altriCandidati)))).join('')}
-      </div>` : ''}`;
+      ${esito.matched.length ? `<div class="card p-3"><p class="card-sub">${esc(copy[5])}</p>${esito.matched.map(m => `<div class="trip-reconciliation-case"><strong>${esc(copy[3])}</strong>${rigaVoce(m.carta)}<strong>${esc(copy[4])}</strong>${rigaVoce(m.spesa)}${m.altriCandidati ? `<p class="card-sub">${esc(tCh('companyReconcileAltCandidate', __uiLang, m.altriCandidati))}</p>` : ''}</div>`).join('')}</div>` : ''}`;
   };
 
   openModal(`
@@ -13101,7 +13477,7 @@ window.openCardReconciliation = (tripId) => {
       <div><h3 class="text-base font-black">${esc(tCh('companyReconcileTitle', __uiLang))}</h3><p class="card-sub !mb-0">${esc(tCh('companyReconcileSub', __uiLang))}</p></div>
       <button id="crec-upload" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] text-[12.5px]">${esc(tCh('companyReconcileUploadBtn', __uiLang))}</button>
       <input id="crec-file" type="file" accept=".csv,text/csv" class="hidden" name="crec-file" />
-      <div id="crec-esito"></div>
+      <div id="crec-esito" class="trip-reconciliation-results" aria-live="polite"></div>
     </div>`, `<button onclick="window.closeModal()" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('trustCenterClose', __uiLang))}</button>`);
 
   $('#crec-upload')?.addEventListener('click', () => $('#crec-file')?.click());
@@ -13159,7 +13535,7 @@ window.printTripSummary = async (tripId) => {
   if (!trip) return;
   const { expenses, totale, perCategoria, offerti, offertiTotale, numeroGiustificativiMancanti, numeroAvvisiTracciabilita, numeroAvvisiSpagna } = exportTripData(trip, allTransactionsFlat(), { taxActiveCountry: VaultDAO.state.taxActiveCountry });
   if (!expenses.length && !offerti.length) { showToast(tCh('tripExportEmpty', __uiLang), 'info'); return; }
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const eur = (n) => formatMoney(+n || 0, trip.receiptPolicy?.currency || 'EUR');
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const win = window.open('', '_blank');
   if (!win) { showToast(tCh('vaultPopupBlocked', __uiLang), 'error'); return; }
@@ -13253,10 +13629,11 @@ function openCompanySubmission(trip) {
     try {
       const { readCompanyReportStatus } = await import('./trips/company-submit.js');
       const result = await readCompanyReportStatus(captured, latest.companySubmission);
+      pingFeature('trip_company_status_loaded');
       const current = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
       if (!current || tripReviewSnapshot(current, allTransactionsFlat()) !== tripReviewSnapshot(captured.trip, captured.transactions)) { status.textContent = companyStatusCopy(__uiLang, 'changed'); return; }
       status.textContent = companyStatusCopy(__uiLang, result.state) + (result.note ? ' ' + result.note : '');
-    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); }
+    } catch (error) { pingFeature('trip_company_status_failed'); status.textContent = companySubmitError(__uiLang, error.message); }
     finally { checkButton.disabled = false; button.disabled = false; }
   };
   button.onclick = async () => {
@@ -13267,18 +13644,21 @@ function openCompanySubmission(trip) {
     try {
       if (current.companySubmission?.fingerprint === await fingerprintTripSnapshot(snapshot)) { button.disabled = false; await checkButton.onclick(); return; }
       const { submitCompanyReport } = await import('./trips/company-submit.js');
+      pingFeature('trip_company_submit_started');
       const receipt = await submitCompanyReport(archive, current.companySubmission?.revision || 0);
+      pingFeature('trip_company_submit_received');
       const latest = (VaultDAO.state.businessTrips || []).find(item => item.id === trip.id);
       if (latest) {
         VaultDAO.state.businessTrips = VaultDAO.state.businessTrips.map(item => item.id === trip.id ? { ...item, companySubmission: receipt } : item);
         VaultDAO.save();
       }
       status.textContent = text(3); checkButton.hidden = false; checkButton.style.display = ''; button.disabled = false;
-    } catch (error) { status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
+    } catch (error) { pingFeature('trip_company_submit_failed'); status.textContent = companySubmitError(__uiLang, error.message); button.disabled = false; }
   };
 }
 
 window.openTripReviewShare = async (tripId) => {
+  pingFeature('trip_review_opened');
   const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
   if (!trip) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -13301,7 +13681,7 @@ window.openTripReviewShare = async (tripId) => {
     code = await encodeTripReview({
       reportFingerprint,
       tripId: trip.id, tripName: trip.name, startDate: trip.startDate, endDate: trip.endDate,
-      expenses: dati.expenses, totale: dati.totale, offerti: dati.offerti, offertiTotale: dati.offertiTotale,
+      currency: dati.currency, expenses: dati.expenses, totale: dati.totale, offerti: dati.offerti, offertiTotale: dati.offertiTotale,
       numeroGiustificativiMancanti: dati.numeroGiustificativiMancanti,
       policyExceptionReason: dati.policyExceptionReason,
       mittente: VaultDAO.state.profile?.name || '',
@@ -13309,6 +13689,7 @@ window.openTripReviewShare = async (tripId) => {
   } catch (err) { showToast(tCh('itemSplitError', __uiLang, err.message), 'error'); return; }
 
   const link = buildTripReviewLink(code, trip.name);
+  const approvalFlow = tripApprovalFlowCopy(__uiLang);
   // Il QR solo se ci sta davvero: un QR troppo denso è un quadrato che non si
   // legge, peggio che nessun QR. Il link invece funziona sempre.
   let qr = '';
@@ -13325,33 +13706,46 @@ window.openTripReviewShare = async (tripId) => {
         <h3 class="text-base font-black">${esc(tCh('tripReviewShareTitle', __uiLang))}</h3>
         <p class="card-sub !mb-0">${esc(tripApprovalCopy(__uiLang, 2))}</p>
       </div>
-      <label class="task-field"><span>${esc(tripApprovalCopy(__uiLang, 0))}</span><input id="trv-recipient" maxlength="120" value="${esc(trip.approval?.requestedReviewer || '')}" placeholder="${esc(tripApprovalCopy(__uiLang, 1))}" class="w-full p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)]" /></label>
-      ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(210px,62vw)">${qr}</div>` : ''}
+      <section class="trip-approval-step"><h4><span aria-hidden="true">1</span>${esc(approvalFlow[0])}</h4>
+      <label class="task-field"><span>${esc(tripApprovalCopy(__uiLang, 0))}</span><input id="trv-recipient" maxlength="120" aria-describedby="trv-status" value="${esc(trip.approval?.requestedReviewer || '')}" placeholder="${esc(tripApprovalCopy(__uiLang, 1))}" class="w-full p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)]" /></label></section>
+      <section class="trip-approval-step"><h4><span aria-hidden="true">2</span>${esc(approvalFlow[1])}</h4>
+      <p class="card-sub">${esc(approvalFlow[7])}</p>
+      <details class="trip-approval-qr"><summary>${esc(approvalFlow[3])}</summary>${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(230px,62vw)">${qr}</div><p class="card-sub">${esc(approvalFlow[4])}</p>` : `<p role="status" class="card-sub">${esc(approvalFlow[5])}</p>`}</details>
       <div class="grid grid-cols-2 gap-2">
         <button id="trv-wa" class="btn-action btn-primary py-3 font-bold rounded-xl active:scale-[0.98] transition-transform">WhatsApp</button>
         <button id="trv-copy" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('vaultCopy', __uiLang))}</button>
       </div>
       <button id="trv-sent" class="btn-action btn-primary py-3 rounded-xl">${esc(tripApprovalCopy(__uiLang, 4))}</button>
       <p id="trv-status" role="status" class="text-sm text-[var(--on-surface-secondary)]"></p>
+      </section><section class="trip-approval-step"><h4><span aria-hidden="true">3</span>${esc(approvalFlow[2])}</h4>
       <p class="text-sm text-[var(--on-surface-secondary)]">${esc(tripApprovalCopy(__uiLang, 3))}</p>
+      <button id="trv-esito" class="btn-action btn-primary py-3 rounded-xl">${esc(tCh('tripVerdictPasteBtn', __uiLang))}</button></section>
       <!-- Onestà, dichiarata dove serve saperlo e non in una nota a piè di
            pagina: nel link non ci sono le foto degli scontrini. Chi approva
            vede importi e cosa manca; per i giustificativi veri c'è il
            riepilogo stampabile, che li porta tutti dentro. -->
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${esc(tripArchiveShareCopy(__uiLang))}</p>
+      <details class="trip-approval-attachments"><summary>${esc(approvalFlow[6])}</summary><p class="card-sub">${esc(tripArchiveShareCopy(__uiLang))}</p>
       <button id="trv-archive" class="btn-action py-3 rounded-xl">${esc(tripExportCopy(__uiLang, 0))}</button>
       <button id="trv-print" class="btn-action py-3 rounded-xl">${esc(tCh('tripExportPrint', __uiLang))}</button>
-      <button id="trv-esito" class="py-3 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-sm active:scale-[0.98] transition-transform">${esc(tCh('tripVerdictPasteBtn', __uiLang))}</button>
-    </div>`, `<button id="trv-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(tCh('vaultCloseBtn', __uiLang))}</button>`);
+      </details>
+    </div>`, `<button id="trv-close" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${esc(approvalFlow[8])}</button>`);
 
-  $('#trv-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(messaggio)}`, '_blank', 'noopener'));
+  const reviewStillCurrent = () => {
+    const current = (VaultDAO.state.businessTrips || []).find(item => item.id === tripId);
+    if (current && visibleTrips([current]).length && tripReviewSnapshot(current, allTransactionsFlat()) === reviewSnapshot) return true;
+    $('#trv-status').textContent = tripReviewStaleCopy(__uiLang); return false;
+  };
+  $('#trv-wa')?.addEventListener('click', () => { if (!reviewStillCurrent()) return; window.open(`https://wa.me/?text=${encodeURIComponent(messaggio)}`, '_blank', 'noopener'); $('#trv-status').textContent = approvalFlow[11]; });
   $('#trv-copy')?.addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(messaggio); showToast(tCh('lvlCopiedToast', __uiLang), 'success'); }
+    if (!reviewStillCurrent()) return;
+    try { await navigator.clipboard.writeText(messaggio); $('#trv-status').textContent = approvalFlow[9]; showToast(tCh('lvlCopiedToast', __uiLang), 'success'); }
     catch { showToast(tCh('bridgeSendError', __uiLang), 'error'); }
   });
   $('#trv-sent')?.addEventListener('click', () => {
     const requestedReviewer = $('#trv-recipient')?.value.trim();
-    if (!requestedReviewer) { $('#trv-status').textContent = tripApprovalCopy(__uiLang, 5); $('#trv-recipient')?.focus(); return; }
+    if (!requestedReviewer) { $('#trv-status').textContent = tripApprovalCopy(__uiLang, 5); $('#trv-recipient')?.setAttribute('aria-invalid', 'true'); $('#trv-recipient')?.focus(); return; }
+    $('#trv-recipient')?.removeAttribute('aria-invalid');
+    if (!reviewStillCurrent()) return;
     const current = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!current) return;
     if (tripReviewSnapshot(current, allTransactionsFlat()) !== reviewSnapshot) { showToast(tripReviewStaleCopy(__uiLang), 'error'); return; }
@@ -13392,6 +13786,9 @@ window.openTripVerdictPaste = (tripId) => {
     if (!verdict) { showToast(tCh('tripVerdictInvalid', __uiLang), 'error'); return; }
     const trip = (VaultDAO.state.businessTrips || []).find(t => t.id === tripId);
     if (!trip) return;
+    if (verdict.state === 'approvata' && inspectTripArchive(reimbursableTripExpenses(trip, allTransactionsFlat()), trip.receiptPolicy).blockingCount) {
+      showToast(tripReadinessCopy(__uiLang, 5), 'error'); return;
+    }
     try {
       const snapshot = tripReviewSnapshot(trip, allTransactionsFlat());
       const expected = await fingerprintTripSnapshot(snapshot);
@@ -13454,7 +13851,7 @@ window.openTripReviewHistory = () => {
 
 window.openTripReviewScreen = (rev) => {
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+  const eur = (n) => formatMoney(+n || 0, rev.currency || 'EUR');
   const etichetta = (e) => e.mealType ? `${esc(tCh('trip_' + e.categoria, __uiLang))} · ${esc(tCh('trip_meal_' + e.mealType, __uiLang))}` : esc(tCh('trip_' + (TRIP_CATEGORIES.includes(e.categoria) ? e.categoria : 'altro'), __uiLang));
 
   const hasConflicts = rev.revisionConflictCount > 0 || rev.expenses.some(e => e.revisionConflict);
@@ -13759,61 +14156,23 @@ function showUploadHelp(filename, number, year) {
 // non negoziabile: NON sono screenshot veri del portale (cambiano nel tempo
 // e Momentum non può vederli in anticipo) — sono passi ricreati nella
 // sequenza ufficiale, dichiarati come tali fin dal primo schermo.
-const SDI_WALKTHROUGH_STEPS = [
-  { icon: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>', title: 'Accedi', text: 'Apri il portale Fatture e Corrispettivi ed entra con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline — le stesse che usi per la dichiarazione dei redditi. Se dopo l\'accesso ti ritrovi su una pagina diversa (es. "Registrazione indirizzo telematico"), tranquillo: cerca il link "torna a Fatture e Corrispettivi" in alto e riparti da lì.', link: true },
-  { icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>', title: '"Me stesso"', text: 'Alla prima schermata scegli il profilo "Me stesso": sei tu che fatturi, non un\'altra persona o azienda. È sempre la prima opzione in alto, anche se vedi un elenco di deleghe.' },
-  { icon: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>', title: 'Fatturazione elettronica', text: 'Nel menu principale cerca la voce "Fatturazione elettronica", poi "Trasmetti" o "Importa un file".', link: true },
-  { icon: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>', title: 'Carica il file', text: null },
-  { icon: '<path d="M20 6 9 17l-5-5"/>', title: 'Trasmetti', text: 'Controlla l\'anteprima che ti mostra il portale e premi "Trasmetti". Arriverà una ricevuta di consegna (o di scarto — te l\'ho già spiegata sopra prima ancora che tu la riceva).' },
-];
 window.openSdiWalkthrough = (filename, number, year) => {
-  let step = 0;
-  const render = (dir = 'forward') => {
-    const s = SDI_WALKTHROUGH_STEPS[step];
-    const text = s.text || `Seleziona il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai già scaricato da Momentum, e caricalo dove il portale chiede "importa" o "trasmetti file".`;
-    const isLast = step === SDI_WALKTHROUGH_STEPS.length - 1;
-    const dirClass = dir === 'back' ? 'sdi-wt-back' : 'sdi-wt-forward';
-    window.openModal(`
-      <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center ${dirClass}">
-        ${tl1Icon(`<path d="M5 3l14 9-14 9V3z"/>`, '--primary')}
-        ${tl1Dots(step + 1, SDI_WALKTHROUGH_STEPS.length)}
-        <div class="tl1-icon-pulse w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-[color-mix(in_srgb,var(--gold)_16%,transparent)]" style="--tl1-icon-color:var(--gold)">
-          <svg class="w-8 h-8 text-[var(--gold)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${s.icon}</svg>
-        </div>
-        <div>
-          <h3 class="text-lg font-black leading-tight">${s.title}</h3>
-          <p class="card-sub !mb-0 mt-1.5">${text}</p>
-        </div>
-        ${s.link ? `<a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-1.5 text-[12px] font-bold px-3 py-2.5 rounded-xl bg-[color-mix(in_srgb,var(--gold)_15%,transparent)] border border-[color-mix(in_srgb,var(--gold)_30%,transparent)] text-[var(--gold)]">
-          Apri il portale Fatture e Corrispettivi, vero
-          <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>
-        </a>` : ''}
-        <div class="w-full flex gap-2">
-          ${step > 0 ? `<button id="sdi-wt-back" class="btn-action flex-1 py-3 font-bold rounded-xl">← Indietro</button>` : ''}
-          <button id="sdi-wt-next" class="btn-action btn-primary flex-1 py-3 font-bold rounded-xl">${isLast ? 'Fatto ✓' : 'Fatto, avanti →'}</button>
-        </div>
-        <p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Passo ricreato nella sequenza ufficiale, non uno screenshot del portale — i nomi esatti delle voci possono cambiare nel tempo.</p>
-      </div>`);
-    document.getElementById('sdi-wt-back')?.addEventListener('click', () => { step--; render('back'); });
-    document.getElementById('sdi-wt-next')?.addEventListener('click', () => {
-      if (isLast) { window.openSdiWalkthroughDone(number, year); return; }
-      step++; render('forward');
-    });
-  };
-  render();
+  window.openModal(`<section class="tax-workspace-step">${filename ? `<p class="tax-handoff-domain">${escapeHtml(filename)}</p>` : ''}<section class="tax-handoff" id="sdi-handoff"></section></section>`);
+  mountTaxHandoff($('#sdi-handoff'), 'it', () => window.openSdiWalkthroughDone(number, year));
 };
 window.openSdiWalkthroughDone = (number, year) => {
+  const copy = taxTransmissionCopy(__uiLang);
   window.openModal(`
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M20 6L9 17l-5-5"/>', '--green')}
       <div>
-        <h3 class="text-lg font-black leading-tight">L'hai trasmessa?</h3>
-        <p class="card-sub !mb-0 mt-1.5">Se hai premuto "Trasmetti" sul portale, segnala qui: sparisce dal promemoria e Momentum sa che è a posto.</p>
+        <h3 class="text-lg font-black leading-tight">${copy[0]}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${copy[1]}</p>
       </div>
       <div class="w-full flex flex-col gap-2">
-        ${number != null ? `<button id="sdi-wt-mark" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Sì, l'ho trasmessa — segna fatto</button>` : ''}
+        ${number != null ? `<button id="sdi-wt-mark" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${copy[2]}</button>` : ''}
         <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn-action w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5">Non ancora, apri il portale<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-        <button onclick="window.closeModal()" class="text-[11px] text-[var(--on-surface-secondary)] underline">Ci penso dopo</button>
+        <button onclick="window.closeModal()" class="btn-action w-full">${copy[3]}</button>
       </div>
     </div>`);
   document.getElementById('sdi-wt-mark')?.addEventListener('click', () => {
@@ -13846,7 +14205,7 @@ function getInvoiceFormHTML() {
           <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" name="inv-iban" aria-label="IBAN (per il pagamento)" />
         </div>`;
   return `
-  <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
+  <div class="tax-workspace-step tax-invoice-form flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
     <div class="flex items-center gap-3">
       ${tl1Icon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>', '--primary')}
       <div class="flex-1 min-w-0">
@@ -13862,9 +14221,13 @@ function getInvoiceFormHTML() {
       <div class="flex flex-col gap-2 p-3 pt-0">
         <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" name="inv-emitter" aria-label="Il tuo nome / ragione sociale" />
         ${emitterFiscalHTML}
-        <div class="flex items-center gap-3">
-          <label class="text-[11px] font-bold text-[var(--gold)] cursor-pointer underline">Carica logo<input id="inv-logo" type="file" accept="image/*" class="hidden" name="inv-logo" /></label>
-          <span id="inv-logo-status" class="text-[10px] text-[var(--on-surface-secondary)]">${prof.logo ? 'logo salvato ✓' : 'nessun logo'}</span>
+        <section class="invoice-brand" aria-label="${invoiceBrandCopy(__uiLang).title}">
+          <div class="invoice-brand-preview" id="inv-logo-preview" aria-hidden="true">${prof.logo ? `<img src="${v(prof.logo)}" alt="" />` : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="9" cy="9" r="2"/><path d="m4 18 5-5 4 3 3-4 5 6"/></svg>'}</div>
+          <div class="invoice-brand-copy"><strong>${invoiceBrandCopy(__uiLang).title}</strong><p id="inv-logo-hint">${invoiceBrandCopy(__uiLang).hint}</p><span id="inv-logo-status" role="status">${prof.logo ? invoiceBrandCopy(__uiLang).ready : invoiceBrandCopy(__uiLang).empty}</span></div>
+          <button type="button" id="inv-logo-choose" class="btn-action" aria-describedby="inv-logo-hint">${prof.logo ? invoiceBrandCopy(__uiLang).change : invoiceBrandCopy(__uiLang).choose}</button>
+          <input id="inv-logo" type="file" accept="image/png,image/jpeg" class="hidden" name="inv-logo" />
+        </section>
+        <div class="invoice-brand-options">
           <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)" name="inv-country">
             ${selectableInvoiceCountries().map(c => `<option value="${c.code}" ${(prof.country || 'IT') === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
           </select>
@@ -13926,7 +14289,7 @@ function getInvoiceFormHTML() {
          (cliente a sinistra, importo/invio a destra) invece di restare
          un'unica colonna lunghissima identica a quella del telefono. Su
          mobile resta una singola colonna, invariato. -->
-    <div class="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-3 lg:items-start">
+    <div data-invoice-content class="invoice-content-stage flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-x-4 lg:gap-y-3 lg:items-start">
       <div class="flex flex-col gap-3">
         <!-- RIGA UNICA (NL): scrivi la fattura come la diresti — anti-attrito,
              stessa filosofia della voce. "fattura a Rossi Srl 500 per
@@ -14005,17 +14368,28 @@ function getInvoiceFooterHTML() {
       <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Scarica PDF</button>
       <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
     </div>
+    <details class="tax-secondary-actions"><summary>${taxJourneyCopy(__uiLang).more}</summary><div>
     <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
     <!-- Export annuale FatturaPA in blocco: il ponte commercialista universale
          (qualunque gestionale legge lo standard, non solo B.Point come
          Fattura24 — vedi ANALISI_COMPETITOR.md §6). Solo per fatture italiane
          già emesse, mai un pulsante attivo se non ce n'è nessuna. -->
     <button id="inv-export-annuale" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm mt-2 inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Esporta l'anno per il commercialista (XML)</button>
+    </div></details>
     <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 mt-2"></p>`;
 }
 
 window.openCreateInvoice = (prefillClient) => {
+  pingFeature('invoice_editor_opened');
   openModal(getInvoiceFormHTML(), getInvoiceFooterHTML());
+  document.querySelector('.tax-invoice-form')?.addEventListener('input', () => {
+    const controls = $('#inv-xml-controls');
+    if (controls?.dataset.validation === 'blocked') {
+      controls.classList.add('hidden');
+      controls.textContent = '';
+      delete controls.dataset.validation;
+    }
+  });
   // Modulo ricco di campi: da tablet in su usa una card più larga con
   // layout a due colonne (vedi CSS .modal-wide, index.html) invece della
   // stessa card stretta da telefono stiracchiata — nativo per lo schermo,
@@ -14274,6 +14648,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (parsed.description) descEl.value = parsed.description;
     clientEl.dispatchEvent(new Event('change'));
     refresh();
+    document.querySelector('.tax-invoice-form')?.dispatchEvent(new Event('invoice-autofilled'));
     showToast('Compilato. Controlla e genera.', 'success');
   };
   $('#inv-oneline-fill')?.addEventListener('click', fillFromOneLine);
@@ -14301,7 +14676,7 @@ window.openCreateInvoice = (prefillClient) => {
       b.classList.add(b === btn ? 'border-[var(--primary)]' : 'border-transparent');
     });
     if ($('#inv-theme')) $('#inv-theme').value = id;
-    if ($('#inv-theme-hint')) $('#inv-theme-hint').textContent = (fromClick ? '' : '✨ Suggerito — ') + (THEME_HINTS[id] || '');
+    if ($('#inv-theme-hint')) $('#inv-theme-hint').textContent = (fromClick ? '' : 'Suggerito — ') + (THEME_HINTS[id] || '');
     // La nota "Creato con Momentum" segue il tema finché l'utente non ha mai
     // toccato la casella di persona: acceso ovunque tranne "minimale" (vedi
     // commento sopra il checkbox).
@@ -14330,12 +14705,29 @@ window.openCreateInvoice = (prefillClient) => {
   descEl.addEventListener('input', liveThemeSuggest);
   amountEl.addEventListener('input', liveThemeSuggest);
   let logoData = (VaultDAO.state.invoiceProfile || {}).logo || '';
+  $('#inv-logo-choose').addEventListener('click', () => $('#inv-logo').click());
   $('#inv-logo').addEventListener('change', (e) => {
-    const f = e.target.files && e.target.files[0];
+    const f = e.target.files?.[0];
     if (!f) return;
-    if (f.size > 400 * 1024) { showToast('Logo troppo grande (max 400KB).', 'error'); return; }
+    const copy = invoiceBrandCopy(__uiLang);
+    const status = $('#inv-logo-status');
+    if (f.size > 400 * 1024 || !['image/png','image/jpeg'].includes(f.type)) {
+      status.textContent = copy.invalid; e.target.value = ''; return;
+    }
     const reader = new FileReader();
-    reader.onload = () => { logoData = reader.result; $('#inv-logo-status').textContent = 'logo caricato ✓'; };
+    reader.onerror = () => { status.textContent = copy.error; e.target.value = ''; };
+    reader.onload = () => {
+      const preview = new Image();
+      preview.alt = '';
+      preview.onload = () => {
+        logoData = reader.result;
+        $('#inv-logo-preview').replaceChildren(preview);
+        status.textContent = copy.ready;
+        $('#inv-logo-choose').textContent = copy.change;
+      };
+      preview.onerror = () => { status.textContent = copy.error; e.target.value = ''; };
+      preview.src = reader.result;
+    };
     reader.readAsDataURL(f);
   });
   // Crea+salva la fattura (riusata da "Genera e stampa" e "Email al cliente").
@@ -14377,12 +14769,13 @@ window.openCreateInvoice = (prefillClient) => {
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: prof.country });
+    const paymentSnapshot = invoicePaymentSnapshot(inv, invoiceCountry(prof.country).currency);
     const meta = { number, year, date: new Date().toLocaleDateString('it-IT'), client, description: descEl.value.trim(), emitter: prof.emitter, emitterInfo, logo: prof.logo, accent: prof.accent, theme: prof.theme, country: prof.country, clientInfo, regime: regimeEl.dataset.value, ...(voci.length > 1 ? { voci } : {}) };
     // salva nello storico (numerazione + apprendimento cliente/email + dati
     // fiscali del cliente per il riuso + flag ricorrente per il promemoria)
     const recurring = !!($('#inv-recurring') && $('#inv-recurring').checked);
     const hasCliFiscal = cliFis.partitaIva || cliFis.codiceFiscale || cliFis.indirizzo;
-    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.dataset.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}), ...(voci.length > 1 ? { voci } : {}) }];
+    VaultDAO.state.invoices = [...(VaultDAO.state.invoices || []), { number, year, paymentSnapshot, date: new Date().toISOString().slice(0, 10), client, imponibile: imp, description: descEl.value.trim(), regime: regimeEl.dataset.value, clientEmail, country: prof.country, ...(opts.electronic ? { isElectronic: true, sdiTransmitted: false } : {}), ...(hasCliFiscal ? { clientFiscale: cliFis } : {}), ...(recurring ? { recurring: true, cadence: 'mensile' } : {}), ...(voci.length > 1 ? { voci } : {}) }];
     // AUTO-ADDESTRAMENTO (chiude il loop, come richiesto): creare una fattura per
     // un cliente INSEGNA al sistema che i futuri accrediti da quel cliente sono
     // reddito da fattura — su due livelli:
@@ -14574,10 +14967,15 @@ window.openCreateInvoice = (prefillClient) => {
         ...controls.filter(c => c.level === 'error' && !missing.length).map(c => `<li>${c.message}</li>`),
       ];
       box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-amber-500/40 bg-amber-500/10 text-amber-200';
+      box.dataset.validation = 'blocked';
+      box.setAttribute('role', 'status');
       box.innerHTML = `<div class="font-bold mb-1">Ci manca qualcosa per la fattura elettronica:</div><ul class="list-disc pl-4 space-y-0.5">${items.join('')}</ul>`;
       box.classList.remove('hidden');
       const id = missing[0] && FOCUS_MAP[missing[0].field];
-      if (id && $(id)) setTimeout(() => $(id).focus(), 60);
+      if (id && $(id)) {
+        document.querySelector('.tax-invoice-form')?.dispatchEvent(new CustomEvent('invoice-reveal-field', { detail: id }));
+        setTimeout(() => $(id)?.focus(), 60);
+      }
       showToast('Completa i campi indicati per la fattura elettronica.', 'error');
       return;
     }
@@ -14648,6 +15046,18 @@ window.openCreateInvoice = (prefillClient) => {
     // lasciata chiusa di default per non spaventare: si apre al bisogno (click XML)
   }
   refresh();
+  mountInvoiceJourney(document.querySelector('.tax-invoice-form'), document.querySelector('#modal-footer'), __uiLang);
+  // Inline guide preserves the invoice draft while an official portal opens separately.
+  const invoiceReview = document.querySelector('.invoice-review-stage');
+  if (invoiceReview) {
+    const details = document.createElement('details'); details.className = 'tax-handoff-disclosure';
+    const summary = document.createElement('summary'); summary.textContent = taxHandoffGuide('it', __uiLang).title;
+    const content = document.createElement('section'); content.className = 'tax-handoff';
+    details.append(summary, content); invoiceReview.append(details);
+    mountTaxHandoff(content, 'it', () => { details.open = false; summary.focus(); });
+    const syncGuide = () => { details.hidden = $('#inv-country')?.value !== 'IT'; };
+    $('#inv-country')?.addEventListener('change', syncGuide); syncGuide();
+  }
 };
 // Auto-apprendimento fiscale: la conferma dell'utente insegna a Momentum come
 // classificare quel mittente d'ora in poi (integrato nel loop di apprendimento).
@@ -14738,6 +15148,8 @@ function motivoNonMisurabileHtml(motivo) {
 // debiti. Sotto: proiezione Monte Carlo a 10 anni per strategia con ipotesi
 // DICHIARATE — semplice come un salvadanaio: "quanto ho" e "dove può arrivare".
 function renderNetWorth() {
+  const workspaceCopy = marketWorkspaceCopy(__uiLang);
+  document.querySelectorAll('[data-market-label]').forEach(el => { el.textContent = workspaceCopy[el.dataset.marketLabel]; });
   const totalEl = $('#net-worth-total'), breakEl = $('#net-worth-breakdown'), projEl = $('#net-worth-projection');
   if (!totalEl) return;
   const positions = VaultDAO.state.positions || [];
@@ -16296,7 +16708,7 @@ window.exportEncryptedBackup = () => {
     if (!password || password !== repeated) { error.hidden=false; error.textContent=tCh('copyMismatch',__uiLang); document.getElementById('copy-password-repeat').focus(); return; }
     const button=event.currentTarget; button.disabled=true; button.setAttribute('aria-busy','true'); error.hidden=true;
     try {
-      const envelope = await encryptBackup(VaultDAO.state, password);
+      const envelope = await encryptBackup(await includeDocumentBackup(VaultDAO.state, DurableStore), password);
       const blob = new Blob([JSON.stringify(envelope, null, 2)], { type:'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -16352,8 +16764,12 @@ window.reviewBackupRestore = (restored, partial = false) => {
     const status = document.getElementById('restore-status');
     status.textContent = tIntegration('restoreSaving', __uiLang);
     try {
-      await checkpointBeforeRestore(VaultDAO.state, DurableStore, localStorage);
-      const next = prepareRestoredState(VaultDAO.state, restored, SCHEMA_VERSION);
+      const {state:restoredState,documents}=splitDocumentBackup(restored);
+      if(documents!==undefined)await validateDocumentBundle(documents);
+      await checkpointBeforeRestore(await includeDocumentBackup(VaultDAO.state, DurableStore), DurableStore, localStorage);
+      const next = prepareRestoredState(VaultDAO.state, restoredState, SCHEMA_VERSION);
+      delete next.invoiceDocumentBackup;
+      await restoreDocumentBackup(documents, DurableStore);
       // Await the durable write before scheduling reload: a fire-and-forget
       // write could leave the previous larger archive winning at startup.
       await writeRestoredArchive(VaultDAO.state, next, DurableStore, localStorage);
@@ -16747,7 +17163,7 @@ function rkRender() {
     document.getElementById('rk-uno-no').addEventListener('click', () => { RK.fase = 'intro'; rkRender(); });
     document.getElementById('rk-uno-ok').addEventListener('click', async () => {
       try {
-        RK.kit = await createRecoveryKit(VaultDAO.state, { threshold: 1, total: 1 });
+        RK.kit = await createRecoveryKit(await includeDocumentBackup(VaultDAO.state, DurableStore), { threshold: 1, total: 1 });
       } catch (e) { showToast(e.message, 'error'); return; }
       VaultDAO.state.recoveryKit = { threshold: 1, total: 1, createdAt: new Date().toISOString(), placements: [] };
       VaultDAO.save();
@@ -16869,9 +17285,10 @@ async function rkPlace(share, where, label) {
 }
 
 window.openRecoveryKit = async () => {
+  pingFeature('recovery_kit_opened');
   let kit;
   try {
-    kit = await createRecoveryKit(VaultDAO.state, { threshold: 2, total: 3 });
+    kit = await createRecoveryKit(await includeDocumentBackup(VaultDAO.state, DurableStore), { threshold: 2, total: 3 });
   } catch (e) {
     showToast(e.message, 'error');
     return;
@@ -16895,6 +17312,7 @@ window.openRecoveryKit = async () => {
 // i fogli incollati come capitano, dice quanti ne mancano, e non chiede mai una
 // password che non ha.
 window.openRecoveryRestore = () => {
+  pingFeature('recovery_restore_opened');
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div>
@@ -17073,8 +17491,9 @@ window.exportPreUpdateBackup = async () => {
     showToast(tIntegration('checkpointWarning', __uiLang));
   } catch (_) { showToast(tIntegration('checkpointMissing', __uiLang), 'error'); }
 };
-window.exportPlainBackup = () => {
-  const busta = exportPlain(VaultDAO.state);
+window.exportPlainBackup = async () => {
+  try {
+  const busta = exportPlain(await includeDocumentBackup(VaultDAO.state, DurableStore));
   const blob = new Blob([JSON.stringify(busta, null, 2)], { type: 'application/json' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
@@ -17084,6 +17503,7 @@ window.exportPlainBackup = () => {
   link.click();
   URL.revokeObjectURL(link.href);
   showToast('Copia salvata. Non e cifrata: tienila in un posto sicuro.', 'success');
+  } catch (e) { showToast(e.message, 'error'); }
 };
 // Il vecchio nome resta agganciato: se un pulsante o una scorciatoia lo chiama
 // ancora, deve fare la cosa giusta invece di sparire.
@@ -18224,6 +18644,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
   renderInstallGuide();
 });
 window.addEventListener('appinstalled', () => {
+  sendAppObservation(TELEMETRY_ENDPOINT,'pwa_installed').catch(() => {});
   __appInstalled = true;
   __installPromptEvent = null;
   renderInstallGuide();
@@ -18328,6 +18749,7 @@ const LIMITI_DICHIARATI = [
 ];
 
 window.openTrustCenter = () => {
+  pingFeature('trust_center_opened');
   const toneLimiti = 'text-amber-400 border-amber-400/40 bg-amber-400/5';
   const toneCancel = 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5';
   const toneDati = 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]';
@@ -18832,6 +19254,7 @@ window.setMotionPreference = mode => {
   VaultDAO.state.uiMotion = mode; VaultDAO.save(); applyMotionPreference();
 };
 window.openAppearancePreferences = () => {
+  pingFeature('appearance_opened');
   const current = resolveUiComplexity();
   openModal(`<div class="view-preference-editor"><header><h3>${tCh('analysisComplexityTitle', __uiLang)}</h3><p>${tCh('viewChoiceIntro', __uiLang)}</p></header><div class="view-choice-list" role="group" aria-label="${tCh('analysisComplexityTitle', __uiLang)}">${[['essenziale','analysisComplexityEssential','viewEssentialHelp'],['completo','analysisComplexityFull','viewCompleteHelp']].map(([value,title,help]) => `<button type="button" data-view-choice="${value}" aria-pressed="${value === current}"><span class="view-choice-indicator" aria-hidden="true"></span><span><strong>${tCh(title,__uiLang)}</strong><small>${tCh(help,__uiLang)}</small></span></button>`).join('')}</div><p class="view-choice-note">${tCh('viewChoiceNote', __uiLang)}</p></div>`);
   document.querySelectorAll('[data-view-choice]').forEach(button => button.addEventListener('click', () => {
@@ -18984,7 +19407,7 @@ const navigate = (view) => {
     if (button.dataset.view === view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  if (view === 'analysis') pingFeature('analysis_tensor_opened');
+  if (changedView) pingFeature({dashboard:'dashboard_opened',analysis:'analysis_tensor_opened',settings:'vault_opened'}[view]);
   VaultDAO.state.currentView = view;
   ['dashboard', 'analysis', 'settings'].forEach(v => {
     const el = $(`#${v}-view`);
@@ -19133,8 +19556,82 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+function enhanceMomentumColors(container) {
+  container.querySelectorAll('input[type="color"]:not([hidden])').forEach(input=>{
+    input.hidden=true;
+    const wrap=document.createElement('div'); wrap.className='momentum-color-field';
+    const label=input.title || tIntegration('categoryCustomColor',__uiLang);
+    wrap.setAttribute('role','group');wrap.setAttribute('aria-label',label);
+    const colors=['#6366f1','#8b5cf6','#0ea5e9','#14b8a6','#22c55e','#f59e0b','#ef4444','#64748b'];
+    wrap.innerHTML=`<span>${escapeHtml(label)}</span><div class="momentum-color-swatches">${colors.map(color=>`<button type="button" aria-label="${color}" data-color="${color}" style="--swatch:${color}"></button>`).join('')}</div><label>${escapeHtml(tIntegration('categoryCustomColor',__uiLang))}<input type="text" inputmode="text" maxlength="7" autocomplete="off" spellcheck="false" value="${escapeHtml(input.value)}" placeholder="#6366F1" /></label>`;
+    input.after(wrap);
+    const hex=wrap.querySelector('input');
+    const commit=value=>{
+      const valid=/^#[0-9a-f]{6}$/i.test(value); hex.setAttribute('aria-invalid',String(!valid));
+      if(!valid)return;
+      input.value=value; hex.value=value;
+      input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}));
+      wrap.querySelectorAll('[data-color]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.color.toLowerCase()===value.toLowerCase())));
+    };
+    wrap.querySelectorAll('[data-color]').forEach(b=>b.onclick=()=>commit(b.dataset.color));
+    hex.oninput=()=>commit(hex.value.trim());
+  });
+}
+
+function enhanceMomentumSelects(container) {
+  ensureTl1SelectDelegation();
+  container.querySelectorAll('select:not([hidden])').forEach(select=>{
+    if(select.multiple || select.size>1 || !select.options.length) return;
+    const id=`momentum-select-${crypto.randomUUID()}`;
+    const options=[...select.options].map(o=>({value:escapeHtml(o.value),label:escapeHtml(o.textContent)}));
+    select.hidden=true;
+    select.insertAdjacentHTML('afterend',tl1Select(id,options,escapeHtml(select.value)));
+    const root=document.getElementById(id), trigger=root.querySelector('.tl1-select-trigger');
+    const label=select.getAttribute('aria-label') || select.title || select.closest('label')?.querySelector('span')?.textContent || '';
+    trigger.disabled=select.disabled;
+    trigger.setAttribute('aria-expanded','false');
+    const panel=root.querySelector('.tl1-select-panel');
+    const visibility=()=>{
+      const open=root.classList.contains('tl1-select-open');
+      panel.hidden=!open; panel.style.display=open?'':'none'; trigger.setAttribute('aria-expanded',String(open));
+    };
+    new MutationObserver(visibility).observe(root,{attributes:true,attributeFilter:['class']}); visibility();
+    if(label) trigger.setAttribute('aria-label',label);
+    root.querySelectorAll('.tl1-select-opt').forEach((b,i)=>{b.disabled=select.options[i].disabled;});
+    const sync=()=>{
+      root.dataset.value=select.value;
+      root.querySelector('.tl1-select-label').textContent=select.selectedOptions[0]?.textContent || '';
+      root.querySelectorAll('.tl1-select-opt').forEach(b=>{
+        const selected=b.dataset.value===select.value;
+        b.classList.toggle('text-[var(--primary)]',selected);
+        b.classList.toggle('font-bold',selected);
+      });
+      trigger.disabled=select.disabled;
+    };
+    select.addEventListener('change',sync); queueMicrotask(sync);
+    root.addEventListener('change',()=>{
+      select.value=root.dataset.value;
+      select.dispatchEvent(new Event('input',{bubbles:true}));
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+      trigger.setAttribute('aria-expanded','false'); trigger.focus({preventScroll:true});
+    });
+    trigger.addEventListener('click',()=>queueMicrotask(()=>trigger.setAttribute('aria-expanded',String(root.classList.contains('tl1-select-open')))));
+    root.addEventListener('keydown',event=>{
+      const options=[...root.querySelectorAll('.tl1-select-opt:not(:disabled)')];
+      if(event.key==='Escape') { event.preventDefault();event.stopPropagation();root.classList.remove('tl1-select-open');trigger.setAttribute('aria-expanded','false');trigger.focus(); }
+      if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key)) return;
+      event.preventDefault();event.stopPropagation();root.classList.add('tl1-select-open');trigger.setAttribute('aria-expanded','true');
+      const i=options.indexOf(document.activeElement);
+      const next=event.key==='Home'?0:event.key==='End'?options.length-1:Math.max(0,Math.min(options.length-1,i+(event.key==='ArrowDown'?1:-1)));
+      options[next]?.focus();
+    });
+  });
+}
+
 function enhancePlanningDates(container) {
-  container.querySelectorAll('.payment-editor input[type="date"],#goal-deadline-input,#fc-start').forEach(input => {
+  container.querySelectorAll('input[type="date"]:not([hidden]),#goal-deadline-input,#fc-start,#vers-date').forEach(input => {
+    if(input.dataset.orbitDateEnhanced) return;
+    input.dataset.orbitDateEnhanced='true';
     const fieldLabel = input.closest('label')?.querySelector('span')?.textContent || tCh('agendaDate', __uiLang);
     input.hidden = true;
     const wrap = document.createElement('div');
@@ -19241,6 +19738,9 @@ window.openModal = (html, footerHtml = '') => {
   const body = $('#modal-body');
   body.innerHTML = html;
   enhancePlanningDates(body);
+  enhanceMomentumSelects(body);
+  enhanceMomentumColors(body);
+  enhanceTaxFields(body);
   const title = body.querySelector('h1,h2,h3');
   if (title) { title.id ||= 'momentum-dialog-title'; modal.setAttribute('aria-labelledby', title.id); modal.removeAttribute('aria-label'); }
   else { modal.removeAttribute('aria-labelledby'); modal.setAttribute('aria-label', 'Momentum'); }
@@ -19248,6 +19748,7 @@ window.openModal = (html, footerHtml = '') => {
   // riattiva la card larga subito dopo — mai un residuo dal modale precedente.
   $('#modal-content').classList.remove('modal-wide');
   const footer = $('#modal-footer');
+  footer.classList.toggle('tax-workspace-footer', !!body.querySelector('.tax-workspace-step, .finance-workspace'));
   footer.classList.remove('modal-wide');
   footer.innerHTML = footerHtml;
   // Il piè di pagina è `position:fixed` (ancorato alla finestra vera, non al
@@ -19813,6 +20314,7 @@ function shareDistillationIfAllowed() {
   } catch (e) { console.warn('Condivisione distillazione non riuscita:', e); return 0; }
 }
 window.openSharedLearning = () => {
+  pingFeature('shared_learning_opened');
   const pool = lexiconPool();
   const uscirebbero = eligibleLexicon(pool, { k: DEFAULT_K_ANONYMITY });
   const trattenuti = heldBackLexicon(pool, { k: DEFAULT_K_ANONYMITY });
@@ -19855,6 +20357,7 @@ window.setSharedLearning = (on) => {
 };
 
 window.openMeshPairing = () => {
+  pingFeature('mesh_pairing_opened');
   openModal(`
     <div class="p-4 space-y-4">
       <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo</h3>
@@ -19996,6 +20499,7 @@ window.meshAcceptAnswer = async () => {
 };
 
 window.openGoalEditor = () => {
+  pingFeature('goal_editor_opened');
   openModal(`
     <form class="goal-create-editor p-4 space-y-4" onsubmit="return false">
       <svg class="goal-editor-orbit" viewBox="0 0 160 100" fill="none" aria-hidden="true"><circle cx="80" cy="50" r="26"/><ellipse cx="80" cy="50" rx="66" ry="18" transform="rotate(-20 80 50)"/><circle cx="137" cy="30" r="5"/></svg>
@@ -20037,6 +20541,7 @@ window.deleteSavingsGoal = (id) => {
 };
 
 window.openBudgetEditor = (onDone = null) => {
+  pingFeature('budget_editor_opened');
   window.__budgetEditorOnDone = onDone;
   const suggestion = suggestMonthlyBudget(VaultDAO.state.transactions, new Date());
   const current = VaultDAO.state.monthlyBudget || 0;
@@ -23731,6 +24236,7 @@ window.renderAnalysis = renderAnalysis;
 // finisce e la UI resta reattiva) e LEGGERA (skipHeavyForecast → niente Monte
 // Carlo/GARCH sincrono). Così un import di 5 anni di dati non congela mai l'app.
 window.renderAfterImport = () => {
+  pingFeature('import_render_requested');
   requestAnimationFrame(() => {
     try { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); }
     catch (e) { console.error('render post-import:', e); }

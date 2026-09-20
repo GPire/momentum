@@ -1,6 +1,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildOriginalCurrencyFields } from './trip-currency.js';
+import { buildOriginalCurrencyFields, canChangeTripCurrency } from './trip-currency.js';
+
+test('existing expenses and offered items cannot be relabelled as another currency', () => {
+  const trip = { id: 'trip', receiptPolicy: { currency: 'EUR' } };
+  assert.equal(canChangeTripCurrency(trip, 'USD', []), true);
+  assert.equal(canChangeTripCurrency(trip, 'USD', [{ businessTripId: 'other' }]), true);
+  assert.equal(canChangeTripCurrency(trip, 'USD', [{ businessTripId: 'trip' }]), false);
+  assert.equal(canChangeTripCurrency({ ...trip, offeredItems: [{ amount: 3 }] }, 'USD', []), false);
+  assert.equal(canChangeTripCurrency(trip, 'EUR', [{ businessTripId: 'trip' }]), true);
+});
+
+test('non-finite conversion inputs cannot pass the consistency check', () => {
+  const valid = { amount: 41.4, originalAmount: 45, originalCurrency: 'CHF', exchangeRate: 0.92, tripCurrency: 'EUR' };
+  for (const field of ['amount', 'originalAmount', 'exchangeRate']) {
+    for (const value of [NaN, Infinity, -Infinity]) assert.throws(() => buildOriginalCurrencyFields({ ...valid, [field]: value }));
+  }
+});
 
 test('nessuna valuta originale dichiarata → nessun campo aggiunto', () => {
   assert.deepEqual(buildOriginalCurrencyFields({ amount: 45, tripCurrency: 'EUR' }), {});

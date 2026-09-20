@@ -8,6 +8,16 @@ import { accountantReportToJson, accountantReportToCsv } from './accountant-expo
 const fattura = (n, client, imponibile, date, extra = {}) => ({ number: n, year: +date.slice(0, 4), client, imponibile, date, description: 'consulenza', ...extra });
 const entrata = (date, amount, description, id) => ({ id, type: 'entrata', date, amount, description, category: 'stipendio', taxable: true });
 
+test('export: CSV e JSON conservano gli incassi di fatture emesse nell’anno precedente', () => {
+  const report = buildAccountantReport([fattura(9, '=Cliente', 1000, '2025-12-20')],
+    { '2026-01': [entrata('2026-01-10', 1000, 'Cliente', 'imported-uuid')] }, 2026, 'forfettario');
+  const csv = accountantReportToCsv(report);
+  assert.match(csv, /## Incassi abbinati/);
+  assert.match(csv, /9,2025,'=Cliente,2026-01-10,1000,alta/);
+  assert.deepEqual(JSON.parse(accountantReportToJson(report)).incassi, report.incassi);
+  assert.equal(report.incassi.reduce((sum, i) => sum + i.importo, 0), report.incassato);
+});
+
 test('accountantReportToJson: JSON valido, stesso dato del report, con involucro identificabile', () => {
   const report = buildAccountantReport(
     [fattura(1, 'Alfa Spa', 10000, '2026-02-10')],

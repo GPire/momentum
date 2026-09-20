@@ -34,6 +34,7 @@ export function inspectTripArchive(transactions, policy) {
     tx = tx || {};
     const issue = (code, severity = 'blocking') => issues.push({ index, transactionId: tx.id ?? null, code, severity });
     if (tx.tripRevisionConflict) issue('revision_conflict');
+    if (tx.currency && tx.currency !== (policy?.currency || 'EUR')) issue('policy_currency');
     const id = String(tx.id ?? '').trim();
     if (!id) issue('missing_id');
     else if (ids.get(id) > 1) issue('duplicate_id');

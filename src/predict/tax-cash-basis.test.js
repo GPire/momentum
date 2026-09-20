@@ -8,6 +8,36 @@ import {
 const fattura = (n, client, imponibile, date) => ({ number: n, year: +date.slice(0, 4), client, imponibile, date, description: 'consulenza' });
 const entrata = (date, amount, description, id) => ({ id, type: 'entrata', date, amount, description, category: 'stipendio' });
 
+test('non usa una entrata esplicitamente personale per saldare una fattura', () => {
+  const m = matchInvoicePayments([fattura(1, 'Rossi', 1000, '2026-01-01')], {
+    a: [{ ...entrata('2026-01-10', 1000, 'Rossi', 'uuid'), taxable: false }],
+  });
+  assert.equal(m.incassate.length, 0);
+});
+
+test('nomi generici e sottostringhe non aumentano la confidenza', () => {
+  for (const description of ['bonifico Studio Bianchi', 'bonifico Grossista']) {
+    const m = matchInvoicePayments([fattura(1, 'Studio Rossi', 1000, '2026-01-01')], {
+      a: [entrata('2026-01-10', 1000, description, 'uuid')],
+    });
+    assert.equal(m.incassate[0].confidenza, 'media');
+  }
+});
+
+test('valute dichiarate diverse non si abbinano senza conversione verificata', () => {
+  const m = matchInvoicePayments([{ ...fattura(1, 'Rossi', 1000, '2026-01-01'), currency: 'EUR' }], {
+    a: [{ ...entrata('2026-01-10', 1000, 'Rossi', 'uuid'), currency: 'CHF' }],
+  });
+  assert.equal(m.incassate.length, 0);
+});
+
+test('importi infiniti non diventano incassi nemmeno con tolleranza infinita', () => {
+  const m = matchInvoicePayments([fattura(1, 'Rossi', 1000, '2026-01-01')], {
+    a: [entrata('2026-01-10', Infinity, 'Rossi', 'uuid')],
+  }, { tolleranza: Infinity });
+  assert.equal(m.incassate.length, 0);
+});
+
 test('abbina una fattura al suo incasso: nome cliente presente → confidenza alta', () => {
   const invoices = [fattura(1, 'Studio Rossi Srl', 1000, '2026-03-10')];
   const allTx = { '2026-03': [entrata('2026-03-25', 1000, 'bonifico Studio Rossi', 'a')] };

@@ -2,9 +2,57 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildAccountantReport, renderAccountantReportHTML } from './accountant-export.js';
+import { addCollectionEntry, collectionInvoiceId } from '../invoice/collection-workspace.js';
+
+test('export: totale e scomposizione rispettano la copertura previdenziale selezionata', () => {
+  const tx = { '2026-02': [{ type:'entrata', date:'2026-02-10', amount:10000, taxable:true }] };
+  const base = buildAccountantReport([], tx, 2026, 'forfettario');
+  const ridotta = buildAccountantReport([], tx, 2026, 'forfettario', { altraCoperturaPrevidenziale:true });
+  assert.ok(ridotta.accantonamento.dovuto < base.accantonamento.dovuto);
+  const somma = ridotta.accantonamento.scomposizione.reduce((s,v) => s + v.importo,0);
+  assert.ok(Math.abs(somma - ridotta.accantonamento.dovuto) <= .01);
+});
 
 const fattura = (n, client, imponibile, date, extra = {}) => ({ number: n, year: +date.slice(0, 4), client, imponibile, date, description: 'consulenza', ...extra });
 const entrata = (date, amount, description, id, taxable = true) => ({ id, type: 'entrata', date, amount, description, category: 'stipendio', taxable });
+
+test('report: abbinamento esplicito parziale prevale sulla stima e mostra residuo netto',()=>{
+  const invoice=fattura(1,'Rossi',100,'2026-01-01',{paymentSnapshot:{amountDue:102,currency:'EUR'}});
+  const tx={m:[{...entrata('2026-02-01',100,'Rossi','uuid'),currency:'EUR'}]};
+  const {ledger}=addCollectionEntry([invoice],tx,{}, {id:'a',invoiceId:collectionInvoiceId(invoice),receiptId:'uuid',amount:50});
+  const r=buildAccountantReport([invoice],tx,2026,'forfettario',{invoiceCollections:ledger});
+  assert.equal(r.incassato,50);
+  assert.equal(r.fatture[0].stato,'parziale');
+  assert.equal(r.fatture[0].residuoNetto,52);
+  assert.equal(r.incassi[0].confidenza,'confermato');
+  assert.match(renderAccountantReportHTML(r),/Parziale/);
+  const stale=buildAccountantReport([{...invoice,client:'Modificato'}],tx,2026,'forfettario',{invoiceCollections:ledger});
+  assert.equal(stale.incassato,0);
+  assert.equal(stale.anomalie.abbinamentiDaRivedere,1);
+});
+
+test('export: incasso di gennaio include la fattura di dicembre senza duplicare il fatturato', () => {
+  const invoices = [fattura(1, 'Alfa', 1000, '2025-12-20'), fattura(1, 'Beta', 2000, '2026-02-01')];
+  const tx = { '2026-01': [entrata('2026-01-10', 1000, 'Alfa', 'uuid-old')] };
+  const before = JSON.stringify({ invoices, tx });
+  const report = buildAccountantReport(invoices, tx, 2026, 'forfettario');
+  assert.equal(report.fatturato, 2000);
+  assert.equal(report.incassato, 1000);
+  assert.equal(report.fatture.length, 1);
+  assert.equal(report.incassi.length, 1);
+  assert.equal(report.incassi[0].annoFattura, 2025);
+  assert.equal(report.incassi[0].importo, 1000);
+  assert.equal(JSON.stringify({ invoices, tx }), before);
+  assert.match(renderAccountantReportHTML(report), /Incassi abbinati/);
+});
+
+test('export: stessa transazione non paga fatture di due anni nel riepilogo', () => {
+  const invoices = [fattura(1, 'Alfa', 1000, '2025-12-20'), fattura(1, 'Alfa', 1000, '2026-01-01')];
+  const tx = { '2026-01': [entrata('2026-01-10', 1000, 'Alfa', 'uuid-shared')] };
+  const report = buildAccountantReport(invoices, tx, 2026, 'forfettario');
+  assert.equal(report.incassato, 1000);
+  assert.equal(report.fatture[0].stato, 'non incassata');
+});
 
 test('buildAccountantReport: scenario completo — fatturato/incassato/scadenze/non incassate, stessa aritmetica dei moduli esistenti', () => {
   const invoices = [

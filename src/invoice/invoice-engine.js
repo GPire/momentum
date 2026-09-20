@@ -21,6 +21,16 @@ import { invoiceCountry } from './country-invoicing.js';
 export const BOLLO_SOGLIA = 77.47;
 export const BOLLO_IMPORTO = 2.00;
 
+// Preserve the calculation used for the issued document; never recompute old invoices.
+export function invoicePaymentSnapshot(inv, currency) {
+  const code = String(currency || '').trim().toUpperCase();
+  if (!inv?.verifica?.ok || !['EUR','CHF'].includes(code)) return null;
+  const fields = ['imponibile','cassaImporto','ivaImporto','ritenutaImporto','bolloImporto','totaleFattura','nettoARicevere'];
+  if (fields.some(k => !Number.isFinite(inv[k]) || inv[k] < 0 || !Number.isSafeInteger(Math.round(inv[k] * 100)))) return null;
+  if (!(inv.nettoARicevere > 0) || !verifyMoney(inv.nettoARicevere, inv.totaleFattura - inv.ritenutaImporto).ok) return null;
+  return {version:1, currency:code, amountDue:inv.nettoARicevere, ...Object.fromEntries(fields.map(k => [k,inv[k]]))};
+}
+
 const round2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 // Calcola una fattura dall'imponibile. Ritorna la scomposizione completa e
