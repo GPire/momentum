@@ -60,3 +60,12 @@
 @keyframes release-breathe { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 [data-motion="reduced"] .release-cosmos *, .reduce-motion .release-cosmos * { animation:none!important; transition:none!important; }
 @media(prefers-reduced-motion:reduce) { .release-cosmos *, .release-panel *, #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation:none!important; transition:none!important; } }
+
+/* Area accents are reinforced by each feature's icon and title, never color alone. */
+.release-item { --release-accent:#99baff; position:relative; border-color:color-mix(in srgb,var(--release-accent) 22%,transparent); background:linear-gradient(115deg,color-mix(in srgb,var(--release-accent) 8%,transparent),#ffffff03 75%); }
+.release-item[data-tone="green"] { --release-accent:#72dfbf; }
+.release-item[data-tone="gold"] { --release-accent:#f0c37c; }
+.release-item[data-tone="purple"] { --release-accent:#c3a4ff; }
+.release-item::before { content:''; position:absolute; top:20px; bottom:20px; left:0; width:2px; border-radius:4px; background:var(--release-accent); opacity:.65; }
+.release-item .release-icon { color:var(--release-accent); border:1px solid color-mix(in srgb,var(--release-accent) 25%,transparent); background:color-mix(in srgb,var(--release-accent) 12%,transparent); box-shadow:0 4px 18px color-mix(in srgb,var(--release-accent) 9%,transparent),inset 0 1px 0 #ffffff12; transition:transform .25s,box-shadow .25s; }
+@media(hover:hover) and (pointer:fine) { .release-item:hover { border-color:color-mix(in srgb,var(--release-accent) 45%,transparent); background:linear-gradient(115deg,color-mix(in srgb,var(--release-accent) 12%,transparent),#ffffff05); } .release-item:hover .release-icon { transform:translateY(-2px) rotate(-3deg); box-shadow:0 6px 22px color-mix(in srgb,var(--release-accent) 18%,transparent); } }

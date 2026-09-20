@@ -173,3 +173,9 @@ Restano invariati recupero di tutte le novità non lette, traduzioni e cursore.
 Build portabile riuscita; verifica visiva browser e viewport 390x844: contenuto
 348/348 px senza overflow e pulsante con bordo inferiore 819 px, entro schermo.
 Non è una prova fisica. Modifica locale, non ancora distribuita.
+
+Accenti delle novità differenziati secondo il colore già dichiarato in ogni
+voce: azzurro, verde acqua, oro e lilla. Icone, bordi e fondo sfumato condividono
+l'accento; titoli e descrizioni restano leggibili senza dipendere dal colore.
+Verifica browser locale della palette, 10/10 test cronologia e build portabile
+riusciti. Logica delle novità non lette invariata; modifica non distribuita.

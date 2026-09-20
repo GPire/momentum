@@ -10273,7 +10273,7 @@ function showWhatsNewIfDue(force = false) {
   if (!overlay || !list) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const previousFocus = document.activeElement;
-  const renderRelease = rel => rel.voci.map((v, i) => `<article class="release-item" style="--i:${Math.min(i, 5)}"><span class="release-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></span><div><h3>${esc(tCh(v.titoloKey, __uiLang))}</h3><p>${esc(tCh(v.testoKey, __uiLang))}</p></div></article>`).join('');
+  const renderRelease = rel => rel.voci.map((v, i) => `<article class="release-item" data-tone="${['primary', 'green', 'gold', 'purple'].includes(v.colore) ? v.colore : 'primary'}" style="--i:${Math.min(i, 5)}"><span class="release-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></span><div><h3>${esc(tCh(v.titoloKey, __uiLang))}</h3><p>${esc(tCh(v.testoKey, __uiLang))}</p></div></article>`).join('');
   list.innerHTML = `<p class="release-date">${esc(tCh('wnLatest', __uiLang))} · ${esc(releases[0].versione)}</p>${renderRelease(releases[0])}${releases.length > 1 ? `<details class="release-history" ${force ? '' : 'open'}><summary>${esc(tCh('wnEarlier', __uiLang))}<span aria-hidden="true">+</span></summary>${releases.slice(1).map(rel => `<section><p class="release-date">${esc(rel.versione)}</p>${renderRelease(rel)}</section>`).join('')}</details>` : ''}`;
   list.scrollTop = 0;
   const onKey = event => {
