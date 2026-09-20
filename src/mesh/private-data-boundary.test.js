@@ -17,7 +17,7 @@ test('unidentified peers cannot request or receive transactions, budgets or lear
   const { node, channel, sent } = fixture();
   node.getSyncDigest = node.getMissingForPeer = node.getSyncSketch = node.reconcileSketch = () => assert.fail('Private vault read');
   node.onSyncReceived = node.onUserDataReceived = node.onCustomCategoriesReceived = () => assert.fail('Private vault mutation');
-  for (const type of ['weights', 'sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'user_data_share', 'custom_categories_share']) {
+  for (const type of ['weights', 'sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'sync_receipt', 'archive_manifest', 'archive_patch', 'archive_receipt', 'archive_chunk', 'user_data_share', 'custom_categories_share']) {
     await channel.onmessage({ data: JSON.stringify({ type, txs: {}, digest: {}, dati: { monthlyBudget: 1 } }) });
   }
   node.requestSync('peer');
@@ -41,12 +41,13 @@ test('authorization is explicit, channel-aware and revocable in both directions'
   node.onSyncReceived = () => ++received;
   node.broadcastTransactions({ month: [{}] });
   await channel.onmessage({ data: '{"type":"sync_txs","txs":{}}' });
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 2);
+  assert.equal(sent[1].type, 'sync_receipt');
   assert.equal(received, 1);
   allowed = false;
   node.broadcastTransactions({ month: [{}] });
   await channel.onmessage({ data: '{"type":"sync_txs","txs":{}}' });
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 2);
   assert.equal(received, 1);
 });
 

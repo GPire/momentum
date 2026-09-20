@@ -10,6 +10,7 @@ import { associateReimbursement, reimbursementLinkState } from '../trips/reimbur
 import { isTripDeleted } from '../trips/trip-engine.js';
 import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
+import { observePrivateArchive } from '../mesh/private-archive-sync.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -474,6 +475,7 @@ const VaultDAO = {
     }
   },
   save() {
+    observePrivateArchive(this.state);
     const payload = JSON.stringify({ ...this.state, currentDate: this.state.currentDate.toISOString() });
     try {
       localStorage.setItem('omega_core_db', payload);

@@ -199,7 +199,10 @@ class PairingSignaling {
 // perche'. I tre server sono verificati dal vivo — vedi nat-probe.js.
 const ICE_SERVERS = STUN_POOL.map((urls) => ({ urls }));
 
-const PRIVATE_MESSAGE_TYPES = new Set(['weights', 'sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'split_share', 'trip_share', 'user_data_share', 'custom_categories_share', 'morphology_share', 'reliability_share']);
+const PRIVATE_MESSAGE_TYPES = new Set(['weights', 'sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'sync_receipt', 'archive_manifest', 'archive_patch', 'archive_receipt', 'archive_chunk', 'split_share', 'trip_share', 'user_data_share', 'custom_categories_share', 'morphology_share', 'reliability_share']);
+const ARCHIVE_CHUNK_CHARS = 12_000;
+const ARCHIVE_MAX_CHARS = 8 * 1024 * 1024;
+const ARCHIVE_TRANSFER_TTL_MS = 60_000;
 
 class MeshNode {
   // autoDiscovery (default true): quando un peer ci segnala l'esistenza di
@@ -400,8 +403,18 @@ class MeshNode {
         this.requestSync(peerId, { forceDigest: true });
       } else if (msg.type === 'sync_txs') {
         // Ricevo le tx mancanti → merge deterministico nel vault.
-        const added = this.onSyncReceived ? this.onSyncReceived(msg.txs) : 0;
+        const added = this._handleSyncTransactions(peerId, msg.txs);
         if (added > 0) console.log(`Sync: ${added} transazioni ricevute e unite da un device fidato.`);
+      } else if (msg.type === 'sync_receipt') {
+        this.onSyncReceipt?.(peerId, msg.receipt);
+      } else if (msg.type === 'archive_manifest') {
+        this._handleArchiveManifest(peerId, msg.manifest);
+      } else if (msg.type === 'archive_patch') {
+        this._handleArchivePatch(peerId, msg);
+      } else if (msg.type === 'archive_receipt') {
+        this.onArchiveReceipt?.(peerId, msg.receipt);
+      } else if (msg.type === 'archive_chunk') {
+        this._handleArchiveChunk(peerId, msg);
       } else if (msg.type === 'price_share') {
         // Un peer condivide i suoi ultimi prezzi di mercato. La validazione
         // (newest-wins + anti-poison) è del ricevente: mergePeerPrices in
@@ -579,12 +592,97 @@ class MeshNode {
     entry.channel.send(JSON.stringify({ type: 'sync_digest', digest: this.getSyncDigest() }));
   }
 
+  requestArchiveSync(peerId) {
+    if (!this._allowsPrivate(peerId, 'archive_manifest')) return false;
+    const entry = this.peers.get(peerId), manifest = this.getArchiveManifest?.();
+    if (!entry || entry.channel?.readyState !== 'open' || !manifest) return false;
+    return this._sendArchive(entry, { type: 'archive_manifest', manifest });
+  }
+
+  _sendArchive(entry, message) {
+    const raw = JSON.stringify(message);
+    if (raw.length > ARCHIVE_MAX_CHARS) {
+      this.onArchiveDeliveryProblem?.({ reason: 'too-large', bytes: raw.length });
+      return false;
+    }
+    try {
+      if (raw.length <= ARCHIVE_CHUNK_CHARS) entry.channel.send(raw);
+      else {
+        const transferId = crypto.randomUUID();
+        const total = Math.ceil(raw.length / ARCHIVE_CHUNK_CHARS);
+        for (let seq = 0; seq < total; seq++) entry.channel.send(JSON.stringify({ type: 'archive_chunk', transferId, seq, total, part: raw.slice(seq * ARCHIVE_CHUNK_CHARS, (seq + 1) * ARCHIVE_CHUNK_CHARS) }));
+      }
+      return true;
+    } catch (error) {
+      this.onArchiveDeliveryProblem?.({ reason: 'send-failed', error });
+      return false;
+    }
+  }
+
+  _handleArchiveManifest(peerId, manifest) {
+    const entry = this.peers.get(peerId), patch = this.getArchivePatch?.(manifest);
+    if (!entry || entry.channel?.readyState !== 'open' || !patch?.fields) return;
+    for (const [field, data] of Object.entries(patch.fields)) this._sendArchive(entry, { type: 'archive_patch', patch: { version: 1, fields: { [field]: data } } });
+  }
+
+  _handleArchivePatch(peerId, msg) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open') return;
+    const receipt = this.onArchivePatch?.(peerId, msg.patch);
+    if (receipt) this._sendArchive(entry, { type: 'archive_receipt', receipt });
+  }
+
+  _handleArchiveChunk(peerId, msg) {
+    const entry = this.peers.get(peerId);
+    if (!entry || !/^[\w-]{8,80}$/.test(msg.transferId || '') || !Number.isInteger(msg.seq) || !Number.isInteger(msg.total)
+      || msg.total < 1 || msg.total > 1024 || msg.seq < 0 || msg.seq >= msg.total || typeof msg.part !== 'string' || msg.part.length > ARCHIVE_CHUNK_CHARS) return;
+    const transfers = (entry.archiveTransfers ||= new Map());
+    const now = Date.now();
+    // A peer that disappears halfway through a large field must not occupy
+    // one of the four bounded assembly slots forever. Stale fragments are
+    // discarded; the next manifest exchange asks for the field again.
+    for (const [id, candidate] of transfers) {
+      if (now - candidate.startedAt > ARCHIVE_TRANSFER_TTL_MS) transfers.delete(id);
+    }
+    if (!transfers.has(msg.transferId)) {
+      if (transfers.size >= 4) {
+        const oldest = [...transfers.entries()].sort((a, b) => a[1].startedAt - b[1].startedAt)[0]?.[0];
+        if (oldest) transfers.delete(oldest);
+      }
+      transfers.set(msg.transferId, { total: msg.total, parts: new Map(), size: 0, startedAt: now });
+    }
+    const transfer = transfers.get(msg.transferId);
+    if (transfer.total !== msg.total || transfer.parts.has(msg.seq)) return;
+    transfer.parts.set(msg.seq, msg.part); transfer.size += msg.part.length;
+    if (transfer.size > ARCHIVE_MAX_CHARS) { transfers.delete(msg.transferId); return; }
+    if (transfer.parts.size !== transfer.total) return;
+    transfers.delete(msg.transferId);
+    try {
+      const complete = JSON.parse(Array.from({ length: transfer.total }, (_, i) => transfer.parts.get(i)).join(''));
+      if (complete.type === 'archive_patch') this._handleArchivePatch(peerId, complete);
+      else if (complete.type === 'archive_receipt') this.onArchiveReceipt?.(peerId, complete.receipt);
+      else if (complete.type === 'sync_txs') this._handleSyncTransactions(peerId, complete.txs);
+    } catch { this.onArchiveDeliveryProblem?.({ reason: 'invalid-chunks' }); }
+  }
+
+  _handleSyncTransactions(peerId, txs) {
+    if (!txs || typeof txs !== 'object' || Array.isArray(txs)) return 0;
+    const added = this.onSyncReceived ? this.onSyncReceived(txs) : 0;
+    const count = Object.values(txs || {}).reduce((sum, rows) => sum + (Array.isArray(rows) ? rows.length : 0), 0);
+    const entry = this.peers.get(peerId);
+    if (entry?.channel?.readyState === 'open') this._sendArchive(entry, {
+      type: 'sync_receipt',
+      receipt: { results: [{ field: 'transactions', status: added > 0 ? 'applied' : 'matched' }], count, receivedAt: Date.now() },
+    });
+    return Number(added) || 0;
+  }
+
   _handleSyncDigest(peerId, peerDigest) {
     if (!this._allowsPrivate(peerId, 'sync_digest')) return;
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel.readyState !== 'open' || !this.getMissingForPeer) return;
     const txs = this.getMissingForPeer(peerDigest); // { month: [tx…] } solo i delta
-    if (Object.keys(txs).length) entry.channel.send(JSON.stringify({ type: 'sync_txs', txs }));
+    if (Object.keys(txs).length) this._sendArchive(entry, { type: 'sync_txs', txs });
   }
 
   // Riconcilia lo sketch ricevuto col proprio. Chi riconcilia può NOMINARE
@@ -608,7 +706,7 @@ class MeshNode {
       return;
     }
     if (esito.txs && Object.keys(esito.txs).length) {
-      entry.channel.send(JSON.stringify({ type: 'sync_txs', txs: esito.txs }));
+      this._sendArchive(entry, { type: 'sync_txs', txs: esito.txs });
     }
     // Ora tocca a me ricevere: mando il MIO sketch, ma solo se questo era il
     // primo giro (msg.reply === false), altrimenti si rimbalzerebbe all'infinito.
@@ -899,11 +997,10 @@ class MeshNode {
   // sicuro e non serve un protocollo nuovo per una cosa che c'è già.
   broadcastTransactions(txsByMonth) {
     if (!txsByMonth || !Object.keys(txsByMonth).length) return 0;
-    const msg = JSON.stringify({ type: 'sync_txs', txs: txsByMonth });
     let inviati = 0;
     for (const [peerId, entry] of this.peers.entries()) {
       if (!this._allowsPrivate(peerId, 'sync_txs')) continue;
-      if (entry.channel?.readyState === 'open') { entry.channel.send(msg); inviati++; }
+      if (entry.channel?.readyState === 'open' && this._sendArchive(entry, { type: 'sync_txs', txs: txsByMonth })) inviati++;
     }
     return inviati;
   }

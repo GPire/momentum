@@ -1066,3 +1066,21 @@ test('t: tutte le chiavi trust* (Centro Fiducia, mosse 2+3+4 analisi competitiva
     }
   }
 });
+
+test('private archive sync explains consent, status and conflicts in all seven languages', () => {
+  const keys = [
+    'syncArchiveSetup', 'syncArchiveConsent', 'syncArchiveLimit',
+    'syncArchiveState', 'syncNoConflicts', 'syncConflictTitle',
+    'syncConflictIntro', 'syncConflictChoice', 'syncKeepThis', 'syncUseOther',
+    'syncArchiveApplied', 'syncDeliveryProblem', 'syncDomainTax',
+    'syncDomainTrips', 'syncDomainPlans', 'syncDomainLearning',
+    'syncDomainProfile', 'syncState_waiting', 'syncState_authenticating',
+    'syncState_authenticated', 'syncState_confirmed', 'syncState_needs_consent',
+    'syncState_timeout', 'syncState_disconnected', 'syncState_revoked',
+  ];
+  for (const lang of UI_LANGS) {
+    for (const key of keys) assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    assert.match(t('syncConflicts', lang, 2), /2/);
+    assert.match(t('syncDomains', lang, 5), /5/);
+  }
+});

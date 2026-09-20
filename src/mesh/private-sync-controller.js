@@ -1,8 +1,9 @@
 import { PrivateSyncSessions } from './private-sync-sessions.js';
 const CONTROL = new Set(['private_sync_challenge', 'private_sync_proof', 'private_sync_ready']);
-const DATA = new Set(['sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs']);
+const DATA = new Set(['sync_digest', 'sync_sketch', 'sync_need_digest', 'sync_txs', 'sync_receipt', 'archive_manifest', 'archive_patch', 'archive_receipt', 'archive_chunk']);
 
-// Wiring for authenticated movement sync. Other Vault domains remain denied.
+// Wiring for authenticated personal sync. Only the explicitly authorised
+// transaction and portable-archive protocols pass this boundary.
 export function bindPrivateSync(node, options) {
   const sessions = new PrivateSyncSessions(options);
   const status = options.status || (() => {});
@@ -66,11 +67,13 @@ export function bindPrivateSync(node, options) {
       status(peer, 'authenticated');
       if (!announced.has(entry)) { announced.add(entry); send(peer, entry, 'private_sync_ready', {}); }
       node.requestSync(peer, {forceDigest:true});
+      node.requestArchiveSync?.(peer);
     } else if (sessions.allows(peer, entry) && !readyReceived.has(entry)) {
       readyReceived.add(entry);
       // A peer may have authenticated after our first digest was sent. Retry once.
       if (!announced.has(entry)) { announced.add(entry); send(peer, entry, 'private_sync_ready', {}); }
       node.requestSync(peer, {forceDigest:true});
+      node.requestArchiveSync?.(peer);
     }
   };
   return { start, sessions, dispose() { for(const peer of timers.keys()) stop(peer); sessions.sessions.clear(); }, revoke(peer) { stop(peer); const entry=node.peers.get(peer); if(entry) { pending.delete(entry); requests.delete(entry); retried.delete(entry); announced.delete(entry); readyReceived.delete(entry); } sessions.revoke(peer); status(peer,'revoked'); } };

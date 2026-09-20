@@ -1,5 +1,15 @@
 import { bindPrivateSync } from './mesh/private-sync-controller.js';
+import { applyPrivateArchivePatch, privateArchiveManifest, privateArchivePatch, privateArchiveStatus, recordPrivateArchiveReceipt, resolvePrivateArchiveConflict } from './mesh/private-archive-sync.js';
 let privateSyncController = null;
+const __privateSyncStatus = new Map();
+const updatePrivateSyncStatus = (peer, value) => {
+  __privateSyncStatus.set(peer, value);
+  for (const element of document.querySelectorAll('.sync-device-state')) {
+    if (element.dataset.peer !== String(peer ?? '')) continue;
+    element.dataset.state = value;
+    element.textContent = tCh(`syncState_${String(value).replace('-', '_')}`, __uiLang);
+  }
+};
 import './ui/release-experience.css';
 import { mountInvoiceJourney } from './ui/invoice-journey.js';
 import { taxHandoffGuide } from './ui/tax-handoff.js';
@@ -17563,14 +17573,28 @@ window.toggleGhostRadar = () => {
 };
 
 // Navigation only: never performs or confirms a destructive action.
+const privateArchiveDomainLabel = field => {
+  if (/invoice|tax|iva|fisc|acquisti/i.test(field)) return tCh('syncDomainTax', __uiLang);
+  if (/trip|business/i.test(field)) return tCh('syncDomainTrips', __uiLang);
+  if (/goal|event|payment|commitment|debit|salary|budget|subscription/i.test(field)) return tCh('syncDomainPlans', __uiLang);
+  if (/learning|mlData|advisor|achievement|engagement|sourceRegistry/i.test(field)) return tCh('syncDomainLearning', __uiLang);
+  return tCh('syncDomainProfile', __uiLang);
+};
+
 window.openAuthorizedDevices = () => {
   const devices = [...(VaultDAO.state.trustedDevices || [])];
-  openModal(`<div class="p-5 space-y-4"><h3 class="text-lg font-bold">${escapeHtml(tCh('deviceAuthorized', __uiLang))}</h3><p>${escapeHtml(tCh('deviceScope', __uiLang))}</p><div id="authorized-device-list"></div></div>`);
+  const archive = privateArchiveStatus(VaultDAO.state);
+  openModal(`<div class="p-5 space-y-4 sync-device-workspace"><header class="sync-device-hero"><span class="sync-device-orbit" aria-hidden="true"></span><div><h3 class="text-lg font-bold">${escapeHtml(tCh('deviceAuthorized', __uiLang))}</h3><p>${escapeHtml(tCh('deviceScope', __uiLang))}</p></div></header><button type="button" id="sync-conflict-open" class="sync-health-card"><span>${escapeHtml(tCh('syncArchiveState', __uiLang))}</span><strong>${archive.conflicts ? escapeHtml(tCh('syncConflicts', __uiLang, archive.conflicts)) : escapeHtml(tCh('syncNoConflicts', __uiLang))}</strong><small>${escapeHtml(tCh('syncDomains', __uiLang, archive.coveredFields))}</small></button><div id="authorized-device-list"></div></div>`);
+  document.getElementById('sync-conflict-open').onclick = window.openPrivateSyncConflicts;
   const list = document.getElementById('authorized-device-list');
   if (!devices.length) { list.textContent = tCh('deviceNone', __uiLang); return; }
   for (const device of devices) {
     const row = document.createElement('div'); row.className = 'device-options';
     const label = document.createElement('p'); label.textContent = device.label || tCh('deviceAuthorized', __uiLang);
+    const state = document.createElement('small');
+    const peer = [...__chiaviDeiPeer].find(([, key]) => key === device.publicKey)?.[0];
+    state.className = 'sync-device-state'; state.dataset.peer = String(peer ?? ''); state.dataset.state = __privateSyncStatus.get(peer) || 'waiting';
+    state.textContent = tCh(`syncState_${state.dataset.state.replace('-', '_')}`, __uiLang);
     const button = document.createElement('button'); button.type = 'button'; button.className = 'btn-action'; button.textContent = tCh('deviceRevoke', __uiLang);
     button.onclick = () => {
       VaultDAO.state.trustedDevices = removeTrustedDevice(VaultDAO.state.trustedDevices, device.publicKey);
@@ -17584,15 +17608,32 @@ window.openAuthorizedDevices = () => {
       showToast(tCh('deviceRevoked', __uiLang), 'success');
       window.openAuthorizedDevices();
     };
-    const syncButton = document.createElement('button'); syncButton.type='button'; syncButton.className='btn-action'; syncButton.textContent=tCh('syncSetup',__uiLang);
+    const syncButton = document.createElement('button'); syncButton.type='button'; syncButton.className='btn-action'; syncButton.textContent=tCh('syncArchiveSetup',__uiLang);
     syncButton.onclick=()=>window.configurePrivateSync(device.publicKey);
-    row.append(label, syncButton, button); list.append(row);
+    row.append(label, state, syncButton, button); list.append(row);
+  }
+};
+window.openPrivateSyncConflicts = () => {
+  const conflicts = VaultDAO.state.privateArchiveMeta?.conflicts || [];
+  openModal(`<section class="p-5 space-y-4 sync-conflict-workspace"><header><h3>${escapeHtml(tCh('syncConflictTitle', __uiLang))}</h3><p>${escapeHtml(tCh('syncConflictIntro', __uiLang))}</p></header><div id="sync-conflict-list"></div></section>`);
+  const list = document.getElementById('sync-conflict-list');
+  if (!conflicts.length) { list.innerHTML = `<div class="sync-empty-state"><span class="sync-device-orbit" aria-hidden="true"></span><strong>${escapeHtml(tCh('syncNoConflicts', __uiLang))}</strong></div>`; return; }
+  for (const conflict of conflicts) {
+    const card = document.createElement('article'); card.className = 'sync-conflict-card';
+    card.innerHTML = `<span>${escapeHtml(privateArchiveDomainLabel(conflict.field))}</span><strong>${escapeHtml(tCh('syncConflictChoice', __uiLang))}</strong><div class="sync-conflict-actions"></div>`;
+    const actions = card.querySelector('.sync-conflict-actions');
+    for (const [choice, key] of [['local', 'syncKeepThis'], ['remote', 'syncUseOther']]) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = `btn-action${choice === 'local' ? ' btn-primary' : ''}`; button.textContent = tCh(key, __uiLang);
+      button.onclick = () => { if (!resolvePrivateArchiveConflict(VaultDAO.state, conflict.id, choice)) return; VaultDAO.save(); window.openPrivateSyncConflicts(); for (const peerId of momentumMeshNode?.peers?.keys?.() || []) momentumMeshNode.requestArchiveSync(peerId); };
+      actions.append(button);
+    }
+    list.append(card);
   }
 };
 window.configurePrivateSync = publicKey => {
   if (!isTrustedKey(VaultDAO.state.trustedDevices || [], publicKey)) return;
   const tr = key => escapeHtml(tCh(key,__uiLang));
-  openModal(`<div class="p-5 space-y-4"><h3>${tr('syncSetup')}</h3><p>${tr('syncLimit')}</p><label for="private-sync-scope">${tr('syncCode')}</label><input id="private-sync-scope" class="modal-input" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="private-sync-create" class="btn-action">${tr('syncCreate')}</button><label class="flex gap-3 items-start"><input id="private-sync-consent" type="checkbox" class="toggle-input"><span>${tr('syncConsent')}</span></label><p id="private-sync-feedback" role="status"></p><button id="private-sync-save" class="btn-action btn-primary">${tr('syncSave')}</button></div>`);
+  openModal(`<div class="p-5 space-y-4"><h3>${tr('syncArchiveSetup')}</h3><p>${tr('syncArchiveLimit')}</p><label for="private-sync-scope">${tr('syncCode')}</label><input id="private-sync-scope" class="modal-input" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="private-sync-create" class="btn-action">${tr('syncCreate')}</button><label class="flex gap-3 items-start"><input id="private-sync-consent" type="checkbox" class="toggle-input"><span>${tr('syncArchiveConsent')}</span></label><p id="private-sync-feedback" role="status"></p><button id="private-sync-save" class="btn-action btn-primary">${tr('syncSave')}</button></div>`);
   const input=document.getElementById('private-sync-scope'), check=document.getElementById('private-sync-consent');
   input.value=VaultDAO.state.privateSyncScope || '';
   input.readOnly=!!VaultDAO.state.privateSyncScope;
@@ -23559,6 +23600,7 @@ async function initMomentumRealAI() {
       scope: () => VaultDAO.state.privateSyncScope || null,
       consent: key => !!VaultDAO.state.privateSyncScope && VaultDAO.state.privateSyncConsents?.[key] === VaultDAO.state.privateSyncScope,
       peerKey: peer => __chiaviDeiPeer.get(peer),
+      status: updatePrivateSyncStatus,
     });
     // Sync differenziale dei DATI tra device fidati (src/mesh/sync.js):
     // callback che la mesh usa per scambiare digest→delta e per il merge.
@@ -23634,6 +23676,29 @@ async function initMomentumRealAI() {
       transactionsMissingFromPeer(VaultDAO.state.transactions, peerDigest, VaultDAO.state.deletedTx || {}),
       { now: Date.now() },
     );
+    momentumMeshNode.getArchiveManifest = () => privateArchiveManifest(VaultDAO.state);
+    momentumMeshNode.getArchivePatch = manifest => privateArchivePatch(VaultDAO.state, manifest);
+    momentumMeshNode.onArchivePatch = (peerId, patch) => {
+      const result = applyPrivateArchivePatch(VaultDAO.state, patch, { peerId });
+      if (result.changed || result.conflicted) {
+        VaultDAO.save();
+        if (result.conflicted) showToast(tCh('syncConflictToast', __uiLang), 'info');
+        else showToast(tCh('syncArchiveApplied', __uiLang), 'success');
+        try { renderDashboard(); if (VaultDAO.state.currentView === 'analysis') renderAnalysis({ skipHeavyForecast: true }); } catch (_) {}
+      }
+      return { results: result.results, receivedAt: Date.now() };
+    };
+    momentumMeshNode.onArchiveReceipt = (peerId, receipt) => {
+      if (!recordPrivateArchiveReceipt(VaultDAO.state, peerId, receipt)) return;
+      VaultDAO.save();
+      updatePrivateSyncStatus(peerId, 'confirmed');
+    };
+    momentumMeshNode.onSyncReceipt = (peerId, receipt) => {
+      if (!recordPrivateArchiveReceipt(VaultDAO.state, peerId, receipt)) return;
+      VaultDAO.save();
+      updatePrivateSyncStatus(peerId, 'confirmed');
+    };
+    momentumMeshNode.onArchiveDeliveryProblem = () => showToast(tCh('syncDeliveryProblem', __uiLang), 'error');
     momentumMeshNode.onSyncReceived = (txs) => {
       const added = VaultDAO.applySyncMerge(txs);
       if (added > 0) window.__tripLiveRefresh?.();

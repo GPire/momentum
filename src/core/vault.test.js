@@ -7,6 +7,7 @@ globalThis.indexedDB = undefined;
 globalThis.localStorage = globalThis.localStorage || { getItem: () => null, setItem: () => {} };
 
 const { runSchemaMigrations, tryReadIosHandoff, VaultDAO, DurableStore, reconstructMissingFromTxLog } = await import("./vault.js");
+const { observePrivateArchive } = await import("../mesh/private-archive-sync.js");
 
 // Semplice localStorage in-memory per i test sotto — supporta anche
 // removeItem e un limite di quota opzionale (simula QuotaExceededError).
@@ -221,6 +222,9 @@ test('VaultDAO.save: la scrittura di "shadow" fallisce per quota superata → "m
     // non solo le transazioni) — abbastanza per "main" ma non per "shadow",
     // che è sempre ~33% più lunga per l'overhead base64: simula lo scenario
     // reale (main si salva, shadow no).
+    // save() aggiorna prima i vector clock dell'archivio personale: anche
+    // quei metadati fanno parte del payload reale e quindi della quota.
+    observePrivateArchive(VaultDAO.state);
     const realPayload = JSON.stringify({ ...VaultDAO.state, currentDate: VaultDAO.state.currentDate.toISOString() });
     const ls = fakeLocalStorage({ quota: realPayload.length + 10 });
     globalThis.localStorage = ls;

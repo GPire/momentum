@@ -286,3 +286,45 @@ Resta da completare il feedback visibile dei timeout, la conferma persistente
 della ricezione, la riconciliazione delle modifiche ordinarie e dell'intero
 archivio, l'anteprima dei conflitti e il collaudo fra dispositivi fisici.
 Non inviare l'intero oggetto Vault: include chiavi e autorizzazioni locali.
+
+### Riconciliazione dell'archivio personale — 20 settembre, terzo controllo
+
+Supera i limiti precedenti per i dati personali supportati senza spedire alla
+cieca l'intero oggetto Vault. Una lista esplicita di 51 campi portabili copre
+budget e profilo, piani e scadenze, obiettivi, patrimonio, trasferte, fatture e
+fisco IT/CH/ES, categorie, preferenze d'investimento e apprendimento locale.
+Nel testo per l'utente questi campi sono raggruppati in cinque aree leggibili;
+non sono domini internet. Movimenti e cancellazioni continuano sul protocollo
+CRDT dedicato; gruppi split continuano ad avere autorizzazioni di membership
+separate.
+
+Ogni campo portabile ha hash di confronto e vector clock per dispositivo. Una
+modifica causalmente successiva viene applicata; modifiche concorrenti diverse
+non vengono sovrascritte: entrambe restano salvate e compaiono in una schermata
+di scelta. La risoluzione genera una nuova versione causale e riparte al
+collegamento successivo. Le ricevute applicative di campi e transazioni sono
+persistite con limiti di quantità e contenuto; l'interfaccia distingue attesa,
+verifica, collegamento, ricezione confermata, timeout, disconnessione e revoca.
+
+Il trasporto spezza payload superiori a 12.000 caratteri, li ricompone entro un
+limite di 8 MiB, elimina assemblaggi incompleti dopo 60 secondi e mantiene al
+massimo quattro trasferimenti concorrenti per peer. Anche le foto ricevuta
+incorporate nei movimenti usano questo percorso: non dipendono più da un unico
+messaggio WebRTC sovradimensionato. Gli allegati dell'archivio documentale
+IndexedDB rimangono un dominio separato e non vengono dichiarati sincronizzati.
+Chiavi API, identità del dispositivo, autorizzazioni, consenso, telemetria,
+materiale di recupero e stato UI sono esclusi esplicitamente.
+
+Verifiche locali: tutti i 388 file di test in `src` superati in sequenza,
+5.469 test complessivi senza errori;
+fra quelli mirati private-archive-sync 9/9, mesh-signaling 51/51,
+private-sync-controller 9/9, private-sync-sessions 9/9, private-data-boundary
+7/7, translation-coverage 9/9 e ui-strings 91/91. Il runner parallelo di Node
+resta bloccato da `spawn EPERM`; gli stessi file vengono eseguiti nel processo
+Node 20, uno alla volta. Build portabile riuscita su 448 moduli con esbuild
+WebAssembly. Collaudo browser locale riuscito: novità, accesso dal Vault,
+stato archivio e schermata conflitti; viewport 390×844 verificata senza tagli
+del foglio. Questa verifica non equivale a una prova fra iPhone,
+Mac e reti fisiche diverse: tale prova resta aperta e non va presentata come
+superata. La sincronizzazione richiede entrambe le app raggiungibili; non è un
+backup cloud né una garanzia di lavoro a PWA completamente chiusa.
