@@ -1,5 +1,13 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Stato canonico del rilascio:** prima di dichiarare una funzione pronta o
+> scegliere il prossimo lavoro, leggere
+> [release-readiness-2026-09-20.md](docs/release-readiness-2026-09-20.md).
+> Ogni cambiamento che chiude o apre un blocco di rilascio DEVE aggiornare quel
+> documento nello stesso commit indicando data, prova eseguita e limite ancora
+> aperto. Non creare una nuova roadmap per sostituirlo: i documenti specialistici
+> possono approfondire, ma la decisione complessiva resta in quel file.
+
 > **Telemetria verificata e release locale, 2026-09-20:** il collector pubblico
 > `momentum-telemetry` è sulla versione Cloudflare `c84aad16`. Preflight dalla
 > produzione e scrittura di un probe `presence` con TTL sono stati verificati
@@ -7,20 +15,24 @@
 > PWA installata, apertura standalone, presenza approssimata e copertura mensile
 > delle feature con cataloghi chiusi e opt-out. `install` storico resta una prima
 > apertura browser, non viene retroattivamente chiamato installazione. Suite
-> completa: **394/394 file**; build portabile di produzione riuscita su 443
+> completa: **395/395 file**; build portabile di produzione riuscita su 443
 > moduli. Dettagli e limiti in
 > [trip-enterprise-validation-2026-09-20.md](docs/trip-enterprise-validation-2026-09-20.md).
-> Il servizio aziendale rimane separato: non dichiarare connettori autenticati,
-> identità cloud o prove su dispositivi fisici finché non esistono account e
-> collaudi reali. Non riutilizzare il KV della telemetria per dati aziendali.
+> Il gateway del servizio aziendale è pubblicato sulle sole route `/v1/*` e
+> `/company/*`; identità, D1 e storage non sono ancora configurati sul progetto
+> di produzione. Non dichiarare connettori autenticati o prove su dispositivi
+> fisici finché non esistono account e collaudi reali. Non riutilizzare il KV
+> della telemetria per dati aziendali.
 
-> **Servizio policy aziendali, 2026-09-13:** vedere
-> [server/company/README.md](server/company/README.md). Worker separato con
-> verifica JWT Access, membership per azienda e policy versionate su D1.
-> Test locali su SQLite reale e firme RSA; NON distribuito, NON collegato
-> alla UI, nessun SSO aziendale o carico multinazionale collaudato.
-> Non riutilizzare la telemetria per dati aziendali. Le policy locali
-> dell'app non sono diventate automaticamente policy aziendali autorizzate.
+> **Servizio policy aziendali, aggiornato 2026-09-20:** vedere
+> [server/company/README.md](server/company/README.md) e
+> [company-cloud-activation-2026-09-20.md](docs/company-cloud-activation-2026-09-20.md).
+> Worker con verifica JWT Access/OIDC, membership, policy versionate, resoconti,
+> revisioni, approvazioni e allegati. Il gateway Pages è distribuito e il client
+> usa le route sullo stesso dominio; senza binding D1/storage e identità cloud il
+> servizio risponde in modo chiuso e non è operativo. Nessun SSO aziendale o
+> carico multinazionale è stato collaudato. Le policy locali dell'app non sono
+> diventate automaticamente policy aziendali autorizzate.
 
 > **Sciame — scoperta senza server, 2026-09-13:** leggere
 > [sciame-discovery-2026-09-13.md](docs/sciame-discovery-2026-09-13.md).

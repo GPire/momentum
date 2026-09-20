@@ -1,7 +1,15 @@
 # Rilascio al pubblico
 
-Stato verificato il **2026-09-10**. Ogni affermazione qui è stata controllata
-contro il repo reale, non scritta a memoria (stessa regola di `AGENTS.md`).
+> **Stato canonico aggiornato:** [Momentum — stato reale e lavoro restante,
+> 20 settembre 2026](docs/release-readiness-2026-09-20.md). Contiene la
+> decisione per PWA, store, trasferte, servizio aziende, HR/Finance,
+> integrazioni, fisco e modelli, con la prova richiesta per chiudere ogni
+> blocco. Le sezioni sotto conservano le istruzioni operative degli store.
+
+Le istruzioni store riportate sotto sono state verificate il **2026-09-10**.
+Per la decisione di rilascio corrente prevale il documento canonico collegato
+sopra. Ogni affermazione è controllata contro il repo reale, non scritta a
+memoria (stessa regola di `AGENTS.md`).
 
 **Preparazione in corso:** configurare la firma non rende l'app pronta per gli store.
 Per correzioni, verifiche e impedimenti ancora aperti, leggere
