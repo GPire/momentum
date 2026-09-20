@@ -4551,27 +4551,15 @@
        inventato) e le stesse .payoff-card in vetro già usate per il payoff
        dell'onboarding. Nascosto di default, mostrato solo se whatsNew.js
        (main.js) trova versione mai vista. -->
-  <div id="whats-new-overlay" class="hidden fixed inset-0 z-[9998] bg-[#000] flex items-center justify-center overflow-hidden">
-    <div class="absolute inset-0 z-0 pointer-events-none">
-       <div class="absolute inset-0" style="background:
-            radial-gradient(60% 55% at 27% 30%, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0) 60%),
-            radial-gradient(55% 50% at 76% 72%, rgba(34,211,238,0.12) 0%, rgba(34,211,238,0) 60%);"></div>
-       <div class="starfield"><div class="star-layer sl-small"></div><div class="star-layer sl-mid"></div><div class="star-layer sl-big"></div><div class="star-layer sl-glow"></div><div class="shooting-star s1"></div><div class="shooting-star s2"></div><div class="shooting-star s3"></div></div>
-    </div>
-    <div class="absolute inset-0 z-[5] pointer-events-none" style="background: radial-gradient(ellipse 60% 45% at 50% 48%, rgba(5,7,15,0.82) 0%, rgba(5,7,15,0.55) 45%, rgba(5,7,15,0) 78%);"></div>
-    <div class="relative z-10 w-full max-w-md px-6 max-h-[92dvh] flex flex-col items-center text-center gap-4" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px))">
-      <p class="eyebrow !mb-0 text-[var(--primary)]" data-i18n-key="wnEyebrow">Momentum · Novità</p>
-      <h2 class="text-2xl font-black text-white tracking-tight" data-i18n-key="wnTitle">Cosa c'è di nuovo</h2>
-      <!-- Storico concatenato (più release non ancora viste, non solo
-           l'ultima): con un dispositivo fermo da mesi la lista può crescere
-           parecchio — scroll interno, mai un layout che rompe o un
-           bottone "Ho capito" spinto fuori schermo su un telefono piccolo.
-           `dvh` non `vh` (stessa lezione già imparata per #modal-content):
-           su iOS in standalone `vh` include la barra del browser che nella
-           PWA non c'è mai, sovrastimando lo spazio davvero disponibile. -->
-      <div id="whats-new-list" class="w-full flex flex-col gap-3 text-left overflow-y-auto pr-0.5" style="max-height: min(52dvh, 420px);"></div>
-      <button id="whats-new-close" class="btn-action btn-primary w-full py-3 font-bold rounded-xl mt-1 shrink-0" data-i18n-key="wnClose">Ho capito</button>
-    </div>
+  <div id="whats-new-overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="release-title">
+    <section class="release-panel">
+      <header class="release-header">
+        <div class="release-orbit" aria-hidden="true"><i></i><b></b></div>
+        <div><p class="eyebrow" data-i18n-key="wnEyebrow">Momentum · Novità</p><h2 id="release-title" data-i18n-key="wnTitle">Cosa c'è di nuovo</h2></div>
+      </header>
+      <div id="whats-new-list" class="release-content"></div>
+      <footer class="release-footer"><p data-i18n-key="wnReopen">Riapri queste novità dal Vault quando vuoi.</p><button id="whats-new-close" class="btn-action btn-primary" data-i18n-key="wnClose">Ho capito</button></footer>
+    </section>
   </div>
 
   <div id="pdf-progress-overlay">
@@ -6060,6 +6048,7 @@
 
                   <div id="app-maintenance-card" class="card p-6 finance-detail-card">
                     <header class="app-maintenance-heading"><span class="app-maintenance-emblem" aria-hidden="true"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="10"/><ellipse cx="20" cy="20" rx="18" ry="7" transform="rotate(-30 20 20)"/><circle cx="34" cy="12" r="2"/></svg></span><div><h3 data-i18n-key="vaultAboutTitle">Questa app</h3><p id="version-display" class="no-privacy-blur">Momentum V50</p></div></header>
+                    <button type="button" onclick="window.openWhatsNew?.()" class="finance-card-action"><span data-i18n-key="wnTitle">Cosa c'è di nuovo</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v15H4zM8 9h8M8 13h8M8 17h4"/></svg></button>
                     <button type="button" onclick="window.checkForAppUpdate?.(event)" id="check-update-btn" class="finance-card-action"><span data-i18n-key="vaultCheckUpdates">Cerca aggiornamenti ora</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 4v5h-5"/></svg></button>
                     <p id="app-update-status" class="maintenance-status" role="status"></p>
                     <details class="calm-disclosure maintenance-delete"><summary data-i18n-key="vaultDeleteAllData">Cancella tutti i dati</summary><p data-i18n-key="vaultDeleteAllWarn">I tuoi dati sono solo su questo dispositivo: cancellarli qui non si può annullare.</p><button type="button" onclick="nukeVault()" class="maintenance-delete-action" data-i18n-key="vaultDeleteAllData">Cancella tutti i dati</button></details>

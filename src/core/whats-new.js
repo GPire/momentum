@@ -566,6 +566,44 @@ RELEASES.push({
   ]
 });
 
+RELEASES.push({
+  "versione": "2026-09-20",
+  "voci": [
+    {
+      "colore": "primary",
+      "icona": "<rect x=\"4\" y=\"6\" width=\"16\" height=\"15\" rx=\"3\"/><path d=\"M8 6V3h8v3M8 13l3 3 5-6\"/>",
+      "titolo": "Trasferte più ordinate",
+      "testo": "Scontrini, spese personali e rimborsi restano distinguibili. Puoi correggere le spese e controllare gli allegati prima di condividere il resoconto.",
+      "titoloKey": "wn0920_0_t",
+      "testoKey": "wn0920_0_d"
+    },
+    {
+      "colore": "green",
+      "icona": "<path d=\"M6 3h12v18l-3-2-3 2-3-2-3 2V3Z M9 8h6M9 12h4\"/>",
+      "titolo": "Scontrini da controllare, senza indovinare",
+      "testo": "Valuta e date ambigue vengono segnalate. Controlla i dati letti prima di salvare; gli scontrini riutilizzati vengono evidenziati.",
+      "titoloKey": "wn0920_1_t",
+      "testoKey": "wn0920_1_d"
+    },
+    {
+      "colore": "gold",
+      "icona": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"3\"/><path d=\"M8 8h8M8 12h8M8 16h4\"/>",
+      "titolo": "Fatture e documenti collegati",
+      "testo": "Registra incassi parziali, collega documenti ed esiti e prepara il confronto con il commercialista. Le guide IT, CH ed ES chiariscono i passaggi sui portali ufficiali.",
+      "titoloKey": "wn0920_2_t",
+      "testoKey": "wn0920_2_d"
+    },
+    {
+      "colore": "purple",
+      "icona": "<circle cx=\"6\" cy=\"12\" r=\"3\"/><circle cx=\"18\" cy=\"12\" r=\"3\"/><path d=\"M9 12h6\"/>",
+      "titolo": "Un ponte verso la tua azienda",
+      "testo": "Prepara file con colonne adattabili e anteprima. Le connessioni automatiche ai gestionali richiedono ancora attivazione: esportare non significa aver inviato.",
+      "titoloKey": "wn0920_3_t",
+      "testoKey": "wn0920_3_d"
+    }
+  ]
+});
+
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

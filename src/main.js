@@ -1,3 +1,4 @@
+import './ui/release-experience.css';
 import { mountInvoiceJourney } from './ui/invoice-journey.js';
 import { taxHandoffGuide } from './ui/tax-handoff.js';
 import { taxServices, taxServiceGuide, taxTransmissionCopy } from './ui/tax-services.js';
@@ -10255,42 +10256,35 @@ const AVATAR_PALETTE = ['#f43f5e', '#f59e0b', '#10b981', '#06b6d4', '#6366f1', '
 // solo l'ultima — nasconderle sarebbe un dato taciuto, contrario al
 // principio del progetto. `unseenReleases` fa il lavoro puro; qui solo il
 // rendering.
-function showWhatsNewIfDue() {
+function showWhatsNewIfDue(force = false) {
   // Un solo messaggio importante per accesso: il controllo di integrità dei
   // movimenti ha precedenza. Le novità restano non lette e appariranno al
   // prossimo avvio, invece di sovrapporsi a una decisione sui dati.
-  if (window.__recoveryPromptShownThisSession) return;
-  if (!shouldShowWhatsNew(VaultDAO.state)) return;
+  if (!force && window.__recoveryPromptShownThisSession) return;
+  if (!force && !shouldShowWhatsNew(VaultDAO.state)) return;
   // unseenReleases() torna in ordine cronologico CRESCENTE (contratto testato
   // in whats-new.test.js, non toccato qui) — ma in questa schermata l'utente
   // deve vedere per primo cosa è cambiato PIÙ DI RECENTE, non l'inizio di una
   // cronologia lunga mesi. Si inverte solo qui, al momento di mostrarla.
-  const releases = unseenReleases(VaultDAO.state).slice().reverse();
+  const releases = unseenReleases(force ? {} : VaultDAO.state).slice().reverse();
   if (!releases.length) return;
   const overlay = document.getElementById('whats-new-overlay');
   const list = document.getElementById('whats-new-list');
   if (!overlay || !list) return;
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const tono = {
-    green: 'text-emerald-400 border-emerald-400/40 bg-emerald-400/5',
-    gold: 'text-amber-400 border-amber-400/40 bg-amber-400/5',
-    primary: 'text-[var(--primary)] border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)]',
-    purple: 'text-purple-400 border-purple-400/40 bg-purple-400/5',
+  const previousFocus = document.activeElement;
+  const renderRelease = rel => rel.voci.map((v, i) => `<article class="release-item" style="--i:${Math.min(i, 5)}"><span class="release-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></span><div><h3>${esc(tCh(v.titoloKey, __uiLang))}</h3><p>${esc(tCh(v.testoKey, __uiLang))}</p></div></article>`).join('');
+  list.innerHTML = `<p class="release-date">${esc(tCh('wnLatest', __uiLang))} · ${esc(releases[0].versione)}</p>${renderRelease(releases[0])}${releases.length > 1 ? `<details class="release-history" ${force ? '' : 'open'}><summary>${esc(tCh('wnEarlier', __uiLang))}<span aria-hidden="true">+</span></summary>${releases.slice(1).map(rel => `<section><p class="release-date">${esc(rel.versione)}</p>${renderRelease(rel)}</section>`).join('')}</details>` : ''}`;
+  list.scrollTop = 0;
+  const onKey = event => {
+    if (event.key === 'Escape') { event.preventDefault(); chiudi(); }
+    if (event.key === 'Tab') {
+      const controls = [...overlay.querySelectorAll('button, summary')].filter(el => el.getClientRects().length);
+      const first = controls[0], last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    }
   };
-  let indice = 0;
-  const soloUnaRelease = releases.length === 1;
-  list.innerHTML = releases.map((rel) => `
-    ${soloUnaRelease ? '' : `<div class="text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-secondary)] opacity-70 mt-1 first:mt-0">${esc(rel.versione)}</div>`}
-    ${rel.voci.map((v) => {
-      const html = `
-      <div class="payoff-card flex items-center gap-3 rounded-2xl border p-3 ${tono[v.colore]}" style="--i:${indice}">
-        <div class="w-9 h-9 rounded-xl grid place-items-center border ${tono[v.colore]} shrink-0"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${v.icona}</svg></div>
-        <div class="min-w-0 text-left"><div class="text-[13px] font-black text-[var(--on-surface)]">${esc(v.titoloKey ? tCh(v.titoloKey, __uiLang) : v.titolo)}</div><div class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${esc(v.testoKey ? tCh(v.testoKey, __uiLang) : v.testo)}</div></div>
-      </div>`;
-      indice++;
-      return html;
-    }).join('')}
-  `).join('');
   // USCITA ANIMATA (2026-09-06, richiesta esplicita). Prima si toglieva
   // `active` e si metteva `hidden` nello stesso istante: `hidden` è
   // display:none, quindi nessuna transizione faceva in tempo a partire e la
@@ -10303,7 +10297,7 @@ function showWhatsNewIfDue() {
   const chiudi = () => {
     VaultDAO.state.whatsNewSeen = LATEST_WHATS_NEW_VERSION;
     VaultDAO.save();
-    const nascondi = () => { overlay.classList.remove('active', 'uscita'); overlay.classList.add('hidden'); };
+    const nascondi = () => { overlay.removeEventListener('keydown', onKey); overlay.classList.remove('active', 'uscita'); overlay.classList.add('hidden'); previousFocus?.focus?.({ preventScroll: true }); };
     const menoMovimento = window.matchMedia && motionIsReduced();
     if (menoMovimento) { nascondi(); return; }
     overlay.classList.add('uscita');
@@ -10320,8 +10314,25 @@ function showWhatsNewIfDue() {
   overlay.classList.remove('hidden');
   // Un frame dopo, così la transizione .active parte da uno stato pulito
   // (stesso schema già in uso per .qa-chart-in/.tx-in altrove nel file).
-  requestAnimationFrame(() => overlay.classList.add('active'));
+  overlay.addEventListener('keydown', onKey);
+  requestAnimationFrame(() => { overlay.classList.add('active'); document.getElementById('whats-new-close').focus({ preventScroll: true }); });
 }
+
+window.openWhatsNew = () => showWhatsNewIfDue(true);
+function showAppUpdateNotice() {
+  if (document.getElementById('release-update-notice')) return;
+  const notice = document.createElement('div');
+  notice.id = 'release-update-notice';
+  notice.setAttribute('role', 'status');
+  const icon = document.createElement('span');
+  icon.className = 'release-orbit'; icon.setAttribute('aria-hidden', 'true');
+  icon.innerHTML = '<i></i><b></b>';
+  const text = document.createElement('p');
+  text.textContent = tCh('maintenanceFound', __uiLang);
+  notice.append(icon, text); document.body.append(notice);
+  setTimeout(() => notice.remove(), 8000);
+}
+
 
 // Ponte iOS Safari→PWA (2026-08-28, vedi il commento esteso in vault.js su
 // IOS_HANDOFF): se questa istanza è una PWA appena installata su iOS senza
@@ -20730,7 +20741,7 @@ const initApp = () => {
           if (!nw) return;
           nw.addEventListener('statechange', () => {
             if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-              try { showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info'); } catch (_) {}
+              try { showAppUpdateNotice(); } catch (_) {}
             }
           });
         });
@@ -20830,7 +20841,7 @@ const initApp = () => {
           const { version } = await res.json();
           if (canReloadVersion(version)) {
             reloadedForVersionCheck = true;
-            showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
+            showAppUpdateNotice();
             setTimeout(() => window.location.reload(), 1200); // tempo reale per leggere il toast
             return;
           }
@@ -20845,7 +20856,7 @@ const initApp = () => {
         const { version } = await res.json();
         if (canReloadVersion(version)) {
           reloadedForVersionCheck = true;
-          showToast('Nuova versione pronta — aggiorno in un attimo. I tuoi dati restano al sicuro.', 'info');
+          showAppUpdateNotice();
           setTimeout(() => window.location.reload(), 1200);
         }
       } catch (_) { /* onesto: origine canonica irraggiungibile (offline, o CORS bloccato altrove) — si ricontrolla al prossimo giro */ }

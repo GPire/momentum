@@ -152,3 +152,16 @@ Registrare data, commit, ambiente e risultato. Non trasformare una build verde,
 una fixture, un export o una schermata in prova di un servizio esterno realmente
 ricevuto, di una conformità fiscale o di una compatibilità con dispositivi non
 collaudati.
+
+## Esperienza aggiornamenti — 20 settembre 2026
+Rinnovati pannello delle novità e avviso aggiornamento: orbita animata,
+layout mobile con azione sempre disponibile, focus tastiera e movimento ridotto.
+Le novità dal 13 al 20 settembre sono raggruppate in quattro temi e tradotte
+nelle sette lingue. Tutte le release successive a whatsNewSeen vengono incluse:
+al ritorno le precedenti non lette sono espanse; solo la consultazione manuale
+comprime lo storico. Il cursore si aggiorna alla chiusura, non all'accesso.
+Accesso manuale aggiunto al Vault. Nessuna migrazione dei dati finanziari.
+Verifiche: 10/10 test cronologia (tutte le versioni reali), 90/90 test i18n,
+controllo sintattico e build portabile. Il ciclo aggiornamento PWA in produzione
+e i dispositivi fisici non sono stati collaudati in questa modifica.
+Verifica browser locale: apertura automatica delle novità, rendering desktop e viewport 390x844, nessun overflow orizzontale nel contenuto (368/368 px), pulsante entro il viewport e chiusura Escape verificati. La viewport simulata non sostituisce un dispositivo fisico.

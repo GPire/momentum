@@ -71,26 +71,9 @@ test('unseenReleases: versione salvata non riconosciuta (dato corrotto o build p
   assert.deepEqual(out.map((r) => r.versione), RELEASES.map((r) => r.versione));
 });
 
-test('unseenReleases: con PIÙ release pubblicate, un dispositivo fermo a metà vede solo quelle successive, in ordine', () => {
-  // Simulazione con dati finti (non i RELEASES veri, per non dipendere dal
-  // contenuto reale che cambierà nel tempo): stessa logica, verificata a parte.
-  const fakeReleases = [
-    { versione: 'v1', voci: [{ titolo: 'A', testo: 'a', colore: 'gold' }] },
-    { versione: 'v2', voci: [{ titolo: 'B', testo: 'b', colore: 'green' }] },
-    { versione: 'v3', voci: [{ titolo: 'C', testo: 'c', colore: 'purple' }] },
-  ];
-  // Riproduce la stessa funzione pura con dati finti (nessun modo di
-  // iniettare RELEASES dall'esterno, e va bene così: la funzione esportata
-  // resta testata sopra sui dati reali — qui si verifica solo la LOGICA di
-  // slicing, riscritta identica per isolarla dal contenuto specifico).
-  const unseenConDati = (state, releases) => {
-    const seen = state.whatsNewSeen;
-    if (!seen) return releases;
-    const idx = releases.findIndex((r) => r.versione === seen);
-    if (idx === -1) return releases;
-    return releases.slice(idx + 1);
-  };
-  assert.deepEqual(unseenConDati({ whatsNewSeen: 'v1' }, fakeReleases).map((r) => r.versione), ['v2', 'v3']);
-  assert.deepEqual(unseenConDati({ whatsNewSeen: 'v3' }, fakeReleases).map((r) => r.versione), []);
-  assert.deepEqual(unseenConDati({}, fakeReleases).map((r) => r.versione), ['v1', 'v2', 'v3']);
+test('unseenReleases: ogni versione salvata conserva tutte le novità successive reali', () => {
+  for (let i = 0; i < RELEASES.length; i++) {
+    assert.deepEqual(unseenReleases({ whatsNewSeen: RELEASES[i].versione }), RELEASES.slice(i + 1));
+  }
+  assert.equal(new Set(RELEASES.map(r => r.versione)).size, RELEASES.length);
 });

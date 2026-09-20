@@ -563,3 +563,10 @@ pannello dati SEC.
   il freno protettivo, ed ecco perché").
 - Verifica dal vivo in Chrome prima di dire "fatto" su qualunque cosa tocchi
   il DOM: `npm test` non vede la UI.
+
+## Novità nell'app
+Ogni modifica visibile all'utente deve essere descritta in una nuova release di
+src/core/whats-new.js e tradotta nelle sette lingue. Non riscrivere release già
+pubblicate: il cursore whatsNewSeen deve conservare tutte le novità non lette.
+I commit solo tecnici/documentali possono restare nel registro Git. La chiusura
+del riepilogo marca la lettura; il semplice accesso non deve consumare le novità.
