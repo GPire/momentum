@@ -37,3 +37,26 @@
 @media(max-width:600px) { #release-update-notice { inset:max(12px,env(safe-area-inset-top)) 16px auto; width:auto; } }
 @media(prefers-reduced-motion:no-preference) { #release-update-notice { animation:release-arrive .3s ease-out both; } }
 [data-motion="reduced"] #release-update-notice, [data-motion="reduced"] #release-update-notice * { animation:none!important; transition:none!important; }
+
+/* The original spatial atmosphere, with the readable and reachable release panel. */
+#whats-new-overlay { isolation:isolate; background:rgba(3,5,16,.94); color:#f5f5ff; }
+.release-cosmos { position:absolute; inset:0; z-index:-1; pointer-events:none; overflow:hidden; background:radial-gradient(ellipse at 22% 24%,#6366f128,transparent 58%),radial-gradient(ellipse at 83% 78%,#22d3ee18,transparent 55%); }
+.release-panel { position:relative; width:min(100%,680px); border-color:#ffffff1c; background:linear-gradient(150deg,#17182bd9,#090c19e8); color:#f5f5ff; box-shadow:0 30px 100px #0007,inset 0 1px 0 #ffffff15; backdrop-filter:blur(14px); }
+.release-header { justify-content:center; flex-direction:column; gap:12px; text-align:center; padding-top:24px; }
+.release-header .release-orbit { width:78px; height:78px; flex-basis:78px; }
+.release-header .release-orbit i { background:radial-gradient(circle at 30% 22%,#aaa3ff,#635bea 38%,#151a4b 78%); box-shadow:inset -10px -10px 18px #0005,0 0 36px #7970ef35; }
+.release-header .release-orbit b { border-color:#b9afffb3; box-shadow:0 0 12px #9985ff20; }
+.release-header .eyebrow { color:#aaa3ff; }
+.release-date,.release-footer p { color:#adb1ce; }
+.release-item { padding:17px; margin-bottom:10px; border:1px solid #ffffff12; border-radius:20px; background:linear-gradient(120deg,#ffffff09,#ffffff03); transition:background .25s,border-color .25s,transform .25s; }
+.release-item p { color:#bfc2d8; }
+.release-icon { color:#b1aaff; background:#8a7fff15; box-shadow:inset 0 1px 0 #ffffff12; }
+.release-footer { border-color:#ffffff14; background:#0a0d1cc9; }
+.release-history summary { color:#d9d8f3; border-radius:12px; padding-inline:8px; }
+.release-panel :is(button,summary):focus-visible { outline-color:#bab4ff; }
+@media(hover:hover) and (pointer:fine) { .release-item:hover { background:#ffffff0b; border-color:#b6aaff38; transform:translateY(-2px); } .release-history summary:hover { background:#ffffff08; } }
+@media(max-width:600px) { #whats-new-overlay { padding:10px; place-items:center; } .release-panel { max-height:calc(100dvh - max(20px,env(safe-area-inset-top)) - env(safe-area-inset-bottom)); border-radius:26px; } .release-header { padding:16px 20px 12px; gap:8px; } .release-header .release-orbit { width:60px; height:60px; flex-basis:60px; } .release-header h2 { font-size:1.5rem; } .release-content { padding:0 14px 12px; } .release-item { padding:14px; gap:12px; } .release-footer { padding:12px 16px max(14px,env(safe-area-inset-bottom)); } }
+@media(prefers-reduced-motion:no-preference) { #whats-new-overlay.active .release-header .release-orbit i { animation:release-breathe 7s ease-in-out infinite; } #whats-new-overlay.active .release-item { animation-duration:.55s; animation-delay:calc(.1s + var(--i)*70ms); } }
+@keyframes release-breathe { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+[data-motion="reduced"] .release-cosmos *, .reduce-motion .release-cosmos * { animation:none!important; transition:none!important; }
+@media(prefers-reduced-motion:reduce) { .release-cosmos *, .release-panel *, #whats-new-overlay.active h2, #whats-new-overlay.active .eyebrow { animation:none!important; transition:none!important; } }

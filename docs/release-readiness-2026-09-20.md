@@ -165,3 +165,11 @@ Verifiche: 10/10 test cronologia (tutte le versioni reali), 90/90 test i18n,
 controllo sintattico e build portabile. Il ciclo aggiornamento PWA in produzione
 e i dispositivi fisici non sono stati collaudati in questa modifica.
 Verifica browser locale: apertura automatica delle novità, rendering desktop e viewport 390x844, nessun overflow orizzontale nel contenuto (368/368 px), pulsante entro il viewport e chiusura Escape verificati. La viewport simulata non sostituisce un dispositivo fisico.
+
+Revisione visiva richiesta dall'utente: recuperati starfield originale, nebulosa,
+card traslucide e intestazione centrata con orbita più presente. Ingresso a
+scaglione, respiro lento del pianeta e risposta hover solo con puntatore fine.
+Restano invariati recupero di tutte le novità non lette, traduzioni e cursore.
+Build portabile riuscita; verifica visiva browser e viewport 390x844: contenuto
+348/348 px senza overflow e pulsante con bordo inferiore 819 px, entro schermo.
+Non è una prova fisica. Modifica locale, non ancora distribuita.
