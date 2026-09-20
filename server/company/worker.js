@@ -10,6 +10,7 @@ import { workspacePage } from './workspace-page.js';
 import { reportRequest } from './reports.js';
 import { attachmentRequest } from './attachments.js';
 import { inboxPage } from './inbox-page.js';
+import { deploymentReadiness } from './deployment-readiness.js';
 import { VALUTE_ISO4217 } from '../../src/core/iso4217.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
@@ -161,8 +162,9 @@ export function createCompanyWorker(resolveIdentity = companyIdentity) { return 
     let identity;
     try { identity = await resolveIdentity(request, env); } catch { return json({ error: 'unauthenticated' }, 401); }
     try {
-      env=companyStorageEnvironment(env);
       const path = new URL(request.url).pathname;
+      if (path === '/v1/company/readiness' && request.method === 'GET') return json(await deploymentReadiness(request, env));
+      env=companyStorageEnvironment(env);
       if (/^\/v1\/companies\/[^/]+\/storage\/(journal|reconcile)$/.test(path)) return await attachmentRecoveryRequest(request, env, identity.subject);
       if (/^\/v1\/companies\/[^/]+\/storage\/cleanup$/.test(path)) return await cleanupAttachmentRequest(request, env, identity.subject);
       if (path === '/company/storage' && request.method === 'GET') return storagePage();
