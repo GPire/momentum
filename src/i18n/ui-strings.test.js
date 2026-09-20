@@ -1084,3 +1084,11 @@ test('private archive sync explains consent, status and conflicts in all seven l
     assert.match(t('syncDomains', lang, 5), /5/);
   }
 });
+
+test('efficient Vault storage is explained in all seven languages', () => {
+  for (const lang of UI_LANGS) {
+    for (const key of ['storageEfficientTitle', 'storageEfficientBody']) {
+      assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    }
+  }
+});

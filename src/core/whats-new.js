@@ -612,6 +612,10 @@ RELEASES.push({
   versione: '2026-09-20c',
   voci: [{ colore: 'purple', icona: '<circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><path d="M11 10h2M11 14h2"/>', titolo: 'Il tuo archivio, sui tuoi dispositivi', testo: 'Sincronizzazione privata dei dati supportati con conferme di ricezione e scelte visibili quando due dispositivi modificano la stessa area.', titoloKey: 'syncArchiveSetup', testoKey: 'syncArchiveLimit' }],
 });
+RELEASES.push({
+  versione: '2026-09-20d',
+  voci: [{ colore: 'green', icona: '<path d="M5 8h14M7 4h10l2 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8l2-4Z"/><path d="M9 12h6M9 16h4"/>', titolo: 'Più spazio per i tuoi dati', testo: 'Il Vault evita copie locali ridondanti, controlla l’integrità e accorpa le scritture ripetute, mantenendo compatibilità con gli archivi precedenti.', titoloKey: 'storageEfficientTitle', testoKey: 'storageEfficientBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

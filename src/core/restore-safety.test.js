@@ -5,7 +5,7 @@ const saved = () => ({ schemaVersion: 50, transactions: { old: [{ id: 1, amount:
   mlData: { weights: [0.5, -0.1] }, invoices: [{ id: 'invoice' }], futureExtension: { keep: true } });
 const storage = () => {
   const map = new Map();
-  return { getItem: k => map.get(k), setItem: (k, v) => map.set(k, v) };
+  return { getItem: k => map.get(k), setItem: (k, v) => map.set(k, v), removeItem: k => map.delete(k) };
 };
 test('restore validates the container without rewriting old transactions, weights or unknown fields', () => {
   const state = saved(), before = structuredClone(state);
@@ -58,7 +58,8 @@ test('restoring a smaller archive updates all copies before success', async () =
   await checkpointBeforeRestore(old, durable, local);
   await writeRestoredArchive(old, next, durable, local);
   assert.deepEqual(JSON.parse(local.getItem('omega_core_db')), next);
-  assert.deepEqual(JSON.parse(Buffer.from(local.getItem('omega_shadow_vault'), 'base64').toString('utf8')), next);
+  assert.equal(local.getItem('omega_shadow_vault'), undefined);
+  assert.equal(JSON.parse(local.getItem('omega_vault_manifest')).format, 'momentum-vault-manifest-v1');
   assert.deepEqual(JSON.parse(await durable.get('state', 'main')), next);
   assert.deepEqual((await readRestoreCheckpoint(durable, local)).data, old);
 });

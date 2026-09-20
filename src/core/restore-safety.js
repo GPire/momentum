@@ -1,6 +1,7 @@
 // A restore is a deliberate replacement, never an implicit merge of weights.
 // Keep a verified, separate copy first; a silent IndexedDB no-op is not success.
 import { reconcileHead } from '../mesh/sync.js';
+import { VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, VAULT_MANIFEST_KEY, writeLocalVaultSnapshot } from './vault-storage.js';
 export const RESTORE_CHECKPOINT_KEY = 'before-restore-v1';
 const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 
@@ -57,21 +58,18 @@ export async function readRestoreCheckpoint(durable, storage) {
 }
 
 export async function writeRestoredArchive(previousState, nextState, durable, storage) {
-  const keys = ['omega_core_db', 'omega_shadow_vault'];
+  const keys = [VAULT_MAIN_KEY, VAULT_MANIFEST_KEY, VAULT_LEGACY_SHADOW_KEY];
   const previous = keys.map(key => storage.getItem(key));
   const durableBefore = await durable.get('state', 'main');
   const payload = JSON.stringify(nextState);
-  const copies = [payload, btoa(unescape(encodeURIComponent(payload)))];
   try {
-    for (let i = 0; i < keys.length; i++) {
-      storage.setItem(keys[i], copies[i]);
-      if (storage.getItem(keys[i]) !== copies[i]) throw new Error('Local write was not retained');
-    }
     await durable.put('state', payload, 'main');
     const retained = await durable.get('state', 'main');
     // undefined is the explicit no-IndexedDB fallback. An existing durable
     // archive must never remain stale and win reconciliation after reload.
     if (retained !== payload && (durableBefore !== undefined || retained !== undefined)) throw new Error('Durable write was not retained');
+    writeLocalVaultSnapshot(storage, payload, nextState, { durableSafe: retained === payload });
+    if (storage.getItem(VAULT_MAIN_KEY) !== payload) throw new Error('Local write was not retained');
   } catch (error) {
     // Best-effort rollback of active copies; the separate verified checkpoint
     // remains available even if a storage medium fails during rollback.

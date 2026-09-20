@@ -11,6 +11,7 @@ import { isTripDeleted } from '../trips/trip-engine.js';
 import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
 import { observePrivateArchive } from '../mesh/private-archive-sync.js';
+import { chooseVaultCandidate, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -161,6 +162,7 @@ const DurableStore = {
   // Elimina l'INTERO database (tutti gli store, 'state' e 'tx_log') così
   // "cancella tutto" significa davvero tutto, ovunque sia salvato.
   async deleteAll() {
+    await cancelDurableVaultWrites();
     if (this.db) { try { this.db.close(); } catch (_) {} this.db = null; }
     if (!this.available) return;
     return new Promise((resolve) => {
@@ -171,6 +173,42 @@ const DurableStore = {
     });
   }
 };
+
+// Latest-wins queue: localStorage is updated synchronously for crash safety;
+// IndexedDB writes are coalesced so a burst of UI interactions does not open
+// dozens of redundant transactions. After IndexedDB retains the exact payload,
+// a quota-blocked local write may safely free the legacy base64 duplicate.
+let pendingDurableVault = null;
+let durableVaultDrain = Promise.resolve();
+let durableVaultGeneration = 0;
+function queueDurableVault(payload, manifest) {
+  pendingDurableVault = {
+    payload, manifest, generation: durableVaultGeneration, storage: localStorage,
+    put: DurableStore.put.bind(DurableStore), get: DurableStore.get.bind(DurableStore),
+  };
+  if (queueDurableVault.running) return durableVaultDrain;
+  queueDurableVault.running = true;
+  durableVaultDrain = Promise.resolve().then(async () => {
+    while (pendingDurableVault) {
+      const current = pendingDurableVault;
+      pendingDurableVault = null;
+      try {
+        await current.put('state', current.payload, 'main');
+        const retained = await current.get('state', 'main');
+        if (current.generation === durableVaultGeneration && retained === current.payload) {
+          try { writeLocalVaultSnapshot(current.storage, current.payload, null, { durableSafe: true, manifest: current.manifest }); } catch {}
+        }
+      } catch (error) { console.error('VaultDAO.save: scrittura IndexedDB fallita:', error); }
+    }
+  }).finally(() => { queueDurableVault.running = false; });
+  return durableVaultDrain;
+}
+queueDurableVault.running = false;
+async function cancelDurableVaultWrites() {
+  durableVaultGeneration++;
+  pendingDurableVault = null;
+  try { await durableVaultDrain; } catch {}
+}
 
 // ==========================================
 // PONTE iOS — Safari → PWA installata (2026-08-28)
@@ -315,6 +353,7 @@ function reconstructMissingFromTxLog(txLogEntries, currentState) {
 const VaultDAO = {
   state: {
     schemaVersion: SCHEMA_VERSION,
+    storageRevision: 0,
     isFirstLaunch: true,
     currentDate: new Date(),
     transactions: {},
@@ -404,20 +443,23 @@ const VaultDAO = {
   // che càpita. Solo se NESSUNA copia è leggibile si riparte dal default,
   // e anche allora si logga forte (mai un errore ingoiato senza traccia).
   init() {
-    const main = localStorage.getItem('omega_core_db');
-    const shadow = localStorage.getItem('omega_shadow_vault');
+    const main = localStorage.getItem(VAULT_MAIN_KEY);
+    const shadow = localStorage.getItem(VAULT_LEGACY_SHADOW_KEY);
     const candidates = [];
     if (main) {
-      try { candidates.push({ source: 'main', state: JSON.parse(main) }); }
+      try {
+        const manifest = readVaultManifest(localStorage);
+        if (manifest && !manifestMatches(main, manifest)) console.warn('VaultDAO.init: manifest non allineato; confronto anche le copie durevoli.');
+        candidates.push({ source: 'localStorage(main)', state: JSON.parse(main) });
+      }
       catch (e) { console.error('VaultDAO.init: omega_core_db corrotto, JSON non valido — scartato:', e); }
     }
     if (shadow) {
-      try { candidates.push({ source: 'shadow', state: JSON.parse(decodeURIComponent(escape(atob(shadow)))) }); }
+      try { candidates.push({ source: 'localStorage(shadow)', state: JSON.parse(decodeURIComponent(escape(atob(shadow)))) }); }
       catch (e) { console.error('VaultDAO.init: omega_shadow_vault corrotto — scartato:', e); }
     }
     if (candidates.length > 0) {
-      let best = candidates[0];
-      for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
+      const best = chooseVaultCandidate(candidates, this._countTx);
       if (candidates.length > 1 && candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
         const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
         console.warn(`VaultDAO.init: le copie salvate divergono (${riepilogo}) — uso "${best.source}" (più transazioni), mai un checksum cieco.`);
@@ -434,14 +476,14 @@ const VaultDAO = {
   // Riconciliazione con IndexedDB, da chiamare PRIMA di init(): stessa
   // disciplina "mai un checksum cieco" di init() sopra, estesa a una TERZA
   // copia (IndexedDB, quota molto più alta — il backstop più affidabile).
-  // Riscrive SEMPRE main+shadow allineate alla copia più completa fra le
-  // tre, così la init() sincrona che segue trova dati già coerenti — non
-  // deve più indovinare quale fonte fidarsi.
+  // Riscrive lo snapshot principale e il suo manifest dopo avere verificato
+  // la copia durevole. La vecchia shadow base64 resta soltanto una sorgente
+  // di migrazione: dopo una scrittura verificata viene rimossa.
   async initDurable() {
     try {
       const idbPayload = await DurableStore.get('state', 'main');
-      const lsMain = localStorage.getItem('omega_core_db');
-      const lsShadow = localStorage.getItem('omega_shadow_vault');
+      const lsMain = localStorage.getItem(VAULT_MAIN_KEY);
+      const lsShadow = localStorage.getItem(VAULT_LEGACY_SHADOW_KEY);
       const candidates = [];
       const tryParse = (raw, source, decode) => {
         if (!raw) return;
@@ -460,46 +502,44 @@ const VaultDAO = {
           sources: candidates,
         }, 'upgrade-2026-09-11');
       }
-      let best = candidates[0];
-      for (const c of candidates.slice(1)) if (this._countTx(c.state) > this._countTx(best.state)) best = c;
+      const best = chooseVaultCandidate(candidates, this._countTx);
       if (candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
         const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
         console.warn(`VaultDAO.initDurable: copie salvate non allineate (${riepilogo}) — ricostruisco da "${best.source}" (più completa).`);
       }
       const bestPayload = JSON.stringify(best.state);
-      localStorage.setItem('omega_core_db', bestPayload);
-      localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(bestPayload))));
-      if (best.source !== 'indexedDB') await DurableStore.put('state', bestPayload, 'main').catch(() => {});
+      if (idbPayload !== bestPayload) await DurableStore.put('state', bestPayload, 'main');
+      const retained = idbPayload === bestPayload ? idbPayload : await DurableStore.get('state', 'main');
+      if (retained !== bestPayload) throw new Error('IndexedDB non ha confermato lo snapshot riconciliato');
+      writeLocalVaultSnapshot(localStorage, bestPayload, best.state, { durableSafe: true });
     } catch (e) {
       console.warn('IndexedDB non disponibile, continuo con localStorage:', e);
     }
   },
   save() {
     observePrivateArchive(this.state);
-    const payload = JSON.stringify({ ...this.state, currentDate: this.state.currentDate.toISOString() });
+    const serializable = revision => ({ ...this.state, storageRevision: revision, currentDate: this.state.currentDate.toISOString() });
+    const currentRevision = Number(this.state.storageRevision) || 0;
+    const unchangedPayload = JSON.stringify(serializable(currentRevision));
+    const currentManifest = readVaultManifest(localStorage);
+    if (localStorage.getItem(VAULT_MAIN_KEY) === unchangedPayload && manifestMatches(unchangedPayload, currentManifest)) return false;
+    this.state.storageRevision = currentRevision + 1;
+    const payload = JSON.stringify(serializable(this.state.storageRevision));
+    const manifest = vaultManifest(payload, this.state);
     try {
-      localStorage.setItem('omega_core_db', payload);
+      writeLocalVaultSnapshot(localStorage, payload, this.state, { manifest });
     } catch (e) {
       console.error('VaultDAO.save: scrittura di omega_core_db fallita (localStorage pieno?):', e);
     }
-    try {
-      localStorage.setItem('omega_shadow_vault', btoa(unescape(encodeURIComponent(payload))));
-    } catch (e) {
-      // "shadow" è ~33% più grande del payload reale (overhead base64): può
-      // superare la quota PRIMA del payload vero, lasciando una copia
-      // VECCHIA — causa verificata del bug di perdita dati (vedi init()).
-      // Meglio nessuna shadow che una shadow stantia che sembri "più fresca"
-      // a un futuro controllo di mismatch.
-      console.error('VaultDAO.save: scrittura di omega_shadow_vault fallita — la rimuovo per non lasciare una copia stantia:', e);
-      try { localStorage.removeItem('omega_shadow_vault'); } catch (_) {}
-    }
-    DurableStore.put('state', payload, 'main').catch((e) => console.error('VaultDAO.save: scrittura IndexedDB fallita:', e));
+    queueDurableVault(payload, manifest);
     // Ponte iOS best-effort (2026-08-28) — vedi IOS_HANDOFF sotto: scrive un
     // istantanea in Cache Storage, MAI l'unica via di ripristino (quella
     // resta il backup file, sempre affidabile). Fire-and-forget, mai un
     // errore qui deve interrompere il salvataggio vero.
     try { saveIosHandoff(payload); } catch (_) {}
+    return true;
   },
+  flushDurable() { return durableVaultDrain; },
   // Rileva se `tx` è già presente (stessa spesa arrivata da due canali, es. notifica
   // push + import PDF). In caso di duplicato arricchisce l'esistente con eventuali
   // campi mancanti (es. description) SENZA toccare amount/category/hash: quei campi

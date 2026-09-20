@@ -212,7 +212,7 @@ test('VaultDAO.init: entrambe le copie corrotte → nessun crash, stato di defau
   }
 });
 
-test('VaultDAO.save: la scrittura di "shadow" fallisce per quota superata → "main" resta comunque salvata, e la shadow stantia viene rimossa invece di restare come falso mismatch (bug reale: shadow è più grande del payload vero per il base64, supera la quota per prima)', () => {
+test('VaultDAO.save: lo snapshot principale resta salvabile senza ricreare la vecchia shadow base64 sovradimensionata', () => {
   const savedLS = globalThis.localStorage;
   const savedIDB = globalThis.indexedDB;
   const savedState = VaultDAO.state;
@@ -236,6 +236,46 @@ test('VaultDAO.save: la scrittura di "shadow" fallisce per quota superata → "m
     VaultDAO.state = savedState;
     globalThis.localStorage = savedLS;
     globalThis.indexedDB = savedIDB;
+  }
+});
+
+test('VaultDAO.save: una raffica conserva subito ogni snapshot locale ma accorpa IndexedDB sull’ultima versione', async () => {
+  await VaultDAO.flushDurable();
+  const savedLS = globalThis.localStorage;
+  const savedState = VaultDAO.state;
+  const savedPut = DurableStore.put;
+  const savedGet = DurableStore.get;
+  try {
+    const local = fakeLocalStorage();
+    let retained = null;
+    let writes = 0;
+    globalThis.localStorage = local;
+    DurableStore.put = async (store, value, key) => {
+      if (store === 'state' && key === 'main') { writes++; retained = value; }
+    };
+    DurableStore.get = async (store, key) => store === 'state' && key === 'main' ? retained : null;
+    VaultDAO.state = { ...savedState, storageRevision: 0, transactions: {}, monthlyBudget: 1000, currentDate: new Date() };
+
+    VaultDAO.save();
+    VaultDAO.state.monthlyBudget = 1200;
+    VaultDAO.save();
+    VaultDAO.state.monthlyBudget = 1400;
+    VaultDAO.save();
+    await VaultDAO.flushDurable();
+
+    assert.equal(writes, 1, 'la raffica deve produrre una sola scrittura durevole');
+    assert.equal(JSON.parse(retained).monthlyBudget, 1400, 'IndexedDB deve ricevere l’ultima versione');
+    const revision = VaultDAO.state.storageRevision;
+    assert.equal(VaultDAO.save(), false, 'uno stato identico non deve essere riscritto');
+    assert.equal(VaultDAO.state.storageRevision, revision);
+    assert.ok(local.getItem('omega_vault_manifest'));
+    assert.equal(local.getItem('omega_shadow_vault'), null);
+  } finally {
+    await VaultDAO.flushDurable();
+    VaultDAO.state = savedState;
+    DurableStore.put = savedPut;
+    DurableStore.get = savedGet;
+    globalThis.localStorage = savedLS;
   }
 });
 

@@ -328,3 +328,35 @@ del foglio. Questa verifica non equivale a una prova fra iPhone,
 Mac e reti fisiche diverse: tale prova resta aperta e non va presentata come
 superata. La sincronizzazione richiede entrambe le app raggiungibili; non è un
 backup cloud né una garanzia di lavoro a PWA completamente chiusa.
+
+### Persistenza locale efficiente — 20 settembre, quarto controllo
+
+Il Vault conserva ora in `localStorage` un solo snapshot immediatamente
+leggibile e un manifest piccolo con revisione, dimensione, hash e numero di
+movimenti. La precedente shadow Base64 rimane leggibile durante la migrazione,
+ma viene eliminata soltanto dopo una scrittura verificata. Per un archivio di
+dimensione N, l’occupazione scende quindi da circa 2,33 N a N più il manifest,
+senza comprimere o rendere opaco il dato principale.
+
+IndexedDB resta il livello durevole con quota più ampia. Le modifiche rapide
+aggiornano subito lo snapshot locale, mentre una coda latest-wins accorpa la
+raffica e conserva in IndexedDB soltanto l’ultima versione. Uno stato identico
+non aumenta la revisione e non viene riscritto. All’avvio, copie con lo stesso
+numero di movimenti vengono ordinate anche tramite la revisione; la sicurezza
+dei movimenti resta la priorità e una copia con più transazioni prevale.
+
+La cancellazione invalida e attende la coda prima di rimuovere gli store, così
+una scrittura tardiva non può ricreare dati cancellati. Il ripristino verifica
+prima la copia durevole e poi pubblica snapshot e manifest locali; in caso di
+errore ripristina anche i formati precedenti. Backup cifrati, passaggio iOS,
+archivi storici e shadow Base64 già esistenti restano leggibili. La
+sincronizzazione fra dispositivi continua a usare delta per campo e pacchetti
+con limite esplicito: questa modifica riduce spazio e amplificazione delle
+scritture locali, ma non trasforma il Vault in una conservazione cloud.
+
+Verifica di questo controllo: 389 file di test eseguiti singolarmente con Node
+20, 5.476 test superati e nessun errore; `vault.test.js` 45/45,
+`vault-storage.test.js` 5/5, `restore-safety.test.js` 16/16,
+`ui-strings.test.js` 92/92 e copertura traduzioni 9/9. Build portabile di
+produzione riuscita su 449 moduli. Restano gli avvisi preesistenti sui chunk
+grandi; non indicano un errore della persistenza.
