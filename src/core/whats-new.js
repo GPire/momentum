@@ -604,6 +604,10 @@ RELEASES.push({
   ]
 });
 
+RELEASES.push({
+  versione: '2026-09-20b',
+  voci: [{ colore: 'primary', icona: '<rect x="3" y="3" width="7" height="18" rx="2"/><rect x="14" y="5" width="7" height="14" rx="2"/><path d="M10 12h4"/>', titolo: 'Collega i miei movimenti', testo: 'Collegamento sperimentale dei movimenti tra dispositivi autorizzati.', titoloKey: 'syncSetup', testoKey: 'syncLimit' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

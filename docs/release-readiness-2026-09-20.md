@@ -251,3 +251,22 @@ https://automerge.org/docs/reference/concepts/ e
 https://automerge.org/docs/keyhive/ark-api-guide/ per separazione fra sincronizzazione
 dei documenti e gestione delle membership. Nessuna nuova dipendenza o server
 pubblico collegato; dati utente non trasmessi durante i test.
+
+### Collegamento sperimentale dei movimenti — aggiornamento successivo
+Supera il precedente blocco di wiring, NON il blocco di rilascio del Vault completo:
+bindPrivateSync è collegato in main.js. I dispositivi riconosciuti hanno un'azione
+Collega i miei movimenti con codice archivio comune e consenso esplicito separato
+su ciascun lato, testi nelle sette lingue. Il codice non è una password e non
+sostituisce firma e consenso. Lo scope già configurato non è modificabile dal
+form, evitando cambi di archivio silenziosi. Revoca elimina consenso e chiude canale.
+Il trasporto gestisce challenge/proof/ready con limite 4 KB, verifica il canale
+corrente e consente soltanto sync_digest/sketch/need_digest/txs. Split, pesi,
+trasferte e altri domini NON ereditano questa autorizzazione. Corretto onclose:
+la chiusura di un canale vecchio non elimina il suo sostituto.
+Test controller 4/4 (consenso bilaterale anche ritardato, revoca, ambiti esclusi),
+confine dati 7/7, protocollo 51/51, i18n 90/90; build portabile riuscita.
+Limiti ancora aperti: schermata consenso non collaudata con due dispositivi fisici;
+riconciliazione completa di modifiche ordinarie, allegati, impostazioni e modelli;
+anteprima dei conflitti fra archivi popolati; retry dopo timeout di autenticazione;
+feedback dell'ultima ricezione e trasporto offline. Non dichiarare archivio intero
+sempre sincronizzato né conservazione remota. Accesso resta sperimentale.

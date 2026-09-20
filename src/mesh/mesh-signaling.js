@@ -501,6 +501,9 @@ class MeshNode {
         // src/core/con-timeout.js) può comunque saperlo. Stesso principio di
         // knowledge_share sopra, cancello anti-avvelenamento del ricevente.
         this.onSentimentReceived?.(peerId, msg.payload);
+      } else if (['private_sync_challenge', 'private_sync_proof', 'private_sync_ready'].includes(msg.type)) {
+        if (this.peers.get(peerId)?.channel !== channel || event.data.length > 4096) return;
+        try { await this.onPrivateSyncControl?.(peerId, msg, this.peers.get(peerId)); } catch { /* authentication fails closed */ }
       } else if (msg.type === 'device_hello') {
         // FIDUCIA (device-trust.js): la scoperta di rete non prova CHI SEI.
         // Qui arriva solo una chiave pubblica dichiarata — la prova vera (le
@@ -513,6 +516,7 @@ class MeshNode {
       }
     };
     channel.onclose = () => {
+      if (this.peers.get(peerId)?.channel !== channel) return;
       this.peers.delete(peerId);
       this._scheduleReconnect(peerId);
     };

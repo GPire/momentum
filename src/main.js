@@ -1,3 +1,5 @@
+import { bindPrivateSync } from './mesh/private-sync-controller.js';
+let privateSyncController = null;
 import './ui/release-experience.css';
 import { mountInvoiceJourney } from './ui/invoice-journey.js';
 import { taxHandoffGuide } from './ui/tax-handoff.js';
@@ -17572,16 +17574,39 @@ window.openAuthorizedDevices = () => {
     const button = document.createElement('button'); button.type = 'button'; button.className = 'btn-action'; button.textContent = tCh('deviceRevoke', __uiLang);
     button.onclick = () => {
       VaultDAO.state.trustedDevices = removeTrustedDevice(VaultDAO.state.trustedDevices, device.publicKey);
+      if (VaultDAO.state.privateSyncConsents) delete VaultDAO.state.privateSyncConsents[device.publicKey];
       VaultDAO.save();
       for (const [peerId, key] of __chiaviDeiPeer) if (key === device.publicKey) {
+        privateSyncController?.revoke(peerId);
         __chiaviDeiPeer.delete(peerId);
         momentumMeshNode?.peers?.get(peerId)?.channel?.close();
       }
       showToast(tCh('deviceRevoked', __uiLang), 'success');
       window.openAuthorizedDevices();
     };
-    row.append(label, button); list.append(row);
+    const syncButton = document.createElement('button'); syncButton.type='button'; syncButton.className='btn-action'; syncButton.textContent=tCh('syncSetup',__uiLang);
+    syncButton.onclick=()=>window.configurePrivateSync(device.publicKey);
+    row.append(label, syncButton, button); list.append(row);
   }
+};
+window.configurePrivateSync = publicKey => {
+  if (!isTrustedKey(VaultDAO.state.trustedDevices || [], publicKey)) return;
+  const tr = key => escapeHtml(tCh(key,__uiLang));
+  openModal(`<div class="p-5 space-y-4"><h3>${tr('syncSetup')}</h3><p>${tr('syncLimit')}</p><label for="private-sync-scope">${tr('syncCode')}</label><input id="private-sync-scope" class="modal-input" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="private-sync-create" class="btn-action">${tr('syncCreate')}</button><label class="flex gap-3 items-start"><input id="private-sync-consent" type="checkbox" class="toggle-input"><span>${tr('syncConsent')}</span></label><p id="private-sync-feedback" role="status"></p><button id="private-sync-save" class="btn-action btn-primary">${tr('syncSave')}</button></div>`);
+  const input=document.getElementById('private-sync-scope'), check=document.getElementById('private-sync-consent');
+  input.value=VaultDAO.state.privateSyncScope || '';
+  input.readOnly=!!VaultDAO.state.privateSyncScope;
+  document.getElementById('private-sync-create').hidden=!!VaultDAO.state.privateSyncScope;
+  document.getElementById('private-sync-create').onclick=()=>{input.value=crypto.randomUUID();};
+  document.getElementById('private-sync-save').onclick=()=>{
+    const scope=input.value.trim(), feedback=document.getElementById('private-sync-feedback');
+    if (!check.checked || !/^[A-Za-z0-9_-]{16,128}$/.test(scope) || (VaultDAO.state.privateSyncScope && scope!==VaultDAO.state.privateSyncScope)) {feedback.textContent=tCh('syncInvalid',__uiLang);return;}
+    VaultDAO.state.privateSyncScope=scope;
+    (VaultDAO.state.privateSyncConsents ||= {})[publicKey]=scope;
+    VaultDAO.save();
+    for(const [peer,key] of __chiaviDeiPeer) if(key===publicKey) privateSyncController?.start(peer,key);
+    feedback.textContent=tCh('syncSaved',__uiLang);
+  };
 };
 window.revealVaultData = kind => {
   const target = document.querySelector(kind === 'delete' ? '.maintenance-delete' : '#device-transfer-card');
@@ -23528,7 +23553,13 @@ async function initMomentumRealAI() {
     // l'adapter (prima sincronizzava il motore standalone, una copia morta).
     // learn() dell'orchestratore chiama già mesh.broadcastLearning() — quindi
     // ogni apprendimento locale si propaga da solo ai dispositivi collegati.
-    momentumMeshNode = new MeshNode(VaultDAO.state.deviceId, createNexusMeshMind(momentumOrchestrator, VaultDAO));
+    momentumMeshNode = new MeshNode(VaultDAO.state.deviceId, createNexusMeshMind(momentumOrchestrator, VaultDAO));    privateSyncController = bindPrivateSync(momentumMeshNode, {
+      identity: identitaFirma,
+      trusted: () => VaultDAO.state.trustedDevices || [],
+      scope: () => VaultDAO.state.privateSyncScope || null,
+      consent: key => !!VaultDAO.state.privateSyncScope && VaultDAO.state.privateSyncConsents?.[key] === VaultDAO.state.privateSyncScope,
+      peerKey: peer => __chiaviDeiPeer.get(peer),
+    });
     // Sync differenziale dei DATI tra device fidati (src/mesh/sync.js):
     // callback che la mesh usa per scambiare digest→delta e per il merge.
     // Il digest porta anche le CANCELLAZIONI, altrimenti l'altro dispositivo
@@ -23727,7 +23758,7 @@ async function initMomentumRealAI() {
       // non deve avere opinioni sull'identità). Ma per mandare una nota spese
       // SOLO ai propri dispositivi serve sapere chi è chi: la mappa vive qui,
       // dove c'è anche l'elenco dei dispositivi confermati con le tre parole.
-      if (publicKey) __chiaviDeiPeer.set(peerId, publicKey);
+      if (publicKey) { __chiaviDeiPeer.set(peerId, publicKey); privateSyncController?.start(peerId, publicKey); }
       gestisciDeviceHello(peerId, publicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
     };
     // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
