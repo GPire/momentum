@@ -5,9 +5,9 @@ globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
 
 const { MeshNode: TransportMeshNode } = await import('./mesh-signaling.js');
-// Protocol fixture: these peers have already passed session authentication.
+// Protocol fixture: these peers have already passed session authentication and group authorization.
 class MeshNode extends TransportMeshNode {
-  constructor(id, mind, options) { super(id, mind, { authorizePrivatePeer: () => true, ...options }); }
+  constructor(id, mind, options) { super(id, mind, { authorizePrivatePeer: () => true, authorizeSharedGroup: () => true, ...options }); }
 }
 const { mergePeerPrices } = await import('../alpha/market-data.js');
 

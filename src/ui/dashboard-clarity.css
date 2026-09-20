@@ -1085,3 +1085,16 @@ div:has(> .whatif-choices) { flex-wrap:wrap; }
  @keyframes workspace-drift { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-2px); } }
  @keyframes workspace-orbit { from { transform:perspective(140px) rotateX(35deg) rotateZ(-28deg); } to { transform:perspective(140px) rotateX(35deg) rotateZ(332deg); } }
 }
+
+/* Avoid accidental selection on touch controls, preserve editing and copying data. */
+@media(any-pointer:coarse) {
+  :is(button,summary,[role="button"],[role="tab"],.release-header,.release-item) { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  :is(input,textarea,[contenteditable="true"]) { -webkit-user-select:text; user-select:text; -webkit-touch-callout:default; }
+}
+.vault-data-shortcuts { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.vault-data-shortcuts button { display:flex; align-items:center; gap:10px; min-height:52px; padding:14px; border:1px solid var(--outline); border-radius:18px; background:var(--surface-elevated); color:var(--on-surface); text-align:left; font-size:.875rem; line-height:1.4; touch-action:manipulation; }
+.vault-data-shortcuts svg { width:22px; height:22px; flex-shrink:0; color:var(--primary); }
+.vault-data-shortcuts button:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
+@media(max-width:360px) { .vault-data-shortcuts { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:no-preference) { .vault-data-shortcuts button { transition:transform .18s,background .18s; } .vault-data-shortcuts button:active { transform:scale(.98); } }
+.maintenance-delete,#device-transfer-card { scroll-margin-top:24px; }

@@ -64,3 +64,37 @@ test('an old channel cannot inherit authorization from a replacement session', a
   node.peers.set('peer', { channel: { readyState: 'open' } });
   await channel.onmessage({ data: '{"type":"sync_txs","txs":{}}' });
 });
+
+test('a private session alone never authorizes shared groups', async () => {
+  const {node,channel,sent}=fixture(()=>true);
+  node.onSplitGroupsReceived=()=>assert.fail('Group scope required');
+  node.shareSplitGroups([{id:'private-group'}],()=>true);
+  await channel.onmessage({data:JSON.stringify({type:'split_share',groups:[{id:'private-group'}]})});
+  assert.deepEqual(sent,[]);
+});
+test('group access is filtered both ways, rechecked on revocation and cannot open the Vault', async () => {
+  let granted=true;
+  const {node,channel,sent}=fixture((id,type)=>type==='split_share');
+  node.authorizeSharedGroup=(id,group,direction,entry)=>granted && group==='dinner' && entry.channel===channel;
+  let received=[];node.onSplitGroupsReceived=(id,groups)=>received.push(...groups);
+  const groups=[{id:'dinner'},{id:'another-person'},{id:null}];
+  node.shareSplitGroups(groups,()=>true);
+  assert.deepEqual(sent[0].groups,[{id:'dinner'}]);
+  await channel.onmessage({data:JSON.stringify({type:'split_share',groups})});
+  assert.deepEqual(received,[{id:'dinner'}]);
+  node.onSyncReceived=()=>assert.fail('A group must not open the Vault');
+  await channel.onmessage({data:'{"type":"sync_txs","txs":{}}'});
+  node.broadcastTransactions({month:[{amount:42}]});
+  assert.equal(sent.length,1);
+  granted=false;
+  node.shareSplitGroups(groups,()=>true);
+  await channel.onmessage({data:JSON.stringify({type:'split_share',groups})});
+  assert.equal(received.length,1);assert.equal(sent.length,1);
+});
+test('malformed group packets and asynchronous scope policies fail closed', async () => {
+  const {node,channel,sent}=fixture(()=>true);
+  node.authorizeSharedGroup=async()=>true;
+  node.onSplitGroupsReceived=()=>assert.fail('Invalid scope');
+  for (const groups of [null,{},[{id:'dinner'}]]) await channel.onmessage({data:JSON.stringify({type:'split_share',groups})});
+  node.shareSplitGroups([{id:'dinner'}]);assert.deepEqual(sent,[]);
+});

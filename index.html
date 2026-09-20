@@ -5421,7 +5421,10 @@
           </div>
 
           <!-- MOMENTUM VAULT (SETTINGS) VIEW -->
-          <div id="settings-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-8 animate-slideUpFade">
+          <div id="settings-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-8 animate-slideUpFade"><div class="vault-data-shortcuts">
+<button type="button" onclick="window.revealVaultData('devices')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="3" width="8" height="17" rx="2"/><rect x="14" y="6" width="8" height="11" rx="2"/><path d="M10 11h4m-3-2 2 2-2 2"/></svg><span data-i18n-key="vaultSyncTitle">I tuoi dispositivi</span></button>
+<button type="button" onclick="window.revealVaultData('delete')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg><span data-i18n-key="dataManage">Gestisci i dati</span></button>
+</div>
             <header class="cosmos-view-intro"><span class="cosmos-view-orbit cosmos-view-orbit-vault" aria-hidden="true"></span><div><h2>Momentum Vault</h2><p data-i18n-key="vaultImportSubtitle">Importa estratti conto o esporta tutti i tuoi dati (cifrati).</p></div></header>
 
             <!-- Stessa vista Essenziale/Completa di Analisi Tensor (2026-09-03,
@@ -5698,7 +5701,7 @@
                 <p class="card-sub" data-i18n-key="deviceTransferIntro"></p>
                 <div class="device-transfer-map" aria-hidden="true"><svg viewBox="0 0 180 64"><rect x="8" y="12" width="35" height="46" rx="7"/><path d="M19 49h13"/><path class="device-transfer-path" d="M53 33h65"/><path d="m108 27 10 6-10 6"/><rect x="128" y="10" width="44" height="32" rx="4"/><path d="M136 55h28M150 42v13"/><circle cx="84" cy="33" r="5"/></svg></div>
                 <div class="device-transfer-actions"><button type="button" onclick="window.exportEncryptedBackup()"><span class="device-step" aria-hidden="true">1</span><span data-i18n-key="deviceMakeCopy"></span></button><button type="button" onclick="document.getElementById('backup-restore-input').click()"><span class="device-step" aria-hidden="true">2</span><span data-i18n-key="deviceOpenCopy"></span></button></div>
-                <p class="device-transfer-note" data-i18n-key="deviceTransferNote"></p>
+                <p class="device-transfer-note" data-i18n-key="deviceTransferNote"></p><button type="button" class="finance-card-action" onclick="window.openAuthorizedDevices()" data-i18n-key="deviceAuthorized">Dispositivi autorizzati</button>
                 <input type="file" id="backup-restore-input" accept=".momentum,application/json" class="hidden" name="backup-restore-input" />
                 <details class="calm-disclosure"><summary data-i18n-key="deviceRecovery"></summary><div class="device-options"><div id="backup-health-card"></div><button type="button" class="btn-action" onclick="window.exportBeforeRestore()" data-integration-copy="restorePrevious"></button><button class="btn-action" onclick="window.openRecoveryKit()" data-i18n-key="vaultSecureBackup"></button><button class="btn-action" onclick="window.openRecoveryRestore()" data-i18n-key="vaultRestoreBackup"></button></div></details>
                 <details class="calm-disclosure"><summary data-i18n-key="deviceNetwork"></summary><div class="device-options"><p data-i18n-key="meshPrivateBoundary"></p><button type="button" class="btn-action" onclick="window.openMeshPairing()" data-i18n-key="deviceNetworkOpen"></button><p id="mesh-status"></p><p id="mesh-economics-status"></p></div></details>

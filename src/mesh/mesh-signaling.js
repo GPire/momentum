@@ -222,13 +222,14 @@ class MeshNode {
   // così i tempi di attesa non dipendono da timer veri.
   constructor(nodeId, mind, {
     autoDiscovery = true, maxAutoPeers = 6,
-    authorizePrivatePeer = () => false,
+    authorizePrivatePeer = () => false, authorizeSharedGroup = () => false,
     reconnect = true, reconnectBaseMs = 1000, reconnectMaxMs = 30000, maxReconnectAttempts = 6,
     sketchFallbackMs = 4000,
     scheduleFn = (fn, ms) => setTimeout(fn, ms), randomFn = Math.random,
   } = {}) {
     this.nodeId = nodeId || crypto.randomUUID();
     this.authorizePrivatePeer = authorizePrivatePeer;
+    this.authorizeSharedGroup = authorizeSharedGroup;
     this.mind = mind;               // MomentumMind locale da sincronizzare
     this.peers = new Map();         // nodeId -> { pc, channel, lastSeen }
     this.knownPeerIds = new Set([this.nodeId]);
@@ -310,6 +311,12 @@ class MeshNode {
   // Authorization must be tied to the current channel and checked again after revocation.
   _allowsPrivate(peerId, type) {
     try { return this.authorizePrivatePeer(peerId, type, this.peers.get(peerId)) === true; }
+    catch { return false; }
+  }
+
+  _allowsGroup(peerId, groupId, direction) {
+    if (typeof groupId !== 'string' || !groupId || groupId.length > 256) return false;
+    try { return this.authorizeSharedGroup(peerId, groupId, direction, this.peers.get(peerId)) === true; }
     catch { return false; }
   }
 
@@ -411,7 +418,9 @@ class MeshNode {
         // aperto, nessun link da ri-condividere): il merge CRDT (last-writer-
         // wins per campo, unione per aggiunte) è del ricevente — qui si
         // consegna soltanto, stesso pattern di price_share/reliability_share.
-        this.onSplitGroupsReceived?.(peerId, msg.groups);
+                if (!Array.isArray(msg.groups)) return;
+        const allowed = msg.groups.filter(g => g && this._allowsGroup(peerId, g.id, 'receive'));
+        if (allowed.length) this.onSplitGroupsReceived?.(peerId, allowed);
       } else if (msg.type === 'trip_share') {
         // Sync LIVE delle trasferte di lavoro fra i PROPRI dispositivi. Le
         // spese viaggiano già da sole (sono transazioni vere, `sync_txs`); qui
@@ -793,7 +802,7 @@ class MeshNode {
     for (const [peerId, entry] of this.peers.entries()) {
       if (!this._allowsPrivate(peerId, 'split_share')) continue;
       if (entry.channel?.readyState !== 'open') continue;
-      const suoi = appartiene ? (groups || []).filter((g) => appartiene(peerId, g)) : groups;
+      const suoi = (Array.isArray(groups) ? groups : []).filter(g => g && this._allowsGroup(peerId, g.id, 'send') && (!appartiene || appartiene(peerId, g)));
       if (!suoi || !suoi.length) continue;
       // BUG REALE trovato dalla batteria di garanzia sul trasporto
       // (2026-09-05): `readyState === 'open'` NON garantisce che `send()`

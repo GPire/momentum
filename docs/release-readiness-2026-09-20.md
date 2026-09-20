@@ -179,3 +179,75 @@ voce: azzurro, verde acqua, oro e lilla. Icone, bordi e fondo sfumato condividon
 l'accento; titoli e descrizioni restano leggibili senza dipendere dal colore.
 Verifica browser locale della palette, 10/10 test cronologia e build portabile
 riusciti. Logica delle novità non lette invariata; modifica non distribuita.
+
+## Accesso ai dati e sincronizzazione — verifica 20 settembre
+Aggiunte scorciatoie visibili nel Vault per dispositivi e cancellazione. Il
+secondo comando apre spiegazione e controlli esistenti, non cancella al tocco.
+Verificato nel browser senza eseguire cancellazioni. Sui controlli touch e
+sulle card novità impedita la selezione accidentale; input, textarea e codici
+restano selezionabili. Corretto il testo obsoleto del pairing usando il testo
+multilingua del confine di condivisione già presente.
+Build portabile riuscita. Test confine dati privati 4/4; test sync da eseguire
+con --no-experimental-global-navigator su Node 24 (il fixture ridefinisce navigator).
+La sincronizzazione universale live NON è completata: esistono delta dei
+movimenti e tombstone fra peer autorizzati, ma servono copertura verificata
+per modifiche concorrenti, impostazioni, allegati e apprendimento, riconnessione
+semplice, coda durevole e collaudo fra due dispositivi reali. Non presentare
+export/import come sync e non promettere aggiornamenti ad app chiusa.
+
+Gestione dati e consenso dispositivi: scorciatoia Gestisci i dati apre il
+percorso di cancellazione senza eseguirlo. Aggiunto elenco dispositivi autorizzati
+con revoca locale, salvataggio del registro e chiusura dei canali corrispondenti.
+La revoca non elimina copie remote. Test identità e revoca 14/14 superati.
+BLOCCO concreto individuato: authorizePrivatePeer resta sul default false nel
+collegamento main.js. Non abilitare usando solo un peerId o device_hello:
+serve una sfida firmata legata al canale corrente e consenso prima dei dati.
+Sincronizzazione privata end-to-end ancora da collegare e collaudare; nessuna
+promessa di sincronizzazione universale live o ad app chiusa.
+
+## Sincronizzazione personale serverless — base di sicurezza
+Implementato private-sync-sessions.js: challenge casuale con scadenza, firma
+ECDSA con dominio di protocollo, binding ai due fingerprint DTLS, consenso
+esplicito separato dalla fiducia storica, verifica della sessione corrente e
+revoca ricontrollata a ogni autorizzazione. Non usa server, account esterni o
+identificatori pubblici come prova d'identità. Test negativi per replay, sessione
+sostituita, revoca, scadenza, assenza di DTLS e inoltro su canali diversi.
+NON ancora collegato al trasporto nell'app: il default resta deny. Da completare:
+- consenso bilaterale e scelta dell'archivio personale, con anteprima prima di
+  unire due Vault già popolati; niente identificazione della persona dal Wi-Fi;
+- messaggi di autenticazione e conferma reciproca prima del primo delta;
+- riconciliazione delle modifiche, allegati e stato del Vault con conflitti;
+- consegna differita cifrata, indicatore dell'ultima ricezione confermata,
+  riconnessione e prove reali tra dispositivi su reti diverse.
+Una connessione P2P aperta non garantisce raggiungibilità universale. Nessun
+relay terzo va autorizzato a leggere dati privati; app sospese non sono nodi
+sempre disponibili. Non dichiarare sincronizzazione completa o pubblicata.
+
+### Riutilizzo del sync split — audit 20 settembre
+CONFERMATO: shareSplitGroups, mergeIntoGroups, refresh UI live e invio al
+collegamento esistono già. Suite group-membership 21/21 e garanzia-rilascio
+24/24 superate, inclusi merge offline, idempotenza e convergenza multi-device.
+Limite di integrazione: split_share è soggetto ad authorizePrivatePeer, ancora
+non collegato in main; i test di merge non provano trasporto reale operativo.
+In ricezione main verifica l'esistenza del gruppo ma non una membership
+crittograficamente autenticata per quello specifico gruppo. Non abilitare un
+permesso privato globale per risolvere lo split: distinguere autorizzazione al
+gruppo da autorizzazione al Vault personale. Riutilizzare merge, invio e refresh
+esistenti; completare i permessi per ambito prima di collegare sessioni private.
+
+### Separazione degli ambiti e ricerca tecnica
+Il trasporto split ora richiede authorizeSharedGroup per ogni gruppo in entrambe
+le direzioni, oltre alla sessione privata. Default deny anche per callback async
+o in errore. La sessione privata firma anche lo scope dell'archivio; scope assente,
+diverso o cambiato invalida il permesso. Lo scope non prova da solo l'identità:
+restano obbligatori consenso e firma legata a DTLS. Nessuno scope viene assegnato
+automaticamente a due Vault popolati. Il pairing dell'app resta da integrare.
+Prove: private-sync-sessions 9/9, private-data-boundary 7/7, mesh-signaling
+51/51, garanzia-trasporto 11/11; build portabile riuscita. Le fixture del
+protocollo dichiarano sessioni e gruppi già autorizzati; non sono prove cloud.
+Fonti primarie consultate: https://www.w3.org/TR/webrtc/ e
+https://www.ietf.org/rfc/rfc8827.pdf per identità/DTLS;
+https://automerge.org/docs/reference/concepts/ e
+https://automerge.org/docs/keyhive/ark-api-guide/ per separazione fra sincronizzazione
+dei documenti e gestione delle membership. Nessuna nuova dipendenza o server
+pubblico collegato; dati utente non trasmessi durante i test.

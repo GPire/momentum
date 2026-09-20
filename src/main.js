@@ -352,7 +352,7 @@ import { assertShareable } from './mesh/compute-market.js';
 import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
 import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
 import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
-import { verificationWords, addTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
+import { verificationWords, addTrustedDevice, removeTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY, buildDistillationDigest, mergeDistillationDigests, roundContributions, PROBE_VERSION, validateDistillationDigest, spendBudget, previewOutgoing } from './mesh/federated-distillation.js';
 import { initDriftState, observeRound, combinedWeight, detectCollusion } from './mesh/contribution-drift.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
@@ -17560,6 +17560,37 @@ window.toggleGhostRadar = () => {
   showToast("Ghost Radar aggiornato.", "success");
 };
 
+// Navigation only: never performs or confirms a destructive action.
+window.openAuthorizedDevices = () => {
+  const devices = [...(VaultDAO.state.trustedDevices || [])];
+  openModal(`<div class="p-5 space-y-4"><h3 class="text-lg font-bold">${escapeHtml(tCh('deviceAuthorized', __uiLang))}</h3><p>${escapeHtml(tCh('deviceScope', __uiLang))}</p><div id="authorized-device-list"></div></div>`);
+  const list = document.getElementById('authorized-device-list');
+  if (!devices.length) { list.textContent = tCh('deviceNone', __uiLang); return; }
+  for (const device of devices) {
+    const row = document.createElement('div'); row.className = 'device-options';
+    const label = document.createElement('p'); label.textContent = device.label || tCh('deviceAuthorized', __uiLang);
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'btn-action'; button.textContent = tCh('deviceRevoke', __uiLang);
+    button.onclick = () => {
+      VaultDAO.state.trustedDevices = removeTrustedDevice(VaultDAO.state.trustedDevices, device.publicKey);
+      VaultDAO.save();
+      for (const [peerId, key] of __chiaviDeiPeer) if (key === device.publicKey) {
+        __chiaviDeiPeer.delete(peerId);
+        momentumMeshNode?.peers?.get(peerId)?.channel?.close();
+      }
+      showToast(tCh('deviceRevoked', __uiLang), 'success');
+      window.openAuthorizedDevices();
+    };
+    row.append(label, button); list.append(row);
+  }
+};
+window.revealVaultData = kind => {
+  const target = document.querySelector(kind === 'delete' ? '.maintenance-delete' : '#device-transfer-card');
+  if (!target) return;
+  for (let el = target; el; el = el.parentElement) if (el.tagName === 'DETAILS') el.open = true;
+  target.scrollIntoView({ behavior: motionIsReduced() ? 'instant' : 'smooth', block: 'start' });
+  const focus = target.querySelector(kind === 'delete' ? 'summary' : 'button');
+  focus?.focus({ preventScroll: true });
+};
 window.nukeVault = async () => {
   if (confirm("Distruggere l'intero database locale? Questa azione è irreversibile.")) {
     localStorage.clear();
@@ -20372,7 +20403,7 @@ window.openMeshPairing = () => {
   openModal(`
     <div class="p-4 space-y-4">
       <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Le due AI impareranno l'una dall'altra. I tuoi dati NON si spostano: viaggiano solo i "pesi" imparati, protetti dal controllo anti-manomissione.</p>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('meshPrivateBoundary', __uiLang)}</p>
       <!-- DIAGNOSI DI RETE PREDITTIVA (src/mesh/nat-probe.js): il punto di
            abbandono numero uno della sincronizzazione è la rotella che gira
            e poi fallisce, su reti (telefono, aziendali) dove il collegamento
