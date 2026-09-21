@@ -523,7 +523,20 @@ function askMomentum(text, semanticSimilarity = null) {
     // pesanti (145 KB di serie storiche) vengono precaricati in sottofondo
     // dopo l'avvio: chi non chiede mai di mercati non li scarica al primo
     // colpo, e chi chiede trova tutto gia' pronto.
-    mercato: (testo) => { try { const result = chiediAlMercatoSync(testo); return result?.intent === 'mercato-pattern-storico' ? { ...result, answer: formatPatternResult(result.data, __uiLang) } : result; } catch (_) { return null; } },
+    mercato: (testo) => { try {
+      const result = chiediAlMercatoSync(testo);
+      // Gate PRO_INVESTOR reale (2026-09-21): 'analisi_causale_titolo'
+      // (titolo-causale.js/confronto-titoli.js). Gated SOLO quando la
+      // risposta porta davvero l'analisi (`result.data`), mai le domande
+      // di chiarimento ("quali due aziende vuoi confrontare?") che non
+      // consumano la feature — mai bloccare una domanda che non ha ancora
+      // prodotto nulla. Nessun modale sopra la chat: la risposta stessa
+      // spiega il prezzo vero, stesso testo del gate a bottone altrove.
+      if (result?.data && (result.intent === 'mercato-titolo-causale' || result.intent === 'mercato-confronto-titoli') && !hasFeature(VaultDAO.state, 'analisi_causale_titolo')) {
+        return { intent: result.intent, answer: tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ',')) };
+      }
+      return result?.intent === 'mercato-pattern-storico' ? { ...result, answer: formatPatternResult(result.data, __uiLang) } : result;
+    } catch (_) { return null; } },
     // IL RIFIUTO, controllato PRIMA di ogni intento (qa-engine.js). Viveva
     // solo nel ramo dei mercati, consultato per ultimo: cosi' "dimmi tu dove
     // investire" trovava prima un intento di finanza personale e riceveva una
