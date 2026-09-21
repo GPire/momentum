@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Prezzi decisi, 21 settembre 2026:** leggere
+> [pricing-decision-2026-09-21.md](docs/pricing-decision-2026-09-21.md).
+> Personale PRO €3,99/mese, aziendale gratis fino a 5 dipendenti poi
+> €2,99/utente/mese — sotto il pavimento verificato di ogni concorrente
+> della tabella (fonti e date citate). Nessun sistema di pagamento
+> collegato: prezzi decisi, non ancora applicati a un flusso reale.
+
 > **Stato canonico del rilascio:** prima di dichiarare una funzione pronta o
 > scegliere il prossimo lavoro, leggere
 > [release-readiness-2026-09-20.md](docs/release-readiness-2026-09-20.md).
