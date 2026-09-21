@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO } from './subscription.js';
+import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './subscription.js';
+
+test('prezzi: il piano annuale costa meno di 12 mesi al prezzo mensile, mai un finto sconto', () => {
+  assert.ok(PRICE_PRO_YEARLY_EUR < PRICE_PRO_MONTHLY_EUR * 12);
+  assert.ok(PRICE_PRO_MONTHLY_EUR > 0 && PRICE_PRO_YEARLY_EUR > 0);
+});
 
 test('currentTier: nessuna licenza -> FREE', () => {
   assert.equal(currentTier({}), TIER_FREE);

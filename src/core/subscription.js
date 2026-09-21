@@ -15,6 +15,16 @@
 
 import { verifyLicenseKey } from './license.js';
 
+// Prezzi decisi il 2026-09-21 (docs/pricing-decision-2026-09-21.md): sotto
+// il pavimento verificato di ogni concorrente della ricerca (Monarch Core
+// $8.33/mese, nessuno con un piano gratis completo). UN SOLO posto dove il
+// prezzo è scritto — ogni schermata che lo mostra legge da qui, mai un
+// numero ricopiato a mano che può disallinearsi. Nessun sistema di
+// pagamento è ancora collegato: sono i prezzi decisi, non un flusso
+// d'acquisto reale.
+export const PRICE_PRO_MONTHLY_EUR = 3.99;
+export const PRICE_PRO_YEARLY_EUR = 34.99;
+
 export const TIER_FREE = 'FREE';
 export const TIER_PRO = 'PRO';
 export const TIER_PRO_INVESTOR = 'PRO_INVESTOR';

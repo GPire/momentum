@@ -292,7 +292,7 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
-import { currentTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR } from './core/subscription.js';
+import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
@@ -7629,6 +7629,10 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
 
 // Selettore di regime a bassa frizione (un tocco), riusato da "attiva" e "cambia".
 window.openTaxRegimePicker = () => {
+  // Gate PRO reale (2026-09-21): il simulatore "sto valutando" resta
+  // libero (funnel di scoperta), ma tenere traccia di un regime fiscale
+  // attivo è la vera feature 'fisco_italia' del piano PRO.
+  if (!requireProFeature('fisco_italia')) return;
   const cur = VaultDAO.state.taxRegime;
   window.openModal(`
     <div class="tax-workspace-step tax-regime-choice p-1">
@@ -18906,6 +18910,27 @@ window.openTrustCenter = () => {
     </div>`);
 };
 
+// Sblocco vero di una funzione PRO/PRO_INVESTOR (2026-09-21): fino a qui
+// `hasFeature` esisteva ma non veniva MAI chiamata da nessuna schermata —
+// ogni funzione era di fatto già sbloccata per chiunque, licenza o no.
+// Ritorna true (e non fa nulla) se l'utente ha già il piano; altrimenti
+// mostra un avviso onesto col prezzo vero (mai un blocco silenzioso: chi
+// prova a usare una funzione PRO deve capire SUBITO perché non parte) e
+// ritorna false — chi chiama deve fermarsi lì (mai proseguire "per errore").
+// Riusa hasFeature (src/core/subscription.js), mai una seconda logica di
+// piano scritta qui.
+function requireProFeature(featureKey) {
+  if (hasFeature(VaultDAO.state, featureKey)) return true;
+  window.openModal(`
+    <div class="p-5 space-y-4 text-center">
+      <h3 class="text-lg font-bold">${tCh('featureGateTitle', __uiLang)}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','))}</p>
+      <button onclick="window.closeModal(); document.getElementById('pro-license-card')?.scrollIntoView({behavior:'smooth',block:'start'});" class="btn-action w-full py-3 font-bold rounded-xl">${tCh('featureGateCta', __uiLang)}</button>
+      <button onclick="window.closeModal()" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">${tCh('featureGateDismiss', __uiLang)}</button>
+    </div>`);
+  return false;
+}
+
 // Momentum PRO (src/core/subscription.js + license.js, 2026-08-30):
 // attivazione interamente on-device, mai una chiamata di rete — la
 // verifica della firma avviene tutta nel browser (Web Crypto). Card
@@ -18917,6 +18942,11 @@ function renderProLicenseCard() {
   const deactivateBtn = document.getElementById('pro-license-deactivate-btn');
   if (!statusEl || !formEl || !deactivateBtn) return;
   const tier = currentTier(VaultDAO.state);
+  const priceEl = document.getElementById('pro-license-price');
+  if (priceEl) {
+    priceEl.classList.toggle('hidden', tier !== TIER_FREE);
+    priceEl.textContent = tCh('proPriceLine', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','));
+  }
   if (tier !== TIER_FREE) {
     const lic = VaultDAO.state.license;
     const scadenza = lic?.exp ? new Date(lic.exp).toLocaleDateString() : null;

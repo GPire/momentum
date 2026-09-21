@@ -67,9 +67,44 @@ tutto dietro il piano PRO a €3,99/mese, comunque sotto ogni concorrente
 generalista della tabella (nessuno di YNAB/Copilot/Monarch ha fisco
 italiano/svizzero/spagnolo).
 
-## Non ancora fatto
+## Sblocco reale collegato, 21 settembre 2026 (pomeriggio)
 
-Nessun sistema di fatturazione (Stripe o equivalente) è collegato: questi
-sono prezzi decisi, non ancora applicati a un flusso di pagamento reale.
-Serve un account del sistema di pagamento scelto — decisione/azione
-dell'utente, non di codice.
+Scoperta verificando il codice: `hasFeature()` (src/core/subscription.js)
+esisteva da tempo ma **non veniva mai chiamata da nessuna schermata** —
+ogni funzione PRO/PRO_INVESTOR era di fatto già sbloccata per chiunque,
+licenza o no. Costruito `requireProFeature(featureKey)` (main.js): mostra
+un avviso onesto col prezzo vero (mai un blocco silenzioso) e riporta
+`false` se la persona non ha il piano.
+
+**Prezzo ora scritto in un solo posto** (`PRICE_PRO_MONTHLY_EUR`/
+`PRICE_PRO_YEARLY_EUR` in subscription.js) e mostrato nella card PRO
+esistente (`pro-license-price` in index.html) — mai più un numero
+ricopiato a mano che può disallinearsi. Tradotto nelle 7 lingue.
+
+**Collegato a UN solo punto reale come prova del meccanismo**:
+`window.openTaxRegimePicker` (tenere traccia di un regime fiscale attivo —
+la vera feature `fisco_italia`, la parte partita IVA). Il simulatore
+"sto valutando" (`openTaxLevel1Simulate`) resta volutamente libero: è il
+funnel di scoperta, non la feature a pagamento.
+
+**Verificato**: `node --check` su tutti i file toccati, suite completa
+5489/5489, `translation-coverage.test.js` 9/9. **Non verificato dal vivo in
+Chrome** (estensione non connessa in questo ambiente in questa sessione) —
+resta da fare prima di dichiararlo definitivamente pronto, per la stessa
+regola (AGENTS.md: "npm test non vede la UI") che governa ogni altra
+modifica al DOM in questo progetto.
+
+**Non ancora fatto, elenco onesto**:
+- Gli altri 7 punti d'ingresso PRO/PRO_INVESTOR restano SBLOCCATI per
+  chiunque (mai gated): `fisco_svizzera` (`openSwissSimulator`),
+  `fisco_spagna` (`openSpainSimulator`), `fatturazione_elettronica`
+  (`openInvoiceWorkspace` e famiglia), `pannello_sec_base`,
+  `beneish_piotroski`, `sentiment_on_device`, `sync_multi_dispositivo`.
+  Stesso pattern di `requireProFeature('chiave')` da ripetere in ognuno,
+  con la STESSA cautela usata per fisco_italia: capire prima quale
+  funzione è davvero il funnel gratuito e quale la feature a pagamento,
+  non gated alla cieca.
+- Nessun sistema di fatturazione (Stripe o equivalente) è collegato:
+  prezzi decisi, non ancora applicati a un flusso di pagamento reale.
+  Serve un account del sistema di pagamento scelto — decisione/azione
+  dell'utente, non di codice.
