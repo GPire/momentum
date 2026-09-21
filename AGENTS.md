@@ -7,6 +7,19 @@
 > della tabella (fonti e date citate). Nessun sistema di pagamento
 > collegato: prezzi decisi, non ancora applicati a un flusso reale.
 
+> **Gate PRO verificati + bug di bypass chiuso, 21 settembre 2026:** verifica
+> statica riga per riga (Chrome non connesso) dei 9 punti d'ingresso PRO
+> collegati il giorno prima. Trovato e corretto un bypass reale: due
+> pulsanti "scegli regime" chiamavano `window.setTaxRegime` direttamente,
+> aggirando `requireProFeature('fisco_italia')` — un utente FREE poteva
+> impostare il regime gratis. Gate spostato dentro `setTaxRegime` stesso.
+> Gli altri 8 gate sono corretti (mai bloccano disattivazione o azioni
+> gratuite). Checksum P.IVA/CF promosso da warning a errore bloccante
+> nell'export FatturaPA. Suite 5491/5491. **Prova dal vivo in browser
+> reale resta da fare per tutti i gate, prioritaria appena Chrome torna
+> disponibile.** Dettagli in
+> [release-readiness-2026-09-20.md](docs/release-readiness-2026-09-20.md).
+
 > **Stato canonico del rilascio:** prima di dichiarare una funzione pronta o
 > scegliere il prossimo lavoro, leggere
 > [release-readiness-2026-09-20.md](docs/release-readiness-2026-09-20.md).

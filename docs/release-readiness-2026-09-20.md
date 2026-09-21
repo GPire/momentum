@@ -417,3 +417,47 @@ senza un esempio concreto dell'utente (quale campo/scenario ha superato la
 validazione ma è stato scartato dallo SdI) — non inventare una regola di
 validazione senza una fonte verificata, stessa disciplina del resto del
 progetto.
+
+### Checksum P.IVA/CF: da warning a errore bloccante — 21 settembre 2026
+
+Risolta la segnalazione sopra ("mancano dei controlli"), rimasta in sospeso
+senza un esempio concreto: il controllo esisteva già ma era `warn`, non
+`err` — un checksum ufficialmente sbagliato è uno scarto CERTO dallo SdI
+(non probabile come gli altri warning di `validateFatturaPa`), quindi l'XML
+si scaricava comunque e l'utente scopriva lo scarto solo dopo il
+caricamento reale sul portale. Promosso a errore bloccante in
+`fatturapa-xml.js` (`buildFatturaPaXML().blocking` ora `true`), con test
+dedicato. Suite 5491/5491 su Node 20. Non verificato dal vivo in Chrome
+(estensione non connessa in questa sessione).
+
+### Gate PRO: verifica riga per riga dei 9 punti collegati — 21 settembre 2026
+
+Nessuna verifica dal vivo in Chrome era stata fatta per gli 8 gate PRO
+collegati nella sessione precedente (rischio dichiarato: bloccare per
+errore un'azione che doveva restare libera). Estensione Chrome non
+connessa anche in questa sessione — fatta una verifica statica completa,
+riga per riga, di ogni punto d'ingresso di ciascuna feature gated
+(`fisco_italia`, `fisco_svizzera`, `fisco_spagna`, `fatturazione_elettronica`,
+`sentiment_on_device`, `sync_multi_dispositivo`, `comps_multipli`,
+`posizionamento_derivati_crypto`).
+
+**Trovato e corretto un bypass reale**: `window.setTaxRegime` (la funzione
+che attiva davvero `fisco_italia`) era gated solo quando raggiunta tramite
+`openTaxRegimePicker`, ma due pulsanti "scegli regime" separati
+(`renderTax`/`renderTaxSettings`, mostrati quando c'è una fattura ma manca
+ancora il regime) la chiamavano DIRETTAMENTE — un utente FREE poteva
+impostare/cambiare il regime gratis da lì, aggirando del tutto il piano a
+pagamento. Il gate è stato spostato dentro `setTaxRegime` stesso, l'unico
+vero punto di attivazione, non su una sola delle sue porte d'ingresso.
+
+Gli altri 7 gate sono risultati corretti: bloccano solo l'attivazione, mai
+la disattivazione (`setEsActive(false)`, `setSentimentLocalOptIn(false)`)
+né azioni gratuite collaterali (PDF fattura `#inv-generate`, simulatori
+funnel `openSpainSimulator`). Suite 5491/5491 su Node 20.
+
+**Ancora da fare, dichiarato esplicitamente**: nessuna prova dal vivo in
+browser reale per nessuno dei 9 punti — priorità non appena l'estensione
+Chrome torna disponibile, prima di considerare il sistema di piani pronto
+per il rilascio pubblico. `pannello_sec_base`/`beneish_piotroski` (annidati
+in rendering condiviso, ~850 righe) e il resto di `PRO_INVESTOR` restano
+non gated e non ancora indagati.
