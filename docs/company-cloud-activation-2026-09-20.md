@@ -18,8 +18,8 @@ dispositivi e gestionali reali.
 ## Attivazione minima sul progetto Pages
 
 1. Creare un database D1 dedicato e applicare, nell'ordine, `schema.sql`,
-   `reports.sql`, `report-navigation.sql`, `invitations.sql`,
-   `attachment-quota.sql`, `attachment-lifecycle.sql` e
+   `reports.sql`, `report-navigation.sql`, `report-total.sql`,
+   `invitations.sql`, `attachment-quota.sql`, `attachment-lifecycle.sql` e
    `attachment-journal.sql`. Per il pilota allegati D1 applicare anche
    `d1-files.sql` e `d1-files-compression.sql`.
 2. Nel progetto Pages aggiungere il binding D1 `COMPANY_DB`. Per gli allegati
@@ -61,6 +61,28 @@ o simulare una ricevuta ufficiale. Zoho usa OAuth e offre il ciclo completo dei
 resoconti; SAP Concur richiede la registrazione dell'app/ambiente autorizzato;
 Expensify e Rydoo rilasciano credenziali secondo il loro processo. Un export o
 un'email preparata non diventano quindi un invio ricevuto.
+
+## Segnale statistico aziendale sui resoconti, 2026-09-21
+
+`src/trips/company-report-anomaly.js` (7 test) confronta il TOTALE di un
+resoconto con gli altri resoconti GIÀ APPROVATI della stessa azienda (mai con
+lo storico di un singolo dipendente — aggregazione aziendale, stessa disciplina
+z-score già in produzione per le spese personali e per `trip-anomaly.js`).
+Migrazione additiva `report-total.sql` (colonna `total` su `reports`, calcolata
+al momento dell'invio in `reportRequest`, mai retroattiva sui resoconti
+precedenti). Mostrato al revisore/auditor come `companyAnomaly` nella vista
+dettaglio del resoconto — mai un blocco, un fatto statistico onesto, stessa
+disciplina di `checks` (policy_daily/policy_limit/duplicate_receipt). Nessun
+importo può far scattare il segnale sotto 5 resoconti aziendali storici
+approvati (limite matematico dichiarato: con lo z-score auto-inclusivo il
+tetto raggiungibile da un solo outlier su n campioni è `sqrt(n-1)`, sotto
+`sqrt(4)=2.0` con meno di 5 storici — verificato con test dedicato, non
+supposto). Verificato: `node --test server/company/reports.test.js` (27/27,
+Node 22) e `node --test src/trips/company-report-anomaly.test.js` (7/7);
+suite completa dell'app 5483/5483 su Node 20 invariata. Non ancora collegato
+a nessuna UI (né `company/workspace-page.js` né `inbox-page.js` lo mostrano
+ancora): il campo torna nella risposta JSON di `GET /v1/companies/:id/reports/:id`,
+resta da disegnare la card per il revisore.
 
 ## Installazioni e telemetria storica
 

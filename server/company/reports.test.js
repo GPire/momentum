@@ -67,7 +67,7 @@ test('cleanup excludes active operations and historical reports; successful dele
  assert.equal((await cleanup()).status,409);assert.equal(deletes,0);await release();
  assert.equal((await cleanup('employee')).status,403);assert.equal((await cleanup('owner','https://evil.test')).status,403);
  const archive={format:'momentum-company-upload',archive:{transactions:[{receiptRef:{hash}}]}};
- sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?)').run('old','a','employee','t',1,1,'f'.repeat(64),JSON.stringify(archive),'2000-01-01');
+ sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?,?)').run('old','a','employee','t',1,1,'f'.repeat(64),JSON.stringify(archive),'2000-01-01',null);
  assert.equal((await cleanup()).status,409);assert.equal(deletes,0);
  const second=await attachmentKey('a','employee','b'.repeat(64));const releaseSecond=await lockAttachment(env.COMPANY_DB,'a',second);await releaseSecond();
  sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size,created_at) VALUES(?,?,?,?)').run('a',second,3,'2000-01-01');
@@ -118,7 +118,7 @@ test('storage inventory protects historic references and distinguishes missing o
  for(const hash of hashes)sql.prepare('INSERT INTO company_attachment_reservations(company_id,object_key,size) VALUES(?,?,?)').run('a',`a/${subjectHash}/${hash}`,3);
  // Even superseded revisions retain their attachments.
  const archive={format:'momentum-company-upload',archive:{transactions:[{receiptRef:{hash:hashes[0]}}]}};
- for(const [id,revision,body]of [['old',1,archive],['new',2,{transactions:[]}]])sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?)').run(id,'a','employee','t',revision,1,'f'.repeat(64),JSON.stringify(body),'2026-09-14');
+ for(const [id,revision,body]of [['old',1,archive],['new',2,{transactions:[]}]])sql.prepare('INSERT INTO reports VALUES(?,?,?,?,?,?,?,?,?,?)').run(id,'a','employee','t',revision,1,'f'.repeat(64),JSON.stringify(body),'2026-09-14',null);
  env.COMPANY_FILES={async head(key){if(key.endsWith(hashes[2]))throw new Error('offline');return key.endsWith(hashes[1])?null:{size:key.endsWith(hashes[3])?4:3}}};
  const get=(subject='owner',suffix='')=>storageAuditRequest(new Request(env.APP_ORIGIN+'/v1/companies/a/storage'+suffix),env,subject);
  assert.equal((await get('employee')).status,403);assert.equal((await get('manager')).status,403);assert.equal((await get('other')).status,403);
@@ -145,7 +145,7 @@ test('storage inventory paginates without dropping reservations and refuses writ
  }finally{sql.close()}
 });
 function fixture(){
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','report-total.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'),('b','B'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('b','other','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rules),'admin','2026-09-13');
  sql.exec("INSERT INTO company_storage_limits VALUES('a',33554432),('b',33554432)");
@@ -162,6 +162,37 @@ test('submission and independent approval persist the exact fingerprint; no self
  assert.equal((await call('/'+report.reportId,null,'other','0','GET')).status,403);
  const stored=await(await call('/'+report.reportId,null,'employee','0','GET')).json();assert.equal(stored.decision,'approved');assert.equal(stored.superseded,false);
  assert.throws(()=>sql.exec('UPDATE reports SET revision=9'),/Immutable/);
+ }finally{sql.close()}
+});
+test('resoconto insolito vs la storia AZIENDALE (mai vs un singolo dipendente): nessun segnale sotto il minimo, scatta sopra, mai un blocco',async()=>{
+ const{sql,archive,call}=fixture();try{
+ // Solo 4 resoconti storici approvati (5 totali col candidato): sotto il
+ // tetto matematico sqrt(4)=2.0 (vedi company-report-anomaly.js), nessun
+ // importo può mai far scattare il segnale — verificato ANCHE con 900.
+ const normal=[9,10,11,10];
+ for(let i=0;i<normal.length;i++){
+   const a=structuredClone(archive);a.trip.id='t'+i;a.transactions[0].businessTripId='t'+i;a.transactions[0].amount=normal[i];
+   const r=await(await call('',a)).json();
+   assert.equal((await call('/'+r.reportId+'/decision',{decision:'approved',note:''},'manager',r.fingerprint)).status,201);
+ }
+ const stillNoSignal=structuredClone(archive);stillNoSignal.trip.id='t-early';stillNoSignal.transactions[0].businessTripId='t-early';stillNoSignal.transactions[0].amount=900;
+ const early=await(await call('',stillNoSignal)).json();
+ const earlyView=await(await call('/'+early.reportId,null,'manager','0','GET')).json();
+ assert.equal(earlyView.companyAnomaly,null);
+ // Approvato con un importo NORMALE (non l'outlier): porta lo storico a 5,
+ // il minimo perché il segnale possa davvero scattare sul prossimo resoconto.
+ const fifth=structuredClone(archive);fifth.trip.id='t-fifth';fifth.transactions[0].businessTripId='t-fifth';fifth.transactions[0].amount=9;
+ const fifthReport=await(await call('',fifth)).json();
+ assert.equal((await call('/'+fifthReport.reportId+'/decision',{decision:'approved',note:''},'manager',fifthReport.fingerprint)).status,201);
+ const outlier=structuredClone(archive);outlier.trip.id='t-outlier';outlier.transactions[0].businessTripId='t-outlier';outlier.transactions[0].amount=900;
+ const submitted=await(await call('',outlier)).json();
+ const view=await(await call('/'+submitted.reportId,null,'manager','0','GET')).json();
+ assert.ok(view.companyAnomaly);assert.ok(view.companyAnomaly.zScore>2);
+ assert.equal((await call('/'+submitted.reportId+'/decision',{decision:'approved',note:''},'manager',submitted.fingerprint)).status,201);
+ const ok=structuredClone(archive);ok.trip.id='t-ok';ok.transactions[0].businessTripId='t-ok';ok.transactions[0].amount=10;
+ const okReport=await(await call('',ok)).json();
+ const okView=await(await call('/'+okReport.reportId,null,'manager','0','GET')).json();
+ assert.equal(okView.companyAnomaly,null);
  }finally{sql.close()}
 });
 test('new data or attachment invalidates earlier revision approval',async()=>{
@@ -354,7 +385,7 @@ test('batch attachment check requires active membership and trusted origin',asyn
 // secondApprover:'owner', un reviewer e un owner distinti.
 function fixtureDueStadi(){
  const rulesDueStadi={...rules,secondApprover:'owner'};
- const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ const sql=new DatabaseSync(':memory:');for(const file of ['schema.sql','reports.sql','report-navigation.sql','report-total.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('a','A'); INSERT INTO memberships VALUES('a','employee','employee',1),('a','manager','reviewer',1),('a','boss','owner',1),('a','boss2','owner',1)");
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('a',1,JSON.stringify(rulesDueStadi),'admin','2026-09-19');
  const env={APP_ORIGIN:'https://momentum.test',COMPANY_DB:{prepare(query){return{bind(...args){return{async first(){return sql.prepare(query).get(...args)||null},async all(){return {results:sql.prepare(query).all(...args)}},async run(){return{meta:{changes:Number(sql.prepare(query).run(...args).changes)}}}}}}}}};

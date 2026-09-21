@@ -17,7 +17,7 @@ function fixture(){
 const key=async bytes=>'pilot/'+'a'.repeat(64)+'/'+await digestBytes(bytes);
 test('64-attachment report uses fewer than 50 SQL statements and persists exact data',async()=>{
  const f=fixture(),{sql,db,files}=f;try{
- for(const file of ['schema.sql','reports.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
+ for(const file of ['schema.sql','reports.sql','report-total.sql','attachment-quota.sql','attachment-lifecycle.sql','attachment-journal.sql'])sql.exec(readFileSync(new URL(file,import.meta.url),'utf8'));
  sql.exec("INSERT INTO companies VALUES('pilot','Pilot');INSERT INTO memberships VALUES('pilot','staff','employee',1)");
  const rules={currency:'EUR',receiptThreshold:0,expenseLimits:{},dailyLimits:{}};
  sql.prepare('INSERT INTO policies VALUES(?,?,?,?,?)').run('pilot',1,JSON.stringify(rules),'admin','2026-09-14');

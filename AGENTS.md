@@ -33,6 +33,16 @@
 > servizio risponde in modo chiuso e non è operativo. Nessun SSO aziendale o
 > carico multinazionale è stato collaudato. Le policy locali dell'app non sono
 > diventate automaticamente policy aziendali autorizzate.
+>
+> **Segnale statistico aziendale, 2026-09-21:** `companyReportAnomaly`
+> confronta il totale di un resoconto con gli storici GIÀ approvati della
+> STESSA azienda (aggregazione, mai un dipendente contro un altro), mostrato
+> al revisore come `companyAnomaly`, mai un blocco. Dettagli e limite
+> matematico dichiarato nella sezione dedicata di
+> [company-cloud-activation-2026-09-20.md](docs/company-cloud-activation-2026-09-20.md).
+> Verificato: `reports.test.js` 27/27 e `company-report-anomaly.test.js` 7/7
+> su Node 22, suite app 5483/5483 su Node 20. Non ancora collegato a nessuna
+> UI del workspace/inbox aziendale — solo nella risposta JSON.
 
 > **Sciame — scoperta senza server, 2026-09-13:** leggere
 > [sciame-discovery-2026-09-13.md](docs/sciame-discovery-2026-09-13.md).

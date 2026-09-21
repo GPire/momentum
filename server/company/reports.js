@@ -3,6 +3,16 @@ import { lockArchive } from './attachment-lifecycle.js';
 import { json, readBody, validateCompanyRules } from './worker.js';
 import { readReviewArchive } from '../../src/trips/review-archive.js';
 import { inspectTripArchive } from '../../src/trips/trip-archive.js';
+import { companyReportAnomaly } from '../../src/trips/company-report-anomaly.js';
+
+// Stesso filtro di reimbursableTripExpenses (trip-engine.js): il totale
+// aziendale non include mai una spesa bleisure/personale, coerente con
+// quello che il revisore vede già come "totale da rimborsare" nell'export.
+function reportTotal(transactions) {
+  return (transactions || [])
+    .filter(t => t?.type === 'uscita' && !t.tripPersonal && Number.isFinite(Number(t.amount)))
+    .reduce((sum, t) => sum + Number(t.amount), 0);
+}
 
 const equal = (a,b) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 const canonical = value => value && typeof value === 'object' && !Array.isArray(value) ? Object.fromEntries(Object.keys(value).sort().map(key=>[key,canonical(value[key])])) : value;
@@ -106,7 +116,21 @@ export async function reportRequest(request, env, subject) {
     // seconda sullo stesso resoconto, deve essere un'altra persona con lo
     // stesso ruolo.
     const canDecide=!finalDecision&&row.submitter!==subject&&!superseded&&nextStageRole.includes(member.role)&&!decisions.some(d=>d.reviewer===subject);
-    return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,decision:finalDecision,note:lastDecision?.note??null,reviewer:lastDecision?.reviewer??null,decisions,requiredStages,canDecide,attachmentContentsVerified:!summary,checks:summary?null:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy)});
+    // Anomalia statistica aziendale (src/trips/company-report-anomaly.js):
+    // confronta il TOTALE di questo resoconto con gli altri resoconti GIÀ
+    // approvati della stessa azienda (mai con quelli di un singolo
+    // dipendente — un'aggregazione di tutta l'azienda, nessuno confrontato
+    // individualmente con nessun altro). Mai un blocco, solo un fatto
+    // statistico mostrato a chi già vede `checks` — stessa disciplina
+    // onesta di policy_daily/policy_limit/duplicate_receipt.
+    let companyAnomaly=null;
+    if(row.total!=null){
+      const history=(await db.prepare(`SELECT r.total FROM reports r WHERE r.company_id=? AND r.id<>? AND r.total IS NOT NULL
+        AND r.revision=(SELECT MAX(v.revision) FROM reports v WHERE v.company_id=r.company_id AND v.submitter=r.submitter AND v.trip_id=r.trip_id)
+        AND ${finalDecisionExpr}='approved' ORDER BY r.created_at DESC LIMIT 200`).bind(company,row.id).all()).results||[];
+      companyAnomaly=companyReportAnomaly(row.total,history.map(h=>h.total));
+    }
+    return json({...row,archive,superseded,policyStale:row.policy_version!==policy.version,decision:finalDecision,note:lastDecision?.note??null,reviewer:lastDecision?.reviewer??null,decisions,requiredStages,canDecide,attachmentContentsVerified:!summary,checks:summary?null:inspectTripArchive(archive.transactions,archive.trip.receiptPolicy),companyAnomaly});
   }
   if(request.method!=='POST')return json({error:'method_not_allowed'},405);
   if(request.headers.get('Origin')!==env.APP_ORIGIN || !env.APP_ORIGIN || request.headers.get('Content-Type')?.split(';')[0].trim()!=='application/json')return json({error:'invalid_origin_or_type'},403);
@@ -166,12 +190,13 @@ export async function reportRequest(request, env, subject) {
   const checks=inspectTripArchive(body.transactions,JSON.parse(policy.rules));
   if(checks.blockingCount)return json({error:'report_errors',checks},400);
   const reportId=crypto.randomUUID();const revision=Number(previous[1])+1;
+  const total=reportTotal(body.transactions);
   uncertainWrite=true;
-  const result=await db.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at)
-    SELECT ?,?,?,?,?,?,?,?,? WHERE COALESCE((SELECT MAX(revision) FROM reports WHERE company_id=? AND submitter=? AND trip_id=?),0)=?
+  const result=await db.prepare(`INSERT INTO reports(id,company_id,submitter,trip_id,revision,policy_version,fingerprint,archive,created_at,total)
+    SELECT ?,?,?,?,?,?,?,?,?,? WHERE COALESCE((SELECT MAX(revision) FROM reports WHERE company_id=? AND submitter=? AND trip_id=?),0)=?
     AND EXISTS(SELECT 1 FROM memberships WHERE company_id=? AND subject=? AND active=1)
     AND ?=(SELECT MAX(version) FROM policies WHERE company_id=?)`)
-    .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(storedBody),new Date().toISOString(),company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
+    .bind(reportId,company,subject,trip.id,revision,policy.version,review.reportFingerprint,JSON.stringify(storedBody),new Date().toISOString(),total,company,subject,trip.id,Number(previous[1]),company,subject,policy.version,company).run();
   uncertainWrite=false;
   if(result.meta?.changes)return json({reportId,revision,fingerprint:review.reportFingerprint,checks},201);
   const retry=await db.prepare(`SELECT id,revision,fingerprint FROM reports r WHERE company_id=? AND submitter=? AND trip_id=? AND revision=? AND fingerprint=?
