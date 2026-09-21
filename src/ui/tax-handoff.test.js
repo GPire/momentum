@@ -2,6 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { taxHandoffGuide } from './tax-handoff.js';
 
+test('wizardUrl (feedback 2026-09-21): solo per l\'Italia, mai dato come primo link, sempre con nota "solo dopo l\'accesso"', () => {
+  for (const lang of ['it','en','de','fr','es','nl','pt']) {
+    const it = taxHandoffGuide('it', lang);
+    const url = new URL(it.wizardUrl);
+    assert.equal(url.protocol, 'https:');
+    assert.equal(url.hostname, 'ivaservizi.agenziaentrate.gov.it');
+    assert.equal(url.search, '');
+    assert.ok(it.wizardOpen.length > 0);
+    assert.ok(it.wizardNote.length > 0);
+    for (const country of ['ch','es']) assert.equal(taxHandoffGuide(country, lang).wizardUrl, undefined);
+  }
+});
 test('ogni lingua e Paese ha quattro passi e link ufficiali senza dati utente', () => {
   const hosts = new Set(['ivaservizi.agenziaentrate.gov.it','www.fiscooggi.it','estvportal.estv.admin.ch','www.estv.admin.ch','www1.agenciatributaria.gob.es','sede.agenciatributaria.gob.es']);
   for (const lang of ['it','en','de','fr','es','nl','pt']) for (const country of ['it','ch','es']) {

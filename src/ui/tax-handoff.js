@@ -45,16 +45,42 @@ const instructions = {
     es: ['Prepare cliente, itens e impostos. Confira no guia se o aplicativo gratuito AEAT atende seu caso. O Momentum não envia registros VERI*FACTU.', 'Abra o aplicativo de faturação AEAT e identifique-se conforme solicitado. Se o acesso falhar, use o guia oficial abaixo.', 'Preencha e confira a fatura no aplicativo AEAT antes de confirmar. Não carregue XML italiano: não é um formato espanhol de envio.', 'Baixe o documento e a confirmação disponíveis. Volte sem registrar duas vezes o mesmo recebimento. Faturar não entrega automaticamente declarações fiscais.'],
   },
 };
+// wizardUrl (feedback utente 2026-09-21, verificato raggiungibile con
+// curl -I prima di scriverlo): il link diretto al servizio di trasmissione
+// fatture (fatturewizard) atterra dritto sulla schermata giusta SOLO se sei
+// già autenticato sul portale — usato apposta solo nel passo 2 (dopo il
+// login del passo 1 in mountTaxHandoff, main.js), mai come primo link:
+// prima dell'autenticazione rimanderebbe comunque al login, ma dare per
+// primo un link che sembra specifico e invece rimbalza è la stessa
+// confusione ("ti mette a cercare ogni cosa dentro quel sito") che il
+// feedback segnala.
 const portals = {
-  it: { name: 'Fatture e Corrispettivi · SdI', url: 'https://ivaservizi.agenziaentrate.gov.it/portale/', help: 'https://www.fiscooggi.it/guideagenzia/fattura-elettronica-e-servizi-gratuiti-dellagenzia-delle-entrate-settembre-2018' },
+  it: { name: 'Fatture e Corrispettivi · SdI', url: 'https://ivaservizi.agenziaentrate.gov.it/portale/', wizardUrl: 'https://ivaservizi.agenziaentrate.gov.it/ser/fatturewizard/#/home', help: 'https://www.fiscooggi.it/guideagenzia/fattura-elettronica-e-servizi-gratuiti-dellagenzia-delle-entrate-settembre-2018' },
   ch: { name: 'AFC / ESTV · IVA', url: 'https://estvportal.estv.admin.ch/', help: 'https://www.estv.admin.ch/it/rendiconto-iva-online' },
   es: { name: 'AEAT · VERI*FACTU', url: 'https://www1.agenciatributaria.gob.es/wlpl/TIKE-CONT/MenuAplicacionFacturacion', help: 'https://sede.agenciatributaria.gob.es/Sede/iva/sistemas-informaticos-facturacion-verifactu.html' },
+};
+// Feedback utente 2026-09-21: dare SUBITO il link diretto al servizio di
+// trasmissione (fatturewizard) è la stessa confusione del link generico —
+// se non sei ancora autenticato ti rimbalza al login comunque. Questa
+// seconda etichetta chiarisce ESPLICITAMENTE che va aperta DOPO il primo
+// link (l'accesso), mai come alternativa. Solo per l'Italia: è l'unico
+// Paese con un deep-link verificato al servizio esatto (curl -I, 21/09/2026).
+const wizardLabels = {
+  it: ['Poi, vai dritto alla trasmissione', 'Apri questo SOLO dopo aver effettuato l’accesso sopra: se non sei ancora autenticato, ti chiederà comunque di accedere prima.'],
+  en: ['Then, go straight to transmission', 'Open this ONLY after signing in above: if you are not authenticated yet, it will still ask you to sign in first.'],
+  de: ['Dann direkt zur Übermittlung', 'Öffne dies ERST nach der Anmeldung oben: bist du noch nicht angemeldet, wirst du trotzdem zuerst zur Anmeldung geführt.'],
+  fr: ['Ensuite, va directement à la transmission', 'Ouvre ce lien SEULEMENT après t’être connecté ci-dessus : si tu n’es pas encore authentifié, il te demandera quand même de te connecter d’abord.'],
+  es: ['Luego, ve directo a la transmisión', 'Abre esto SOLO después de haber accedido arriba: si aún no estás autenticado, igualmente te pedirá iniciar sesión primero.'],
+  nl: ['Ga dan meteen naar de verzending', 'Open dit PAS nadat je hierboven bent ingelogd: ben je nog niet geverifieerd, dan word je alsnog eerst gevraagd in te loggen.'],
+  pt: ['Depois, vá direto à transmissão', 'Abra isto SÓ depois de ter entrado acima: se ainda não estiveres autenticado, mesmo assim vai pedir para entrares primeiro.'],
 };
 export function taxHandoffGuide(country, lang = 'en') {
   const key = String(country || '').trim().toLowerCase();
   if (!Object.hasOwn(portals, key)) return null;
   const language = Object.hasOwn(labels, lang) ? lang : 'en';
   const l = labels[language];
+  const wl = wizardLabels[language] || wizardLabels.en;
   return { ...portals[key], country: key, title: l[0], back: l[5], next: l[6], open: l[7], helpLabel: l[8], external: l[9], note: l[10],
+    wizardOpen: wl[0], wizardNote: wl[1],
     steps: instructions[language][key].map((body, i) => ({ title: l[i + 1], body })) };
 }

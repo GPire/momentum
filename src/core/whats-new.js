@@ -616,6 +616,10 @@ RELEASES.push({
   versione: '2026-09-20d',
   voci: [{ colore: 'green', icona: '<path d="M5 8h14M7 4h10l2 4v11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8l2-4Z"/><path d="M9 12h6M9 16h4"/>', titolo: 'Più spazio per i tuoi dati', testo: 'Il Vault evita copie locali ridondanti, controlla l’integrità e accorpa le scritture ripetute, mantenendo compatibilità con gli archivi precedenti.', titoloKey: 'storageEfficientTitle', testoKey: 'storageEfficientBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-21',
+  voci: [{ colore: 'gold', icona: '<path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/>', titolo: 'PRO ha ora un prezzo, e delle vere funzioni', testo: 'Fisco IT/CH/ES, fattura elettronica, sentiment on-device, sync multi-dispositivo, confronto pari e derivati crypto: da €3,99/mese o €34,99/anno. Le funzioni gratuite restano tutte gratis, per sempre.', titoloKey: 'whatsNewProTitle', testoKey: 'whatsNewProBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

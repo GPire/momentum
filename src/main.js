@@ -6396,7 +6396,8 @@ function mountTaxHandoff(root, country, onDone = () => window.closeModal(), task
     const current = guide.steps[step];
     root.innerHTML = `<header class="tax-handoff-heading"><span class="tax-handoff-orbit" aria-hidden="true">${step + 1}</span><div><p>${escapeHtml(guide.name)}</p><h3 tabindex="-1">${escapeHtml(current.title)}</h3></div><span class="tax-handoff-count" role="status" aria-live="polite" aria-atomic="true">${step + 1} / ${guide.steps.length}</span></header>
       <p class="tax-handoff-instruction">${escapeHtml(current.body)}</p>
-      ${step === 1 || step === 2 ? `<a class="btn-action btn-primary tax-handoff-link" href="${guide.url}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(guide.open)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a><p class="tax-handoff-domain">${escapeHtml(new URL(guide.url).hostname)}</p><p class="tax-handoff-notice">${escapeHtml(guide.external)}</p>` : ''}
+      ${(step === 1 || step === 2) ? `<a class="btn-action btn-primary tax-handoff-link" href="${guide.url}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(guide.open)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a><p class="tax-handoff-domain">${escapeHtml(new URL(guide.url).hostname)}</p><p class="tax-handoff-notice">${escapeHtml(guide.external)}</p>` : ''}
+      ${(step === 1 && guide.wizardUrl) ? `<a class="btn-action tax-handoff-link" href="${guide.wizardUrl}" target="_blank" rel="noopener noreferrer"><span>${escapeHtml(guide.wizardOpen || guide.open)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M14 3h7v7m0-7L10 14M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg></a><p class="tax-handoff-notice">${escapeHtml(guide.wizardNote || '')}</p>` : ''}
       <a class="tax-handoff-help" href="${guide.help}" target="_blank" rel="noopener noreferrer">${escapeHtml(guide.helpLabel)} · ${escapeHtml(new URL(guide.help).hostname)}</a>
       <nav class="tax-handoff-actions"><button type="button" class="btn-action" data-guide-back ${step === 0 ? 'disabled' : ''}>${escapeHtml(guide.back)}</button><button type="button" class="btn-action btn-primary" data-guide-next>${escapeHtml(step === guide.steps.length - 1 ? guide.steps[3].title : guide.next)}</button></nav>
       <p class="tax-handoff-notice">${escapeHtml(guide.note)}</p>`;
@@ -14132,6 +14133,12 @@ const REPEAT_ICON = `<svg class="recur-ico w-4 h-4 shrink-0" viewBox="0 0 24 24"
 // Portale ufficiale dell'Agenzia delle Entrate per caricare/trasmettere la
 // fattura elettronica (l'utente accede col SUO SPID: Momentum non trasmette).
 const SDI_PORTAL_URL = 'https://ivaservizi.agenziaentrate.gov.it/portale/';
+// Feedback utente 2026-09-21: il portale generico sopra lascia chi arriva
+// a "cercare ogni cosa dentro quel sito" per trovare la trasmissione —
+// questo link diretto (verificato raggiungibile con curl -I) porta dritto
+// al servizio giusto, ma SOLO se sei già autenticato: usato apposta solo
+// al passo 3 (dopo il login del passo 1), mai come primo link della guida.
+const SDI_WIZARD_URL = 'https://ivaservizi.agenziaentrate.gov.it/ser/fatturewizard/#/home';
 // Guida al caricamento passo-passo. Onesta: i nomi esatti delle voci di menu del
 // portale possono cambiare nel tempo → passi descrittivi, non un percorso rigido.
 // Fonti verificate dal vivo sul sito ufficiale dell'Agenzia delle Entrate
@@ -14157,7 +14164,7 @@ function showUploadHelp(filename, number, year) {
       <div class="flex flex-col gap-2">
         ${tl1Step(1, 'Accedi al portale <b class="text-[var(--on-surface)]">Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline. Se dopo l\'accesso finisci su una pagina diversa (es. "Registrazione indirizzo telematico"), non hai sbagliato: cerca il link <b class="text-[var(--on-surface)]">"torna a Fatture e Corrispettivi"</b> in alto e riparti da lì.')}
         ${tl1Step(2, 'Alla prima schermata scegli il profilo <b class="text-[var(--on-surface)]">"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda) — è il punto dove più persone si bloccano: se vedi un elenco di aziende/deleghe, "Me stesso" è comunque sempre la prima opzione in alto.')}
-        ${tl1Step(3, 'Apri la sezione <b class="text-[var(--on-surface)]">Fatturazione elettronica</b> e cerca <b class="text-[var(--on-surface)]">"trasmetti" / "importa un file"</b>.')}
+        ${tl1Step(3, `Non cercare nel menu: <a href="${SDI_WIZARD_URL}" target="_blank" rel="noopener noreferrer" class="font-bold underline text-[var(--gold)]">apri direttamente il servizio di trasmissione</a> (funziona solo se hai già completato il passo 1 sopra).`)}
         ${tl1Step(4, `Carica il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai appena scaricato da Momentum.`)}
         ${tl1Step(5, 'Controlla l\'anteprima e premi <b class="text-[var(--on-surface)]">Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).')}
       </div>
