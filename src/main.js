@@ -6309,6 +6309,11 @@ window.setTaxActiveCountry = (paese) => {
 // (mai un flag irreversibile che costringe a riscrivere dati per tornare
 // indietro).
 window.setEsActive = (val) => {
+  // Gate PRO reale (2026-09-21) SOLO sull'attivazione: disattivare deve
+  // sempre funzionare, mai una trappola che impedisce di tornare indietro
+  // (stesso principio del commento sopra su setNoPartitaIva). Il simulatore
+  // (openSpainSimulator) resta libero — è lui il funnel di scoperta.
+  if (val && !requireProFeature('fisco_spagna')) return;
   VaultDAO.state.esActive = !!val;
   // Attivare la Spagna diventa anche il Paese mostrato per default — chi
   // sta appena attivando qualcosa vuole vederlo, non l'altro rimasto attivo.
@@ -6896,6 +6901,11 @@ function tl1InitChecklist(id) {
 const __chLang = __uiLang;
 
 window.openSwissSimulator = () => {
+  // Gate PRO reale (2026-09-21): a differenza di IT/ES, la Svizzera non ha
+  // un accantonamento continuativo dalle transazioni (vedi commento su
+  // exportAccountantReportCh) — il simulatore stesso È l'intera feature
+  // 'fisco_svizzera', non solo un funnel di scoperta separato.
+  if (!requireProFeature('fisco_svizzera')) return;
   pingFeature('swiss_tax_opened');
   window.openModal(`
     <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
@@ -9174,6 +9184,10 @@ window.selectAsset = async (idx) => {
 // target. Costo dichiarato PRIMA di partire (richiesta esplicita: mai
 // bruciare la quota giornaliera dell'utente senza dirlo).
 window.showAssetComps = async (symbol) => {
+  // Gate PRO_INVESTOR reale (2026-09-21): 'comps_multipli' (comparable
+  // company analysis) è dietro il piano più alto, non solo PRO.
+  const box0 = document.getElementById(`comps-result-${symbol}`);
+  if (!requireProFeature('comps_multipli')) { if (box0) box0.innerHTML = ''; return; }
   pingFeature('asset_comparables_opened');
   const box = document.getElementById(`comps-result-${symbol}`);
   const btn = document.getElementById(`comps-btn-${symbol}`);
@@ -9331,8 +9345,10 @@ window.downloadCompsCsv = async () => {
 // CORS-aperto verificato dal vivo, nessuna chiave utente necessaria (a
 // differenza dei comps azionari, che dipendono da Alpha Vantage).
 window.showCryptoPosizionamento = async (symbol) => {
-  pingFeature('crypto_positioning_opened');
   const box = document.getElementById(`deriv-result-${symbol}`);
+  // Gate PRO_INVESTOR reale (2026-09-21): 'posizionamento_derivati_crypto'.
+  if (!requireProFeature('posizionamento_derivati_crypto')) { if (box) box.innerHTML = ''; return; }
+  pingFeature('crypto_positioning_opened');
   const btn = document.getElementById(`deriv-btn-${symbol}`);
   if (!box) return;
   const perpSymbol = `${symbol}USDT`;
@@ -9544,6 +9560,10 @@ function renderSentimentLocalCard() {
   }
 }
 window.setSentimentLocalOptIn = async (attiva) => {
+  // Gate PRO reale (2026-09-21) SOLO sull'attivazione: disattivare il
+  // download/uso resta sempre libero, mai una trappola. Ri-sincronizza il
+  // checkbox (già spuntato dal click) allo stato vero, mai una UI bugiarda.
+  if (attiva && !requireProFeature('sentiment_on_device')) { renderSentimentLocalCard(); return; }
   VaultDAO.state.sentimentOptIn = !!attiva;
   VaultDAO.save();
   if (!attiva) { renderSentimentLocalCard(); return; }
@@ -14915,6 +14935,9 @@ window.openCreateInvoice = (prefillClient) => {
   // salvato senza indirizzo fiscale) restano fuori, dichiarate una per una —
   // mai un XML silenziosamente saltato o inventato.
   $('#inv-export-annuale')?.addEventListener('click', async () => {
+    // Gate PRO reale (2026-09-21): stessa feature 'fatturazione_elettronica'
+    // del bottone XML singolo sopra, qui in blocco annuale.
+    if (!requireProFeature('fatturazione_elettronica')) return;
     const prof = VaultDAO.state.invoiceProfile || {};
     const emitterFiscal = { ...(prof.fiscale || {}), denominazione: prof.emitter || '', regime: VaultDAO.state.taxRegime || 'forfettario', nazione: 'IT' };
     const fattureIt = (VaultDAO.state.invoices || []).filter(i => (i.country || 'IT') === 'IT');
@@ -14973,6 +14996,12 @@ window.openCreateInvoice = (prefillClient) => {
     'client.cap': '#inv-cli-cap', 'client.comune': '#inv-cli-comune',
   };
   $('#inv-xml').addEventListener('click', () => {
+    // Gate PRO reale (2026-09-21): il PDF (#inv-generate sopra) resta
+    // libero — la fattura ELETTRONICA XML/FatturaPA è la feature
+    // 'fatturazione_elettronica' vera, quella dietro cui c'è lavoro reale
+    // (predittore scarto SdI, campi obbligatori, standard che ogni
+    // gestionale legge davvero).
+    if (!requireProFeature('fatturazione_elettronica')) return;
     const client = clientEl.value.trim();
     const imp = totalImponibile();
     const voci = collectVoci();
@@ -17636,6 +17665,9 @@ window.openPrivateSyncConflicts = () => {
 };
 window.configurePrivateSync = publicKey => {
   if (!isTrustedKey(VaultDAO.state.trustedDevices || [], publicKey)) return;
+  // Gate PRO reale (2026-09-21): l'intero setup È la feature
+  // 'sync_multi_dispositivo', nessun funnel gratuito separato qui.
+  if (!requireProFeature('sync_multi_dispositivo')) return;
   const tr = key => escapeHtml(tCh(key,__uiLang));
   openModal(`<div class="p-5 space-y-4"><h3>${tr('syncArchiveSetup')}</h3><p>${tr('syncArchiveLimit')}</p><label for="private-sync-scope">${tr('syncCode')}</label><input id="private-sync-scope" class="modal-input" autocomplete="off" autocapitalize="off" spellcheck="false"><button id="private-sync-create" class="btn-action">${tr('syncCreate')}</button><label class="flex gap-3 items-start"><input id="private-sync-consent" type="checkbox" class="toggle-input"><span>${tr('syncArchiveConsent')}</span></label><p id="private-sync-feedback" role="status"></p><button id="private-sync-save" class="btn-action btn-primary">${tr('syncSave')}</button></div>`);
   const input=document.getElementById('private-sync-scope'), check=document.getElementById('private-sync-consent');

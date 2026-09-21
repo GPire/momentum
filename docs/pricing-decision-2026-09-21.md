@@ -94,17 +94,38 @@ resta da fare prima di dichiararlo definitivamente pronto, per la stessa
 regola (AGENTS.md: "npm test non vede la UI") che governa ogni altra
 modifica al DOM in questo progetto.
 
-**Non ancora fatto, elenco onesto**:
-- Gli altri 7 punti d'ingresso PRO/PRO_INVESTOR restano SBLOCCATI per
-  chiunque (mai gated): `fisco_svizzera` (`openSwissSimulator`),
-  `fisco_spagna` (`openSpainSimulator`), `fatturazione_elettronica`
-  (`openInvoiceWorkspace` e famiglia), `pannello_sec_base`,
-  `beneish_piotroski`, `sentiment_on_device`, `sync_multi_dispositivo`.
-  Stesso pattern di `requireProFeature('chiave')` da ripetere in ognuno,
-  con la STESSA cautela usata per fisco_italia: capire prima quale
-  funzione è davvero il funnel gratuito e quale la feature a pagamento,
-  non gated alla cieca.
-- Nessun sistema di fatturazione (Stripe o equivalente) è collegato:
-  prezzi decisi, non ancora applicati a un flusso di pagamento reale.
-  Serve un account del sistema di pagamento scelto — decisione/azione
-  dell'utente, non di codice.
+## Aggiornamento, stesso giorno pomeriggio: altri 7 punti collegati
+
+Verificato caso per caso, mai gated alla cieca — per ognuno prima capito
+qual è il funnel gratuito (da lasciare libero) e qual è la feature vera:
+
+| Feature | Punto collegato | Funnel lasciato libero |
+|---|---|---|
+| `fisco_svizzera` | `window.openSwissSimulator` (l'intero simulatore: CH non ha un accantonamento continuativo separato, vedi commento in `exportAccountantReportCh`) | — |
+| `fisco_spagna` | `window.setEsActive(true)` (solo l'attivazione; disattivare resta sempre libero) | `openSpainSimulator` |
+| `fatturazione_elettronica` | click `#inv-xml` (fattura singola) e `#inv-export-annuale` (blocco annuale) | Download PDF (`#inv-generate`) |
+| `sentiment_on_device` | `window.setSentimentLocalOptIn(true)` (solo l'attivazione, con resync del checkbox se bloccato) | Disattivazione |
+| `sync_multi_dispositivo` | `window.configurePrivateSync` (l'intero setup: nessun consenso salvato senza PRO, il protocollo di autenticazione si ferma comunque da solo senza consenso) | — |
+| `comps_multipli` (PRO_INVESTOR) | `window.showAssetComps` | — |
+| `posizionamento_derivati_crypto` (PRO_INVESTOR) | `window.showCryptoPosizionamento` | — |
+
+Verificato: `node --check` pulito, suite completa 5489/5489 invariata (main.js
+non ha test unitari propri per regola di progetto — DOM solo lì, verifica
+vera è dal vivo in Chrome, non ancora fatta in questa sessione).
+
+**Restano onestamente NON gated** (intreccio profondo con codice condiviso
+gratuito, richiedono più tempo per non rompere l'esperienza FREE):
+`pannello_sec_base`, `beneish_piotroski` — annidati dentro il rendering
+condiviso del dettaglio asset (funzione senza confine pulito, ~850 righe
+di distanza dal punto dove servirebbe il gate); `pannello_sec_completo`,
+`analisi_causale_titolo`, `proiezioni_monte_carlo`, `regime_di_mercato`,
+`risk_parity_rebalancing` (PRO_INVESTOR) — non ancora indagati in questa
+sessione. Prossimo passo per questi: probabilmente non un blocco totale
+ma una LIMITAZIONE DI DATI (es. 600 aziende invece di 11.304 per
+`pannello_sec_base` — coerente con come la feature è già descritta nel
+commento di subscription.js), non un semplice gate booleano come gli altri.
+
+Nessun sistema di fatturazione (Stripe o equivalente) è collegato: prezzi
+decisi, non ancora applicati a un flusso di pagamento reale. Serve un
+account del sistema di pagamento scelto — decisione/azione dell'utente,
+non di codice.
