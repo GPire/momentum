@@ -125,6 +125,26 @@ export function removeTrustedDevice(list, publicKey) {
   return (Array.isArray(list) ? list : []).filter((d) => d.publicKey !== publicKey);
 }
 
+// La chiave di SCAMBIO (store-forward.js/exchange-identity.js) è diversa
+// dalla chiave di FIRMA indicizzata sopra: serve a sigillare un pacchetto
+// PER un dispositivo, non a dimostrare la sua identità. Viaggia nello stesso
+// device_hello di chi è già fidato (mai per uno sconosciuto: un dispositivo
+// non fidato non deve mai avere una destinazione a cui essere sigillato).
+// Aggiornabile: un dispositivo può rigenerare la propria chiave di scambio
+// (exchange-identity.js la ruota se non è più utilizzabile) — la staffetta
+// deve seguire la chiave CORRENTE, non quella vista al primo aggancio.
+export function setTrustedExchangeKey(list, publicKey, exchangePublicKey) {
+  const cur = Array.isArray(list) ? list : [];
+  if (!publicKey || !exchangePublicKey) return cur;
+  let changed = false;
+  const next = cur.map((d) => {
+    if (d.publicKey !== publicKey || d.exchangePublicKey === exchangePublicKey) return d;
+    changed = true;
+    return { ...d, exchangePublicKey };
+  });
+  return changed ? next : cur;
+}
+
 export function isTrustedKey(list, publicKey) {
   if (!publicKey) return false;
   return (Array.isArray(list) ? list : []).some((d) => d.publicKey === publicKey);

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   generateIdentity, verificationWords, newChallenge, signChallenge, verifyChallenge,
   addTrustedDevice, removeTrustedDevice, isTrustedKey, authenticatePeer, PAROLE,
+  setTrustedExchangeKey,
 } from './device-trust.js';
 
 test('identità: ogni dispositivo ha una chiave pubblica diversa', async () => {
@@ -97,6 +98,39 @@ test('registro: non duplica lo stesso dispositivo', async () => {
   let lista = addTrustedDevice([], { publicKey: a.publicKey });
   lista = addTrustedDevice(lista, { publicKey: a.publicKey, label: 'di nuovo' });
   assert.equal(lista.length, 1);
+});
+
+test('chiave di scambio: si registra solo per un dispositivo GIÀ fidato, mai per uno sconosciuto', async () => {
+  const a = await generateIdentity();
+  const lista = setTrustedExchangeKey([], a.publicKey, 'exch-key-1');
+  assert.deepEqual(lista, []); // nessun dispositivo fidato: nessuna destinazione da salvare
+});
+
+test('chiave di scambio: si aggiorna sul dispositivo giusto, gli altri restano invariati', async () => {
+  const a = await generateIdentity();
+  const b = await generateIdentity();
+  let lista = addTrustedDevice([], { publicKey: a.publicKey, label: 'A' });
+  lista = addTrustedDevice(lista, { publicKey: b.publicKey, label: 'B' });
+  lista = setTrustedExchangeKey(lista, a.publicKey, 'exch-a');
+  assert.equal(lista.find((d) => d.publicKey === a.publicKey).exchangePublicKey, 'exch-a');
+  assert.equal(lista.find((d) => d.publicKey === b.publicKey).exchangePublicKey, undefined);
+});
+
+test('chiave di scambio: una rotazione aggiorna la chiave corrente, non ne aggiunge una seconda', async () => {
+  const a = await generateIdentity();
+  let lista = addTrustedDevice([], { publicKey: a.publicKey });
+  lista = setTrustedExchangeKey(lista, a.publicKey, 'exch-old');
+  lista = setTrustedExchangeKey(lista, a.publicKey, 'exch-new');
+  assert.equal(lista.length, 1);
+  assert.equal(lista[0].exchangePublicKey, 'exch-new');
+});
+
+test('chiave di scambio: nessuna modifica (stessa chiave) non produce una nuova referenza dell\'elenco', async () => {
+  const a = await generateIdentity();
+  let lista = addTrustedDevice([], { publicKey: a.publicKey });
+  lista = setTrustedExchangeKey(lista, a.publicKey, 'exch-a');
+  const ripetuto = setTrustedExchangeKey(lista, a.publicKey, 'exch-a');
+  assert.equal(ripetuto, lista);
 });
 
 // ── LO SCENARIO CHE CONTA: lo sconosciuto sulla stessa rete ──

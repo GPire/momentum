@@ -525,7 +525,7 @@ class MeshNode {
         // di per sé una prova d'identità: chiunque condivida la stessa rete
         // avrebbe potuto arrivare fin qui.
         if (msg.nat) this.peerNat.set(peerId, msg.nat);
-        this.onDeviceHello?.(peerId, msg.publicKey);
+        this.onDeviceHello?.(peerId, msg.publicKey, typeof msg.exchangePublicKey === 'string' ? msg.exchangePublicKey : null);
       }
     };
     channel.onclose = () => {
@@ -1118,10 +1118,17 @@ class MeshNode {
   // broadcast: la fiducia è per coppia di dispositivi, non per la mesh
   // intera). Chi riceve NON deve fidarsene da sola — è solo il primo passo
   // di un aggancio che l'utente conferma guardando le tre parole.
-  sendDeviceHello(peerId, publicKey) {
+  //
+  // exchangePublicKey (opzionale, store-forward.js/exchange-identity.js):
+  // la chiave con cui un dispositivo GIÀ fidato può sigillare un pacchetto
+  // PER questo dispositivo anche quando non sarà online insieme a lui —
+  // viaggia nello stesso messaggio perché non prova nulla da sola (mai
+  // un'identità), è solo una destinazione: la fiducia resta quella delle
+  // tre parole calcolate dalla chiave di firma qui sopra.
+  sendDeviceHello(peerId, publicKey, exchangePublicKey) {
     const entry = this.peers.get(peerId);
     if (!entry || entry.channel?.readyState !== 'open' || !publicKey) return false;
-    entry.channel.send(JSON.stringify({ type: 'device_hello', publicKey, nat: this.localNat }));
+    entry.channel.send(JSON.stringify({ type: 'device_hello', publicKey, exchangePublicKey: exchangePublicKey || undefined, nat: this.localNat }));
     return true;
   }
 

@@ -360,3 +360,34 @@ Verifica di questo controllo: 389 file di test eseguiti singolarmente con Node
 `ui-strings.test.js` 92/92 e copertura traduzioni 9/9. Build portabile di
 produzione riuscita su 449 moduli. Restano gli avvisi preesistenti sui chunk
 grandi; non indicano un errore della persistenza.
+
+### Consegna differita cifrata — prerequisito chiuso, 21 settembre 2026
+
+Verificato leggendo il codice (non ipotizzato): `store-forward.js` esiste già
+completo (ECDH P-256 + AES-GCM via WebCrypto, TTL, limite dimensione, sacco
+di trasporto con igiene automatica) e `exchange-identity.js` mantiene una
+chiave di scambio persistente non esportabile — ma **nessun punto del codice
+chiamava mai `sealFor()`**: l'infrastruttura di consegna differita esisteva ma
+non trasportava nulla, perché mancava il prerequisito — i dispositivi fidati
+non si scambiavano mai la propria chiave di SCAMBIO (solo quella di FIRMA,
+usata per l'identità). Senza sapere a quale chiave sigillare un pacchetto,
+nessuna staffetta poteva partire.
+
+Chiuso questo prerequisito: `device_hello` porta ora anche la chiave di
+scambio (mai per uno sconosciuto — solo dopo che le tre parole sono già state
+confermate), `setTrustedExchangeKey` (device-trust.js) la registra/aggiorna
+sul dispositivo fidato corrispondente, segue le rotazioni della chiave senza
+richiedere una nuova conferma umana (non è una nuova decisione di fiducia,
+solo l'aggiornamento di una destinazione). Verificato: `device-trust.test.js`
+18/18, `mesh-signaling.test.js` 52/52 (nuovo test end-to-end sendDeviceHello→
+onDeviceHello con e senza chiave di scambio), suite app 5.488/5.488 su Node 20.
+
+**Non ancora fatto, resta il prossimo passo reale**: nessun codice sigilla
+ancora `privateArchivePatch(VaultDAO.state, {})` per i dispositivi fidati
+NON connessi in questo momento e lo consegna con `window.inviaAlDispositivo`
+— il prerequisito (sapere a chi sigillare) è pronto, il collegamento vero e
+proprio no. Da fare con attenzione al limite di 64 KB per pacchetto
+(`MAX_BUNDLE_BYTES`) e a non ri-sigillare l'intero archivio a ogni
+salvataggio (chiacchiericcio inutile): serve un throttle e, se il payload
+supera il limite, una strategia dichiarata (es. solo i campi cambiati dopo
+l'ultima consegna nota), non un troncamento silenzioso.

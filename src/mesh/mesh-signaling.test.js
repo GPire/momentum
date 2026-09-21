@@ -41,6 +41,19 @@ const samplePayload = () => ({
   BTC: { kind: 'crypto', asOf: '2026-07-14T10:00:00Z', source: 'coingecko', series: [{ date: '2026-07-13', close: 100 }, { date: '2026-07-14', close: 101 }] },
 });
 
+test('sendDeviceHello: la chiave di scambio (store-forward.js) arriva intatta al peer, mai obbligatoria', () => {
+  const { nodeA, nodeB } = twoNodes();
+  let got = null;
+  nodeB.onDeviceHello = (peerId, publicKey, exchangePublicKey) => { got = { peerId, publicKey, exchangePublicKey }; };
+
+  nodeA.sendDeviceHello('B', 'firma-a', 'scambio-a');
+  assert.deepEqual(got, { peerId: 'A', publicKey: 'firma-a', exchangePublicKey: 'scambio-a' });
+
+  got = null;
+  nodeA.sendDeviceHello('B', 'firma-a'); // senza chiave di scambio: mai un crash, mai un valore inventato
+  assert.deepEqual(got, { peerId: 'A', publicKey: 'firma-a', exchangePublicKey: null });
+});
+
 test('sharePrices: il payload arriva intatto al peer via price_share', () => {
   const { nodeA, nodeB } = twoNodes();
   let got = null;

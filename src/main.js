@@ -364,7 +364,7 @@ import { assertShareable } from './mesh/compute-market.js';
 import { acceptForCarry, pruneExpired, MAX_CARRIED } from './mesh/store-forward.js';
 import { loadOrCreateExchangeIdentity, openSealedAny, statoIdentita } from './mesh/exchange-identity.js';
 import { loadOrCreateDeviceIdentity } from './mesh/device-signing-identity.js';
-import { verificationWords, addTrustedDevice, removeTrustedDevice, isTrustedKey } from './mesh/device-trust.js';
+import { verificationWords, addTrustedDevice, removeTrustedDevice, isTrustedKey, setTrustedExchangeKey } from './mesh/device-trust.js';
 import { initLexiconPool, observeLexicon, buildLexiconDigest, mergeLexiconDigests, eligibleLexicon, heldBackLexicon, DEFAULT_K_ANONYMITY, buildDistillationDigest, mergeDistillationDigests, roundContributions, PROBE_VERSION, validateDistillationDigest, spendBudget, previewOutgoing } from './mesh/federated-distillation.js';
 import { initDriftState, observeRound, combinedWeight, detectCollusion } from './mesh/contribution-drift.js';
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
@@ -20237,17 +20237,29 @@ const __proposteFiduciaMostrate = new Set();
 // disturba l'utente con niente; altrimenti si calcolano le tre parole e si
 // chiede UNA conferma umana — l'unico gesto che distingue "il mio secondo
 // telefono" da "il telefono di uno sconosciuto sulla stessa rete".
-async function gestisciDeviceHello(peerId, publicKeyAltrui) {
+async function gestisciDeviceHello(peerId, publicKeyAltrui, exchangePublicKeyAltrui) {
   if (!publicKeyAltrui) return;
   const fidati = VaultDAO.state.trustedDevices || [];
-  if (isTrustedKey(fidati, publicKeyAltrui)) return; // già confermato in passato, nulla da chiedere
+  if (isTrustedKey(fidati, publicKeyAltrui)) {
+    // Già fidato: nessuna nuova conferma umana da chiedere, ma la
+    // destinazione per la staffetta differita (store-forward.js) va comunque
+    // imparata/aggiornata — un dispositivo può ruotare la propria chiave di
+    // scambio (exchange-identity.js) senza che questo cambi CHI è.
+    if (exchangePublicKeyAltrui) {
+      const aggiornati = setTrustedExchangeKey(fidati, publicKeyAltrui, exchangePublicKeyAltrui);
+      if (aggiornati !== fidati) { VaultDAO.state.trustedDevices = aggiornati; VaultDAO.save(); }
+    }
+    return;
+  }
   if (__proposteFiduciaMostrate.has(publicKeyAltrui)) return; // già proposto in questa sessione
   __proposteFiduciaMostrate.add(publicKeyAltrui);
   const mia = await identitaFirma();
   const parole = await verificationWords(mia.publicKey, publicKeyAltrui);
   window.confermaFiduciaDispositivo = (conferma) => {
     if (conferma) {
-      VaultDAO.state.trustedDevices = addTrustedDevice(VaultDAO.state.trustedDevices || [], { publicKey: publicKeyAltrui, label: 'Dispositivo collegato', now: Date.now() });
+      let lista = addTrustedDevice(VaultDAO.state.trustedDevices || [], { publicKey: publicKeyAltrui, label: 'Dispositivo collegato', now: Date.now() });
+      if (exchangePublicKeyAltrui) lista = setTrustedExchangeKey(lista, publicKeyAltrui, exchangePublicKeyAltrui);
+      VaultDAO.state.trustedDevices = lista;
       VaultDAO.save();
       showToast('Dispositivo riconosciuto: non ti verrà più chiesto.', 'success');
     }
@@ -23758,8 +23770,11 @@ async function initMomentumRealAI() {
       // FIDUCIA (device-trust.js): la propria chiave di firma viaggia ad
       // ogni nuovo collegamento diretto — mai una prova da sola, solo il
       // materiale con cui l'altro lato potrà calcolare le tre parole.
-      identitaFirma().then((mia) => {
-        for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.sendDeviceHello(pid, mia.publicKey);
+      // La chiave di scambio viaggia insieme a quella di firma: chi ci ha già
+      // fidato può così imparare/aggiornare dove sigillare un pacchetto per
+      // noi anche quando non saremo online insieme (vedi setTrustedExchangeKey).
+      Promise.all([identitaFirma(), identitaScambio()]).then(([mia, scambio]) => {
+        for (const pid of momentumMeshNode.peers.keys()) momentumMeshNode.sendDeviceHello(pid, mia.publicKey, scambio.publicKey);
       });
       // Se questo dispositivo ha già raggiunto una fonte macro, la passa
       // subito al nuovo arrivato — non deve aspettare il prossimo suo fetch.
@@ -23818,13 +23833,13 @@ async function initMomentumRealAI() {
         }
       } catch (e) { console.warn('Staffetta del sentiment non elaborata:', e); }
     };
-    momentumMeshNode.onDeviceHello = (peerId, publicKey) => {
+    momentumMeshNode.onDeviceHello = (peerId, publicKey, exchangePublicKey) => {
       // La mesh non conserva la chiave di un peer (di proposito: il trasporto
       // non deve avere opinioni sull'identità). Ma per mandare una nota spese
       // SOLO ai propri dispositivi serve sapere chi è chi: la mappa vive qui,
       // dove c'è anche l'elenco dei dispositivi confermati con le tre parole.
       if (publicKey) { __chiaviDeiPeer.set(peerId, publicKey); privateSyncController?.start(peerId, publicKey); }
-      gestisciDeviceHello(peerId, publicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
+      gestisciDeviceHello(peerId, publicKey, exchangePublicKey).catch((e) => console.warn('Verifica dispositivo non riuscita:', e));
     };
     // Ricezione dei pacchetti a staffetta: si apre cio' che è per noi, si
     // porta avanti il resto — senza poterlo leggere, e entro i limiti che
