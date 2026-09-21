@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { readFileSync } from 'node:fs';
-import worker, { companyRequest, validateCompanyRules } from './worker.js';
+import worker, { companyRequest, validateCompanyRules, createCompanyWorker } from './worker.js';
 import { accessSubject } from './access.js';
 import { workspacePage } from './workspace-page.js';
 
@@ -11,6 +11,7 @@ function fixture() {
   const sql = new DatabaseSync(':memory:');
   sql.exec(readFileSync(new URL('./schema.sql', import.meta.url), 'utf8'));
   sql.exec(readFileSync(new URL('./reports.sql', import.meta.url), 'utf8'));
+  sql.exec(readFileSync(new URL('./rate-limit.sql', import.meta.url), 'utf8'));
   sql.exec("INSERT INTO companies VALUES ('a','Company A'),('b','Company B'); INSERT INTO memberships VALUES ('a','admin','owner',1),('a','employee','employee',1),('a','reviewer','reviewer',1),('a','auditor','auditor',1),('a','editor','policy_admin',1),('b','outsider','owner',1)");
   const db = { prepare(query) { return { bind(...args) { return {
     async first() { return sql.prepare(query).get(...args) || null; },
@@ -88,6 +89,24 @@ test('write rechecks a membership revoked after initial authorization', async ()
   };
   try { assert.equal((await companyRequest(request('POST'), env, 'admin')).status, 409); }
   finally { sql.close(); }
+});
+test('rate-limit.js: attraversa il fetch() reale, mai la rotta di readiness, mai fra soggetti diversi',async()=>{
+ const {sql,env}=fixture();try{
+ env.RATE_LIMIT_PER_MINUTE='3';
+ const meCompanies=()=>new Request('https://momentum.test/v1/me/companies');
+ const w=createCompanyWorker(async()=>({subject:'employee'}));
+ for(let i=0;i<3;i++)assert.equal((await w.fetch(meCompanies(),env)).status,200);
+ const bloccato=await w.fetch(meCompanies(),env);
+ assert.equal(bloccato.status,429);
+ assert.ok(Number(bloccato.headers.get('Retry-After'))>0);
+ // Un soggetto diverso non eredita il blocco: la difesa è PER persona.
+ const altro=createCompanyWorker(async()=>({subject:'reviewer'}));
+ assert.equal((await altro.fetch(meCompanies(),env)).status,200);
+ // La rotta di readiness resta raggiungibile anche dopo il blocco: un
+ // monitor non deve mai poter essere affamato dallo stesso limite.
+ const readiness=new Request('https://momentum.test/v1/company/readiness');
+ assert.notEqual((await w.fetch(readiness,env)).status,429);
+ }finally{sql.close()}
 });
 test('missing identity, missing version and oversized bodies fail closed', async () => {
   const { sql, env, request } = fixture();

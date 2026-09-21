@@ -19,9 +19,9 @@ dispositivi e gestionali reali.
 
 1. Creare un database D1 dedicato e applicare, nell'ordine, `schema.sql`,
    `reports.sql`, `report-navigation.sql`, `report-total.sql`,
-   `invitations.sql`, `attachment-quota.sql`, `attachment-lifecycle.sql` e
-   `attachment-journal.sql`. Per il pilota allegati D1 applicare anche
-   `d1-files.sql` e `d1-files-compression.sql`.
+   `rate-limit.sql`, `invitations.sql`, `attachment-quota.sql`,
+   `attachment-lifecycle.sql` e `attachment-journal.sql`. Per il pilota
+   allegati D1 applicare anche `d1-files.sql` e `d1-files-compression.sql`.
 2. Nel progetto Pages aggiungere il binding D1 `COMPANY_DB`. Per gli allegati
    scegliere un solo driver: binding R2 privato `COMPANY_FILES`, oppure variabile
    `COMPANY_FILES_DRIVER=d1`. Un database separato per i file usa il binding
@@ -61,6 +61,28 @@ o simulare una ricevuta ufficiale. Zoho usa OAuth e offre il ciclo completo dei
 resoconti; SAP Concur richiede la registrazione dell'app/ambiente autorizzato;
 Expensify e Rydoo rilasciano credenziali secondo il loro processo. Un export o
 un'email preparata non diventano quindi un invio ricevuto.
+
+## Difesa per soggetto contro l'abuso, 2026-09-21
+
+`server/company/rate-limit.js` (5 test): un soggetto autenticato non può
+superare N richieste/minuto (default 120, `env.RATE_LIMIT_PER_MINUTE`) sul
+worker aziendale — mai in sostituzione delle regole di rate limiting a
+livello EDGE Cloudflare (zona/dominio, contro un attacco distribuito da
+migliaia di IP), che restano un'attivazione da pannello, non da codice:
+protegge l'equità FRA i dipendenti della stessa azienda contro un client
+rotto o un abuso deliberato di UN soggetto, con un costo di una sola query
+D1 per richiesta. Migrazione additiva `rate-limit.sql`. Esclusa la sola
+rotta `/v1/company/readiness`, pensata per essere interrogata spesso da un
+monitor. Verificato end-to-end attraverso `createCompanyWorker().fetch()`
+reale (non solo gli handler isolati): `worker.test.js` 20/20 (nuovo test
+dedicato), suite server 99/99 su Node 22.
+
+**Perché conta per "milioni di utenti"**: senza questo, un singolo account
+compromesso o un client con un bug in loop poteva consumare la capacità D1
+condivisa dell'intera azienda — un problema che cresce, non si riduce, con
+la scala. Resta comunque da configurare a livello Cloudflare (WAF/Rate
+Limiting Rules di zona) per la protezione contro attacchi distribuiti veri:
+questo è un controllo complementare, non l'unico.
 
 ## Segnale statistico aziendale sui resoconti, 2026-09-21
 

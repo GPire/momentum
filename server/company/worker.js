@@ -11,6 +11,7 @@ import { reportRequest } from './reports.js';
 import { attachmentRequest } from './attachments.js';
 import { inboxPage } from './inbox-page.js';
 import { deploymentReadiness } from './deployment-readiness.js';
+import { checkRateLimit } from './rate-limit.js';
 import { VALUTE_ISO4217 } from '../../src/core/iso4217.js';
 
 const categories = ['trasporto', 'vitto', 'alloggio', 'altro'];
@@ -164,6 +165,12 @@ export function createCompanyWorker(resolveIdentity = companyIdentity) { return 
     try {
       const path = new URL(request.url).pathname;
       if (path === '/v1/company/readiness' && request.method === 'GET') return json(await deploymentReadiness(request, env));
+      // Difesa per soggetto (rate-limit.js): mai una sostituzione delle
+      // regole edge Cloudflare, solo protezione dell'equità fra membri della
+      // stessa azienda. Esclusa apposta la sola rotta di readiness sopra —
+      // pensata per essere interrogata spesso da un monitor.
+      const limit = await checkRateLimit(env.COMPANY_DB, identity.subject, Number(env.RATE_LIMIT_PER_MINUTE) || 120);
+      if (!limit.allowed) return json({ error: 'rate_limited' }, 429, { 'Retry-After': String(Math.ceil(limit.retryAfterMs / 1000)) });
       env=companyStorageEnvironment(env);
       if (/^\/v1\/companies\/[^/]+\/storage\/(journal|reconcile)$/.test(path)) return await attachmentRecoveryRequest(request, env, identity.subject);
       if (/^\/v1\/companies\/[^/]+\/storage\/cleanup$/.test(path)) return await cleanupAttachmentRequest(request, env, identity.subject);
