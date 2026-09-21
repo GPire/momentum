@@ -8,13 +8,19 @@ const {
 const { computeInvoice } = await import('./invoice-engine.js');
 
 // Dati anagrafici completi e realistici (nessun dato di persona reale).
+// Partite IVA a CHECKSUM VALIDO (2026-09-21, dopo la promozione del
+// checksum da warn a err): '01234567890' era il caso di test dedicato a un
+// checksum SBAGLIATO in it-fiscal-id.test.js — usarlo qui come fixture
+// "valido" era l'errore che nascondeva la regressione. '01234567897' è lo
+// stesso identico caso reso valido (ultima cifra corretta), '09876543217'
+// calcolato con l'algoritmo ufficiale e verificato con isValidPartitaIva.
 const EMITTER = {
-  partitaIva: '01234567890', denominazione: 'Mario Bianchi', regime: 'forfettario',
+  partitaIva: '01234567897', denominazione: 'Mario Bianchi', regime: 'forfettario',
   indirizzo: 'Via Roma 1', cap: '09100', comune: 'Cagliari', provincia: 'CA', nazione: 'IT',
   iban: 'IT60X0542811101000000123456',
 };
 const CLIENT = {
-  denominazione: 'Acme SRL', partitaIva: '09876543210',
+  denominazione: 'Acme SRL', partitaIva: '09876543217',
   indirizzo: 'Corso Italia 22', cap: '20100', comune: 'Milano', provincia: 'MI', nazione: 'IT',
   codiceDestinatario: 'ABCDEFG',
 };
@@ -86,6 +92,24 @@ test('validateFatturaPa: dati completi e coerenti → nessun errore bloccante', 
   assert.equal(c.filter(x => x.level === 'error').length, 0);
 });
 
+test('validateFatturaPa: checksum P.IVA/CF sbagliato → ERRORE bloccante (2026-09-21, feedback utente: prima era solo warn e l\'XML si scaricava comunque, scartato dallo SdI dopo)', () => {
+  const inv = computeInvoice({ imponibile: 1000, regime: 'ordinario', country: 'IT' });
+  const base = { emitter: { ...EMITTER, regime: 'ordinario' }, client: CLIENT, invoice: inv, meta: { number: 5, year: 2026, date: '2026-07-21', regime: 'ordinario' } };
+  // Stessa P.IVA di '01234567890' (di 11 cifre, formato ok) ma checksum
+  // sbagliato: uno scarto CERTO, non probabile, quindi va bloccato.
+  const emitterTypo = validateFatturaPa({ ...base, emitter: { ...base.emitter, partitaIva: '01234567890' } });
+  const emErr = emitterTypo.find(x => x.code === '00306' && x.field === 'emitter.partitaIva');
+  assert.ok(emErr && emErr.level === 'error');
+  const { blocking } = buildFatturaPaXML({ ...base, emitter: { ...base.emitter, partitaIva: '01234567890' } });
+  assert.equal(blocking, true);
+  const clientTypo = validateFatturaPa({ ...base, client: { ...CLIENT, partitaIva: '09876543210' } });
+  const cliErr = clientTypo.find(x => x.code === '00306' && x.field === 'client.partitaIva');
+  assert.ok(cliErr && cliErr.level === 'error');
+  const cfTypo = validateFatturaPa({ ...base, client: { ...CLIENT, partitaIva: null, codiceFiscale: 'RSSMRA85T10A562X' } });
+  const cfErr = cfTypo.find(x => x.code === '00307' && x.field === 'client.codiceFiscale');
+  assert.ok(cfErr && cfErr.level === 'error');
+});
+
 test('validateFatturaPa: emittente e cliente stessa P.IVA → errore 00471 (no autofattura TD01)', () => {
   const inv = computeInvoice({ imponibile: 1000, regime: 'ordinario', country: 'IT' });
   const c = validateFatturaPa({ emitter: { ...EMITTER, regime: 'ordinario' }, client: { ...CLIENT, partitaIva: EMITTER.partitaIva }, invoice: inv, meta: { number: 1, year: 2026, date: '2026-07-21', regime: 'ordinario' } });
@@ -130,7 +154,7 @@ test('buildFatturaPaXML: forfettario → XML valido con RF19, Natura N2.2, bollo
   assert.ok(/<Imposta>0.00<\/Imposta>/.test(xml));
   assert.ok(/RiferimentoNormativo/.test(xml));
   assert.equal(blocking, false);
-  assert.equal(filename, `IT01234567890_${progressivoInvio(3, 2026)}.xml`);
+  assert.equal(filename, `IT01234567897_${progressivoInvio(3, 2026)}.xml`);
   // nessun errore bloccante coi dati completi
   assert.equal(controls.filter(c => c.level === 'error').length, 0);
 });

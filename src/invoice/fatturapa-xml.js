@@ -168,13 +168,21 @@ export function validateFatturaPa(data = {}) {
     warn('00401', 'client.partitaIva', 'La Partita IVA del cliente non sembra valida (servono 11 cifre).');
   if (client.codiceFiscale && !cf16(client.codiceFiscale))
     warn('00402', 'client.codiceFiscale', 'Il Codice Fiscale del cliente non sembra valido (16 caratteri).');
-  // CIFRA DI CONTROLLO (checksum ufficiale): intercetta i typo prima dello scarto.
+  // CIFRA DI CONTROLLO (checksum ufficiale): ERRORE, non avviso (feedback
+  // utente 2026-09-21, "mancano dei controlli"). Un checksum sbagliato non
+  // è uno scarto PROBABILE come gli altri warn di questa funzione — è uno
+  // scarto CERTO: nessun numero reale registrato in anagrafica può avere
+  // una cifra di controllo che non torna (algoritmo ufficiale verificato
+  // con un confronto incrociato indipendente su 7000 casi generati, zero
+  // falsi positivi/negativi — vedi it-fiscal-id.js). Prima era `warn`:
+  // l'XML si scaricava e si arrivava fino allo SdI reale per scoprire lo
+  // scarto, l'attrito esatto segnalato dall'utente.
   const ckEmit = checkFiscalId(emitter.partitaIva);
-  if (!ckEmit.ok) warn('00306', 'emitter.partitaIva', `La tua ${ckEmit.reason}.`);
+  if (!ckEmit.ok) err('00306', 'emitter.partitaIva', `La tua ${ckEmit.reason}.`);
   const ckCliP = checkFiscalId(client.partitaIva);
-  if (!ckCliP.ok) warn('00306', 'client.partitaIva', `Quella del cliente: ${ckCliP.reason}.`);
+  if (!ckCliP.ok) err('00306', 'client.partitaIva', `Quella del cliente: ${ckCliP.reason}.`);
   const ckCliF = checkFiscalId(client.codiceFiscale);
-  if (!ckCliF.ok) warn('00307', 'client.codiceFiscale', `Quello del cliente: ${ckCliF.reason}.`);
+  if (!ckCliF.ok) err('00307', 'client.codiceFiscale', `Quello del cliente: ${ckCliF.reason}.`);
 
   // Recapito: CodiceDestinatario 7 char OPPURE PEC. '0000000' è ammesso (privati).
   const cod = String(client.codiceDestinatario || '').trim();

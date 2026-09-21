@@ -13,8 +13,11 @@ import assert from 'node:assert/strict';
 const { buildFatturaPaXML } = await import('./fatturapa-xml.js');
 const { computeInvoice } = await import('./invoice-engine.js');
 
-const EMITTER = { partitaIva: '01234567890', denominazione: 'Studio X', indirizzo: 'Via A 1', cap: '09100', comune: 'Cagliari', provincia: 'CA', iban: 'IT60X0542811101000000123456' };
-const CLIENT = { denominazione: 'Cliente Y', partitaIva: '09876543210', indirizzo: 'Via B 2', cap: '20100', comune: 'Milano', provincia: 'MI', codiceDestinatario: 'ABCDEFG' };
+// Partite IVA a checksum VALIDO (2026-09-21, dopo la promozione del
+// checksum da warn a err — vedi fatturapa-xml.js): stesso fix di
+// fatturapa-xml.test.js, stessa causa (fixture con checksum sbagliato).
+const EMITTER = { partitaIva: '01234567897', denominazione: 'Studio X', indirizzo: 'Via A 1', cap: '09100', comune: 'Cagliari', provincia: 'CA', iban: 'IT60X0542811101000000123456' };
+const CLIENT = { denominazione: 'Cliente Y', partitaIva: '09876543217', indirizzo: 'Via B 2', cap: '20100', comune: 'Milano', provincia: 'MI', codiceDestinatario: 'ABCDEFG' };
 
 // Estrae il valore numerico di un tag (primo match) dall'XML.
 const tag = (xml, name) => { const m = xml.match(new RegExp(`<${name}>([^<]*)</${name}>`)); return m ? m[1] : null; };
