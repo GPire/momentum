@@ -458,6 +458,27 @@ funnel `openSpainSimulator`). Suite 5491/5491 su Node 20.
 **Ancora da fare, dichiarato esplicitamente**: nessuna prova dal vivo in
 browser reale per nessuno dei 9 punti — priorità non appena l'estensione
 Chrome torna disponibile, prima di considerare il sistema di piani pronto
-per il rilascio pubblico. `pannello_sec_base`/`beneish_piotroski` (annidati
-in rendering condiviso, ~850 righe) e il resto di `PRO_INVESTOR` restano
-non gated e non ancora indagati.
+per il rilascio pubblico.
+
+### Decimo gate: analisi_causale_titolo — 21 settembre 2026
+
+Collegato `analisi_causale_titolo` (`titolo-causale.js`/`confronto-titoli.js`,
+PRO_INVESTOR) nel punto unico in cui il QA di mercato consegna la risposta
+(callback `mercato:` in `askMomentum`, main.js), gated solo quando la
+risposta porta davvero l'analisi (`result.data` presente) — le domande di
+chiarimento restano libere. Nessun modale sopra la chat: la risposta
+testuale stessa spiega il prezzo (stesso testo `featureGateBody` già in 7
+lingue). Suite 5491/5491, build verificata. Non verificato dal vivo.
+
+**Deliberatamente NON toccati in questa sessione** (rischio concreto di
+rompere contenuto FREE senza poterlo verificare in browser):
+`pannello_sec_base`/`beneish_piotroski` (annidati in rendering condiviso,
+~850 righe — serve una limitazione dei dati mostrati, non un gate
+booleano), `pannello_sec_completo` (stesso rendering), `proiezioni_monte_carlo`
+(motore Monte Carlo di `net-worth.js` embedded nel What-if simulator di
+Analisi Tensor insieme a contenuto gratuito — slider, tabella strategia),
+`regime_di_mercato` (`detectLiveRegimeFor`, 3 punti di chiamata diversi che
+alimentano Dashboard e altre card). Restano gate PRO_INVESTOR dichiarati
+nell'infrastruttura (`subscription.js`) ma non collegati: liberi per
+chiunque, non un errore nascosto — coerente con l'onestà del resto del
+progetto (`FEATURES_PER_PIANO` dichiara nel commento cosa è vero e cosa no).

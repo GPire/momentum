@@ -4,9 +4,9 @@
 
 ### L'intelligenza finanziaria che vive dentro il tuo dispositivo.
 
-**Nessun server. Nessun abbonamento. Niente esce dal tuo telefono.**
+**Nessun server. Nessun blocco nel cloud. Niente esce dal tuo telefono.**
 
-[![test](https://img.shields.io/badge/test-4620%20verdi-brightgreen)](#verificalo-tu-30-secondi)
+[![test](https://img.shields.io/badge/test-5491%20verdi-brightgreen)](#verificalo-tu-30-secondi)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#lunica-cosa-che-la-rende-diversa)
 [![no cloud](https://img.shields.io/badge/cloud-nessuno-blue)](#lunica-cosa-che-la-rende-diversa)
 [![PWA](https://img.shields.io/badge/PWA-funziona%20offline-blue)](#funziona-senza-campo)
@@ -130,6 +130,12 @@ Collegamento esplicito tra dispositivi fidati via WebRTC. FedAvg pesato, **anti-
 ### 📴 Funziona senza campo
 Service worker a doppia cache, IndexedDB + localStorage, migrazioni di schema, e una **hash chain sulle transazioni che non si riscrive mai**.
 
+### ✈️ Trasferte di lavoro, senza un SaaS aziendale
+Archivio trasferte completo sullo stesso dispositivo: scontrini (OCR in 8 alfabeti non latini oltre ai consueti), conversione multi-valuta al tasso del giorno vero, rimborso chilometrico, distinzione spesa personale/rimborsabile ("bleisure"), un controllo statistico delle anomalie contro la tua stessa storia di spesa, un'impronta di CO2 stimata per trasferta (fattori UK Government GHG, guidato dalla CSRD) e un riepilogo stampabile. Un livello aziendale separato e opzionale (policy multi-tenant, approvazioni, revisione HR/Finance) esiste nel codice ma **non è ancora operativo** — vedi [Limiti dichiarati](#limiti-dichiarati).
+
+### 💳 Piano gratuito davvero completo, più un livello Pro a pagamento
+Il numero di oggi, categorizzazione, proiezione di fine mese, patrimonio manuale, calendario, obiettivi di risparmio, divisione spese, esportazione completa dei dati — **gratis, per sempre, senza account**. **Momentum PRO** (3,99€/mese o 34,99€/anno, sotto il pavimento di ogni concorrente verificato — vedi [decisione di prezzo](docs/pricing-decision-2026-09-21.md)) aggiunge il livello professionale: i motori fiscali IT/CH/ES, la fatturazione elettronica, il sentiment delle notizie on-device, la sincronizzazione multi-dispositivo. **PRO_INVESTOR** aggiunge il livello istituzionale: percentili di settore oltre il campione gratuito, punteggi di qualità, comparabili, posizionamento sui derivati crypto, analisi causale sul singolo titolo. Le licenze vengono emesse a mano dopo un pagamento reale e verificate interamente offline (firma ECDSA, `src/core/license.js`) — non esiste ancora un flusso di acquisto in-app, né un server di licenze, per la stessa scelta architetturale di tutto il resto dell'app.
+
 ---
 
 ## Come si confronta
@@ -158,7 +164,7 @@ Non fidarti delle affermazioni. Eseguile.
 
 ```bash
 npm install
-npm test      # 4620 test, node --test src/
+npm test      # 5491 test, node --test src/
 ```
 
 Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizzera è confrontata con gli esempi ufficiali SIX; le aliquote portano la data in cui sono state verificate e la fonte; i numeri dell'AI si rigenerano con `npm run bench:*`.
@@ -168,7 +174,7 @@ Ogni funzionalità qui sopra ha i suoi test accanto al codice. La QR-bill svizze
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4620 test
+npm test                  # 5491 test
 npm run build             # PWA multi-file in dist/
 npm run build:singlefile  # singolo file HTML ~575KB
 ```
@@ -187,14 +193,23 @@ src/
   alpha/     netto dopo le tasse, patrimonio, portafoglio, regime di mercato,
              fattori, base-rate sui drawdown, fonti dati verificate
   mesh/      segnalazione WebRTC (senza server), peer federato, sync CRDT
-  core/      vault (IndexedDB + hash chain + migrazioni), auto-aggiornamento
+  core/      vault (IndexedDB + hash chain + migrazioni), abbonamenti/licenze
   split/     spese condivise, settlement ottimo, crittografia degli inviti
   i18n/      rilevamento lingua + stringhe interfaccia
   import/    PDF bancari, CSV, OCR scontrini, parser notifiche
   voice/     parser vocale multi-azione
+  trips/     archivio trasferte, trasparenza OCR, valuta, CO2
+  pay/       richieste di bonifico QR SEPA, encoder QR on-device
+  graph/     grafo hebbiano online delle categorie (DCGN)
+  device/    tier hardware, budget di calcolo adattivo
+  ui/        componenti condivisi di feedback/toast
+  sdk/       base sperimentale di federazione a gradienti, nessuna rete automatica
 ```
 
-307 moduli sorgente in 15 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+443 moduli sorgente in 17 domini (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+Un componente server opzionale esiste fuori da `src/` (`server/`, Cloudflare
+Pages Functions): telemetria anonima e un servizio di policy
+aziendali/HR non ancora operativo — vedi [Limiti dichiarati](#limiti-dichiarati).
 
 ## Limiti dichiarati
 
@@ -210,6 +225,9 @@ La fiducia si costruisce con quello che un progetto ammette, non con quello che 
 - **Non è consulenza fiscale.** Sono stime su aliquote pubbliche, ognuna con la sua data di verifica.
 - **Alcuni moduli AI sono ricerca, non produzione.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` e `nb-categorizer.js` sono scritti e testati ma **nessun percorso di produzione li esegue** — il percorso di classificazione reale è `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. Lo diciamo qui invece di lasciare che il conteggio dei file lasci intendere altro: un modulo testato che nessuno esegue non è una funzione.
 - **Gli aggiornamenti automatici delle regole fiscali richiedono una fonte raggiungibile.** Verificato dal vivo: l'Agenzia delle Entrate e Normattiva bloccano le richieste cross-origin, quindi un browser non può leggerle, e trasformare un testo di legge in aliquote in automatico sarebbe esattamente il tipo di numero inventato che questo progetto vieta. Le regole sono verificate a mano e pubblicate come file JSON firmato che l'app scarica da sola.
+- **I prezzi PRO/PRO_INVESTOR sono decisi, non ancora acquistabili.** La maggior parte dei gate è collegata (motori fiscali, fatturazione elettronica, sync, sentiment, comparabili, posizionamento crypto, analisi causale sul singolo titolo); alcune feature PRO_INVESTOR che si mostrano dentro viste condivise gratuite (pannello SEC completo, Beneish/Piotroski, proiezioni Monte Carlo, rilevamento del regime di mercato live) restano libere per chiunque finché il loro gate non può essere progettato senza rompere quel rendering condiviso. Non esiste ancora un flusso di acquisto in-app — vedi [decisione di prezzo](docs/pricing-decision-2026-09-21.md).
+- **Il livello aziendale/HR-Finance è codice, non un prodotto operativo.** Policy multi-tenant, approvazioni e reportistica esistono e sono testate, ma il servizio Cloudflare non ha identità, database o un primo tenant configurato — non utilizzabile da un'azienda oggi.
+- **Android/iOS nativi sono uno scaffold, non pronti per gli store.** I progetti Capacitor esistono; firma dell'app, build native e collaudo su dispositivo reale non sono fatti — oggi il prodotto è la PWA web.
 
 ## Principi non negoziabili
 

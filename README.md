@@ -4,9 +4,9 @@
 
 ### Personal finance AI that runs entirely on your device.
 
-**No server. No subscription. Nothing leaves your phone.**
+**No server. No cloud lock-in. Nothing leaves your phone.**
 
-[![tests](https://img.shields.io/badge/tests-4620%20passing-brightgreen)](#verify-it-yourself-30-seconds)
+[![tests](https://img.shields.io/badge/tests-5491%20passing-brightgreen)](#verify-it-yourself-30-seconds)
 [![on-device](https://img.shields.io/badge/AI-100%25%20on--device-blue)](#the-one-thing-that-makes-it-different)
 [![no cloud](https://img.shields.io/badge/cloud-none-blue)](#the-one-thing-that-makes-it-different)
 [![PWA](https://img.shields.io/badge/PWA-offline%20first-blue)](#works-with-no-signal)
@@ -130,6 +130,12 @@ Explicit pairing between trusted devices over WebRTC. Weighted FedAvg, **anti-po
 ### 📴 Works with no signal
 Dual-cache service worker, IndexedDB + localStorage, schema migrations, and a **hash chain on transactions that is never rewritten**.
 
+### ✈️ Business trips, handled without a corporate SaaS
+Full trip archive on the same device: receipts (OCR in 8 non-Latin alphabets on top of the usual ones), multi-currency conversion at the day's real rate, mileage reimbursement, personal-vs-billable ("bleisure") splitting, a statistical anomaly check against your own historical spend, an estimated carbon footprint per trip (UK Government GHG factors, CSRD-driven), and a printable expense report. A separate, optional company layer (multi-tenant policies, approvals, HR/Finance review) exists in code but is **not live yet** — see [Declared limits](#declared-limits).
+
+### 💳 Free tier that's actually complete, plus a priced Pro layer
+Today's number, categorisation, month-end projection, manual net worth, calendar, savings goals, expense splitting, full data export — **free, forever, no account**. **Momentum PRO** (€3.99/month or €34.99/year, priced under every verified competitor — see [pricing decision](docs/pricing-decision-2026-09-21.md)) adds the professional layer: the IT/CH/ES tax engines, e-invoicing, on-device news sentiment, multi-device sync. **PRO_INVESTOR** adds the institutional layer: sector percentiles beyond the free sample, quality scores, comps, crypto derivatives positioning, single-stock causal analysis. Licenses are issued by hand after a real payment and verified fully offline (ECDSA signature, `src/core/license.js`) — there is no in-app purchase flow yet, and no license server, by the same architectural choice as everything else in this app.
+
 ---
 
 ## How it compares
@@ -158,7 +164,7 @@ Don't take the claims. Run them.
 
 ```bash
 npm install
-npm test      # 4620 tests, node --test src/
+npm test      # 5491 tests, node --test src/
 ```
 
 Every capability above has tests next to the code. The Swiss QR-bill is checked against the official SIX examples; the tax rates carry the date they were verified and the source; the AI numbers regenerate with `npm run bench:*`.
@@ -168,7 +174,7 @@ Every capability above has tests next to the code. The Swiss QR-bill is checked 
 ```bash
 npm install
 npm run dev               # localhost:5173
-npm test                  # 4620 tests
+npm test                  # 5491 tests
 npm run build             # multi-file PWA in dist/
 npm run build:singlefile  # single ~575KB HTML file
 ```
@@ -187,14 +193,23 @@ src/
   alpha/     net return after tax, net worth, portfolio, market regime,
              factors, drawdown base rates, verified data sources
   mesh/      WebRTC signalling (no server), federated peer, sync CRDT
-  core/      vault (IndexedDB + hash chain + migrations), auto-update
+  core/      vault (IndexedDB + hash chain + migrations), subscriptions/license
   split/     shared expenses, optimal settlement, invite crypto
   i18n/      language detection + UI strings
   import/    bank PDF, CSV, receipt OCR, notification parser
   voice/     multi-action voice parser
+  trips/     business-trip archive, OCR transparency, currency, carbon
+  pay/       SEPA QR transfer requests, on-device QR encoder
+  graph/     Hebbian online category graph (DCGN)
+  device/    hardware tiering, adaptive runtime budget
+  ui/        shared feedback/toast components
+  sdk/       experimental gradient-federation base, no auto network
 ```
 
-307 source modules across 15 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+443 source modules across 17 domains (`find src -name "*.js" -not -name "*.test.js" | wc -l`).
+One optional server component exists outside `src/` (`server/`, Cloudflare
+Pages Functions): anonymous telemetry and a not-yet-operational company/HR
+policy service — see [Declared limits](#declared-limits).
 
 ## Declared limits
 
@@ -210,6 +225,9 @@ Trust is built by what a project admits, not by what it claims.
 - **Not tax advice.** Estimates on public rates, each carrying its verification date.
 - **Some AI modules are research, not production.** `src/ai/omega.js`, `neurosym.js`, `expert-adapter.js`, `executive.js` and `nb-categorizer.js` are written and tested but **no production code path executes them** — the live classification path is `orchestrator.js` + `expert-bandit.js` + `trained-categorizer` + `hashed-logreg`. We say this here rather than let the file count imply otherwise: a tested module nobody runs is not a feature.
 - **Automatic tax-rule updates need a reachable source.** Verified live: the Agenzia delle Entrate and Normattiva block cross-origin requests, so a browser cannot read them, and turning legal text into rates automatically would be exactly the kind of invented number this project forbids. Rules are verified by hand and published as a signed-validated JSON file the app fetches on its own.
+- **PRO/PRO_INVESTOR pricing is decided, not yet purchasable.** Most feature gates are wired (tax engines, e-invoicing, sync, sentiment, comps, crypto positioning, single-stock causal analysis); a few PRO_INVESTOR features that render inside shared free views (the full SEC panel, Beneish/Piotroski, Monte Carlo projections, live market-regime detection) are still free for everyone while their gating is designed without breaking that shared rendering. No in-app purchase flow exists yet — see [pricing decision](docs/pricing-decision-2026-09-21.md).
+- **The company/HR-Finance layer is code, not a live product.** Multi-tenant policies, approvals and reporting exist and are tested, but the Cloudflare service has no identity, database or first tenant configured — not usable by an organisation today.
+- **Native Android/iOS are scaffolded, not store-ready.** Capacitor projects exist; app signing, native builds and on-device QA are not done — today the product is the web PWA.
 
 ## Non-negotiable principles
 

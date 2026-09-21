@@ -15,9 +15,14 @@
 > impostare il regime gratis. Gate spostato dentro `setTaxRegime` stesso.
 > Gli altri 8 gate sono corretti (mai bloccano disattivazione o azioni
 > gratuite). Checksum P.IVA/CF promosso da warning a errore bloccante
-> nell'export FatturaPA. Suite 5491/5491. **Prova dal vivo in browser
-> reale resta da fare per tutti i gate, prioritaria appena Chrome torna
-> disponibile.** Dettagli in
+> nell'export FatturaPA. Collegato anche un decimo gate,
+> `analisi_causale_titolo` (PRO_INVESTOR), nel punto unico di risposta del
+> QA di mercato. Suite 5491/5491. **Prova dal vivo in browser reale resta
+> da fare per tutti i gate, prioritaria appena Chrome torna disponibile.**
+> Deliberatamente non toccati (rischio di rompere contenuto FREE
+> condiviso, non verificabile senza Chrome): `pannello_sec_base`,
+> `pannello_sec_completo`, `beneish_piotroski`, `proiezioni_monte_carlo`,
+> `regime_di_mercato`. Dettagli in
 > [release-readiness-2026-09-20.md](docs/release-readiness-2026-09-20.md).
 
 > **Stato canonico del rilascio:** prima di dichiarare una funzione pronta o
@@ -289,7 +294,7 @@ test completi e autorizzazione esplicita dell'utente.
 
 ```bash
 npm run dev            # server di sviluppo (Vite, :5173)
-npm test               # tutta la suite — 4620 test, tutti verdi al 2026-09-06
+npm test               # tutta la suite — 5491 test, tutti verdi al 2026-09-21
 npm run build          # build di produzione
 npm run preview        # anteprima della build
 npm run cap:android    # build + apre il progetto Android (Capacitor)
@@ -303,17 +308,17 @@ produzione.
 
 | Cartella | File .js | di cui test | Cosa contiene |
 |---|---|---|---|
-| `alpha/` | 174 | 81 | Motore mercati: rendimenti netti post-tasse, regime di mercato, drawdown, segnali istituzionali da filing SEC reali (Beneish M-Score, Piotroski F-Score, mappa SIC→settore) |
-| `predict/` | 120 | 60 | Previsioni + fisco: Cassa Unica (`cash-forecast.js`), modello entrate (`income-model.js`), fiscale IT/CH/ES, FatturaPA, ravvedimento operoso |
-| `ai/` | 72 | 33 | Ensemble di categorizzazione on-device: Nano, Meso, NeuralNexus, orchestratore con pesi adattivi e astensione quando la confidenza è bassa |
-| `mesh/` | 58 | 29 | Sync P2P WebRTC senza signaling server, federated learning, anti-poisoning, reputazione peer, resistenza Sybil |
-| `core/` | 54 | 27 | Vault (localStorage + IndexedDB con riconciliazione), licenze ECDSA P-256/SHA-256, auto-update |
-| `import/` | 22 | 11 | CSV bank-agnostico, PDF/OCR, screenshot, notifiche bancarie, CAMT.053 |
-| `split/` | 21 | 11 | Divisione spese CRDT, settlement minimo esatto, chat ancorata alle spese |
-| `invoice/` | 20 | 11 | Fatturazione, XML FatturaPA, QR-bill svizzera |
-| `trips/` | 10 | 6 | Trasferte |
-| `i18n/` | 8 | 4 | 7 lingue |
-| `ui/`, `voice/`, `graph/`, `device/`, `pay/`, `pwa/` | ~31 | ~15 | Componenti UI puri, dettatura, grafo DCGN, profilo hardware, pagamenti SEPA, installazione PWA |
+| `alpha/` | 187 | 88 | Motore mercati: rendimenti netti post-tasse, regime di mercato, drawdown, segnali istituzionali da filing SEC reali (Beneish M-Score, Piotroski F-Score, mappa SIC→settore) |
+| `predict/` | 140 | 73 | Previsioni + fisco: Cassa Unica (`cash-forecast.js`), modello entrate (`income-model.js`), fiscale IT/CH/ES, FatturaPA, ravvedimento operoso |
+| `ai/` (incl. `train/`) | 78 | 35 | Ensemble di categorizzazione on-device: Nano, Meso, NeuralNexus, orchestratore con pesi adattivi e astensione quando la confidenza è bassa |
+| `mesh/` | 71 | 36 | Sync P2P WebRTC senza signaling server, federated learning, anti-poisoning, reputazione peer, resistenza Sybil |
+| `core/` | 69 | 34 | Vault (localStorage + IndexedDB con riconciliazione), licenze ECDSA P-256/SHA-256, piani/sottoscrizioni (`subscription.js`) |
+| `trips/` | 60 | 30 | Trasferte: archivio, trasparenza OCR (8 alfabeti non latini), valuta, anomalie, CO2 |
+| `i18n/` | 48 | 6 | 7 lingue |
+| `invoice/` | 52 | 28 | Fatturazione, XML FatturaPA, QR-bill svizzera, checksum fiscali |
+| `import/` (incl. `fixtures/`) | 26 | 13 | CSV bank-agnostico, PDF/OCR, screenshot, notifiche bancarie, CAMT.053 |
+| `split/` | 23 | 12 | Divisione spese CRDT, settlement minimo esatto, chat ancorata alle spese |
+| `ui/`, `voice/`, `graph/`, `device/`, `pay/`, `pwa/`, `sdk/` | 78 | 34 | Componenti UI puri, dettatura, grafo DCGN Hebbiano, profilo/tier hardware, pagamenti SEPA, installazione PWA, base sperimentale federazione a gradienti |
 
 `src/main.js` è il solo punto che tocca il DOM ed è molto grande (~20k righe):
 tutto il resto è puro e testabile senza browser.
