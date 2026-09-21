@@ -7660,7 +7660,17 @@ window.openTaxRegimePicker = () => {
     </div>`);
 };
 
-window.setTaxRegime = (regime) => { VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard(); };
+window.setTaxRegime = (regime) => {
+  // Gate PRO reale spostato QUI (2026-09-21, bug trovato in verifica): due
+  // pulsanti "scegli regime" (renderTax/renderTaxSettings, chiamati quando
+  // c'è una fattura ma manca ancora il regime) chiamavano setTaxRegime
+  // DIRETTAMENTE, bypassando del tutto il gate messo su
+  // openTaxRegimePicker — un utente FREE poteva impostare/cambiare il
+  // regime gratis da quei due punti. Il gate va sulla funzione che attiva
+  // davvero la feature, non solo su UNA delle sue porte d'ingresso.
+  if (!requireProFeature('fisco_italia')) return;
+  VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard();
+};
 
 // VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
 // verificaEsclusioneForfettario) — problema di mercato reale: Momentum
