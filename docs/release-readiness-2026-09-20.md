@@ -391,3 +391,29 @@ proprio no. Da fare con attenzione al limite di 64 KB per pacchetto
 salvataggio (chiacchiericcio inutile): serve un throttle e, se il payload
 supera il limite, una strategia dichiarata (es. solo i campi cambiati dopo
 l'ultima consegna nota), non un troncamento silenzioso.
+
+### Guida SdI: link diretto al servizio di trasmissione — 21 settembre 2026
+
+Feedback utente: la guida di caricamento mandava a un portale generico
+(`ivaservizi.agenziaentrate.gov.it/portale/`), lasciando l'utente a
+"cercare ogni cosa dentro quel sito" — attrito reale segnalato come causa
+di abbandono. Aggiunto `SDI_WIZARD_URL`/`portals.it.wizardUrl`
+(`.../ser/fatturewizard/#/home`, verificato raggiungibile con `curl -I`
+prima di scriverlo), usato SOLO dopo il passo di accesso — mai come primo
+link, perché prima dell'autenticazione rimanderebbe comunque al login,
+riproducendo la stessa confusione segnalata. Collegato sia nella guida
+statica (`showUploadHelp`) sia nel walkthrough passo-passo
+(`src/ui/tax-handoff.js`), tradotto in 7 lingue.
+Verificato: `tax-handoff.test.js` 4/4 (nuovo test dedicato), suite
+5490/5490. Non verificato dal vivo in Chrome (stesso limite ambientale
+già segnalato in questa sessione).
+
+**Segnalazione utente non ancora risolta, in attesa di dettaglio**:
+"quando crei l'XML mancano dei controlli" — verificato `fatturapa-xml.js`
+(`missingForFatturaPa`/`validateFatturaPa`): la validazione copre già
+campi obbligatori, formato P.IVA/CF e checksum ufficiale (codici SdI
+00417/00401/00404/00306). Nessun controllo specifico mancante identificato
+senza un esempio concreto dell'utente (quale campo/scenario ha superato la
+validazione ma è stato scartato dallo SdI) — non inventare una regola di
+validazione senza una fonte verificata, stessa disciplina del resto del
+progetto.
