@@ -627,6 +627,10 @@ RELEASES.push({
     { colore: 'primary', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/><path d="M12 7v2M12 15v2"/>', titolo: 'La previsione si mette alla prova', testo: 'Sotto "quanto puoi spendere oggi" trovi ora quanto le previsioni passate hanno azzeccato la fascia dichiarata — dopo qualche settimana d\'uso, un numero vero, non solo una promessa.', titoloKey: 'whatsNewCalibrationTitle', testoKey: 'whatsNewCalibrationBody' },
   ],
 });
+RELEASES.push({
+  versione: '2026-09-23',
+  voci: [{ colore: 'purple', icona: '<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 16.5 15.5 8"/>', titolo: 'Parità di rischio, per chi investe sul serio', testo: 'In Analisi Tensor: dove sono davvero i tuoi soldi, contro dove dovrebbero essere per pesare il rischio in modo uguale — con la direzione esatta per ribilanciare. PRO_INVESTOR.', titoloKey: 'riskParityTitle', testoKey: 'riskParitySub' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

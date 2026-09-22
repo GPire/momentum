@@ -1,5 +1,21 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Risk-parity + ribilanciamento, 22-23 settembre 2026:** chiusa una vera
+> voce-vetrina — `risk_parity_rebalancing` (PRO_INVESTOR, subscription.js)
+> non aveva ZERO implementazione, contro la regola scritta nello stesso
+> file. `alpha/portfolio.js` aveva già `riskParityWeights`
+> (inverse-volatility, dichiarata come approssimazione trasparente)
+> mai collegate ai pesi REALI del portafoglio. Aggiunte `currentWeights`/
+> `rebalanceSuggestions` (8 test nuovi) e una card prescrittiva in Analisi
+> Tensor — diversa da "La diagnosi" esistente (diagnostica, Monte Carlo
+> settoriale): qui pesi reali vs target, direzione esatta ridurre/aumentare
+> sopra soglia 10 punti, nessun ricalcolo delle serie storiche già
+> scaricate. Bug reale trovato PRIMA di committare: 18 chiavi tradotte con
+> `{0}`/`{1}` (sintassi di `integration-copy.js`) non si interpolavano in
+> `ui-strings.js` (richiede funzioni frecce) — riscritte e riverificate una
+> per una in tutte le 7 lingue. Suite 5501/5501, build verificata. **Non
+> verificato dal vivo in Chrome** (estensione non connessa).
+
 > **Prezzi decisi, 21 settembre 2026:** leggere
 > [pricing-decision-2026-09-21.md](docs/pricing-decision-2026-09-21.md).
 > Personale PRO €3,99/mese, aziendale gratis fino a 5 dipendenti poi
