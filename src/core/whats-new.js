@@ -620,6 +620,10 @@ RELEASES.push({
   versione: '2026-09-21',
   voci: [{ colore: 'gold', icona: '<path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/>', titolo: 'PRO ha ora un prezzo, e delle vere funzioni', testo: 'Fisco IT/CH/ES, fattura elettronica, sentiment on-device, sync multi-dispositivo, confronto pari e derivati crypto: da €3,99/mese o €34,99/anno. Le funzioni gratuite restano tutte gratis, per sempre.', titoloKey: 'whatsNewProTitle', testoKey: 'whatsNewProBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-22',
+  voci: [{ colore: 'green', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>', titolo: 'Corretto: schermata bloccata dopo l\'aggiornamento', testo: 'Un salvataggio collaterale poteva impedire di chiudere questa stessa schermata col tasto "Ho capito". Risolto: il salvataggio dei tuoi dati non dipende più da quel controllo.', titoloKey: 'whatsNewSaveFixTitle', testoKey: 'whatsNewSaveFixBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un
