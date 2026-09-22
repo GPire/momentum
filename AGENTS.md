@@ -438,10 +438,15 @@ pannello dati SEC.
   `VaultDAO.state.forecastShown` (chiavi `takenAt:daysAhead`, per non
   ripetere lo stesso confronto). Un insight nel feed bandit-ranked
   (`kind: 'forecast-calibration'`) compare solo quando un checkpoint è
-  appena diventato verificabile — nessuna UI aggregata di calibrazione
-  (percentuale reale dentro banda vs 80% dichiarato) ancora costruita:
-  `calibrationSummary()` esiste ed è testata, ma non è ancora mostrata da
-  nessuna parte — prossimo passo naturale, non ancora fatto.
+  appena diventato verificabile. **Collegata anche la UI aggregata
+  (2026-09-22)**: `calibrationSummary()` è ora chiamata da
+  `renderGhostForecast()` (main.js), mostrata dentro la sezione previsione
+  già a scomparsa della card "quanto puoi spendere oggi" — solo quando ci
+  sono almeno 5 osservazioni verificate (`known:true`), stesse valutazioni
+  già calcolate per l'insight per-checkpoint, nessun ricalcolo. Verificato
+  con script mirato (calcolo, interpolazione IT/EN, caso dati insufficienti
+  → resta silenzioso) — **non ancora verificato dal vivo in Chrome**
+  (estensione non connessa), il rendering DOM reale resta da confermare.
 - **Previsioni di prezzo: deciso esplicitamente il 2026-09-11 di NON farle.**
   Segnalato all'utente il rischio reale di consulenza finanziaria non
   autorizzata (MiFID II/SEC) nel presentare un prezzo futuro o un segnale
