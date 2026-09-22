@@ -302,7 +302,7 @@ import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, lea
 import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
-import { snapshotForecast, evaluateAllSnapshots } from './predict/forecast-calibration.js';
+import { snapshotForecast, evaluateAllSnapshots, calibrationSummary } from './predict/forecast-calibration.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
@@ -8445,6 +8445,22 @@ function renderGhostForecast() {
     : `<span class="text-[var(--on-surface-secondary)]">${tCh('ghostNoAdaptive', __uiLang)}</span>`;
 
   const curve = cashCurveHtml(commitments, salary, { standalone: false, tone: oggi !== null ? toneHex : undefined });
+  // Calibrazione della Cassa Unica (forecast-calibration.js, collegata qui il
+  // 2026-09-22 — la funzione pura esisteva ed era testata da settimane, ma
+  // calibrationSummary() non era mai chiamata da nessuna schermata,
+  // esattamente come segnalato in AGENTS.md come "prossimo passo naturale,
+  // non ancora fatto"). Nessun ricalcolo: STESSE valutazioni già prodotte
+  // per l'insight per-checkpoint poco sopra in getAdvisorInsights, solo
+  // aggregate qui. Mostrata SOLO quando c'è un numero vero (know:true,
+  // minimo 5 osservazioni) e SOLO dentro la sezione previsione già a
+  // scomparsa — mai un nuovo elemento in vista sulla Dashboard, stesso
+  // principio "un solo fuoco" di questa card.
+  let calibrationLine = '';
+  try {
+    const calEvals = evaluateAllSnapshots(VaultDAO.state.forecastSnapshots || [], VaultDAO.state.transactions, { now: Date.now() }).map(s => s.evaluations);
+    const cal = calibrationSummary(calEvals);
+    if (cal.known) calibrationLine = `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${tIntegration('ghostCalibrationLine', __uiLang, cal.count, cal.withinBandPct)}</p>`;
+  } catch (_) {}
   const overviewWasOpen = el.querySelector('.home-forecast-more')?.open;
   const curveWasOpen = el.querySelector('.ghost-forecast-details')?.open;
   el.classList.remove('hidden');
@@ -8481,7 +8497,7 @@ function renderGhostForecast() {
 
       <p class="ghost-estimate-note">${tCh('ghostEstimateShort', __uiLang)}</p>
       <details class="home-forecast-more" ${overviewWasOpen || curve.includes('data-cash-risk="true"') ? 'open' : ''}><summary>${tCh('homePlanning', __uiLang)}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary>
-      ${curve ? `<section class="cash-primary"><h4>${tCh('ghostForecastDetails', __uiLang)}</h4>${curve}</section><details class="ghost-forecast-details" ${curveWasOpen ? 'open' : ''}><summary>${tCh('cashDetails', __uiLang)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="allowance-rhythm"><p>${paceLine}</p>
+      ${curve ? `<section class="cash-primary"><h4>${tCh('ghostForecastDetails', __uiLang)}</h4>${curve}${calibrationLine}</section><details class="ghost-forecast-details" ${curveWasOpen ? 'open' : ''}><summary>${tCh('cashDetails', __uiLang)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="allowance-rhythm"><p>${paceLine}</p>
           ${adaptive ? `<div class="rhythm-facts"><span>${tCh('ghostSpentLegend', __uiLang)}<b>${adaptive.budget > 0 ? Math.round(adaptive.spent / adaptive.budget * 100) : 0}%</b></span><span>${tCh('ghostTimeLegend', __uiLang)}<b>${pctTime}%</b></span></div>` : ''}
         </div>${a?.perWeek ? `<p class="ghost-week-comparison">${tCh('ghostPerWeek', __uiLang, eur(a.perWeek))}</p>` : ''}</details>` : ''}
 
