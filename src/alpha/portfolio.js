@@ -57,6 +57,46 @@ export function portfolioReturns(weights, returnsByAsset) {
   return out;
 }
 
+// Pesi REALI di mercato dalle posizioni vere (valore = quantita' * prezzo),
+// mai gli stessi pesi target: e' il punto di partenza del confronto, non il
+// risultato. Posizioni senza prezzo noto o valore <= 0 vengono escluse (mai
+// un peso inventato su un dato mancante).
+export function currentWeights(positions = [], priceByTicker = {}) {
+  const values = {};
+  let total = 0;
+  for (const p of positions) {
+    const price = priceByTicker[p.ticker];
+    const qty = +p.quantity;
+    if (!p.ticker || !Number.isFinite(price) || !Number.isFinite(qty)) continue;
+    const v = price * qty;
+    if (v <= 0) continue;
+    values[p.ticker] = (values[p.ticker] || 0) + v;
+    total += v;
+  }
+  const w = {};
+  for (const t of Object.keys(values)) w[t] = total > 0 ? +(values[t] / total).toFixed(6) : 0;
+  return w;
+}
+
+// Confronta i pesi REALI con quelli target (es. risk-parity) e ritorna solo
+// gli scostamenti che superano una soglia (default 10 punti percentuali) —
+// mai un segnale sul rumore quotidiano dei prezzi. Ordinato per gravita'
+// (scostamento assoluto piu' grande prima). 'reduce' = pesa piu' del target
+// (troppo rischio concentrato li'), 'increase' = pesa meno del target.
+export function rebalanceSuggestions(current = {}, target = {}, { thresholdPct = 10 } = {}) {
+  const tickers = new Set([...Object.keys(current), ...Object.keys(target)]);
+  const out = [];
+  for (const t of tickers) {
+    const curPct = +((current[t] || 0) * 100).toFixed(1);
+    const tgtPct = +((target[t] || 0) * 100).toFixed(1);
+    const deltaPts = +(curPct - tgtPct).toFixed(1);
+    if (Math.abs(deltaPts) >= thresholdPct) {
+      out.push({ ticker: t, currentPct: curPct, targetPct: tgtPct, deltaPts, action: deltaPts > 0 ? 'reduce' : 'increase' });
+    }
+  }
+  return out.sort((a, b) => Math.abs(b.deltaPts) - Math.abs(a.deltaPts));
+}
+
 // Statistiche di rischio/rendimento di una serie di rendimenti.
 export function portfolioStats(returns, opts = {}) {
   const r = (returns || []).filter(Number.isFinite);

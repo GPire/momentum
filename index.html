@@ -5322,6 +5322,19 @@
                     <div id="diagnosi-panel"></div>
                  </div>
 
+                 <!-- RISK-PARITY + RIBILANCIAMENTO (src/alpha/portfolio.js):
+                      prescrittivo, non solo diagnostico come "La diagnosi"
+                      sopra — pesi REALI di mercato confrontati con pesi
+                      target a parità di rischio (inverse-volatility,
+                      dichiarata come approssimazione trasparente, non una
+                      black box), con la direzione esatta quando lo
+                      scostamento supera 10 punti. PRO_INVESTOR. -->
+                 <div class="card p-6 order-11 advanced-card hidden" id="risk-parity-card">
+                    <h3 class="eyebrow" data-i18n-key="riskParityTitle">Parità di rischio</h3>
+                    <p class="card-sub" data-i18n-key="riskParitySub">Dove sono davvero i tuoi soldi, contro dove dovrebbero essere per pesare il rischio in modo uguale</p>
+                    <div id="risk-parity-panel"></div>
+                 </div>
+
                  <!-- IL DIVARIO DI COMPORTAMENTO
                       (src/alpha/divario-comportamento.js). La ricerca dice che
                       il problema n.1 di chi investe non è l'informazione ma il

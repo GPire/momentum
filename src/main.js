@@ -307,6 +307,8 @@ import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from '.
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
 import { investmentReadiness } from './ai/reasoning-fusion.js';
 import { detectRegime } from './alpha/regime.js';
+import { currentWeights, rebalanceSuggestions, riskParityWeights } from './alpha/portfolio.js';
+import { toReturns } from './alpha/market-data.js';
 import { fireTargetCapital, yearsToFire, coastFireCheck } from './predict/fire.js';
 import { detectPlatform, installSteps } from './pwa/install-guide.js';
 import { comparePeriods, lastNMonthKeys } from './predict/period-compare.js';
@@ -15623,6 +15625,53 @@ function renderNetWorth() {
         </details>`;
     }
   }
+  // RISK-PARITY + RIBILANCIAMENTO (src/alpha/portfolio.js, collegata il
+  // 2026-09-23): chiudeva un gap reale — 'risk_parity_rebalancing' era
+  // dichiarata come feature PRO_INVESTOR in subscription.js da giorni ma
+  // ZERO codice la implementava, contro la regola scritta nello stesso file
+  // ("mai una voce-vetrina per qualcosa non ancora costruito"). Motore
+  // inverse-volatility (approssimazione trasparente dell'equal risk
+  // contribution, dichiarata come tale — non una black box) già scritto e
+  // testato, mai chiamato da nessuna schermata. Diverso da "La diagnosi"
+  // sopra (Monte Carlo su sedici settori, DIAGNOSTICO): qui il confronto è
+  // PRESCRITTIVO — pesi reali di mercato vs pesi target, con la direzione
+  // esatta (ridurre/aumentare) quando lo scostamento supera 10 punti.
+  const rpEl = $('#risk-parity-panel');
+  if (rpEl) {
+    document.getElementById('risk-parity-card')?.classList.toggle('hidden', !positions.length);
+    if (positions.length) {
+      if (!hasFeature(VaultDAO.state, 'risk_parity_rebalancing')) {
+        rpEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('riskParityLockedBody', __uiLang)}</p><button type="button" onclick="window.openRiskParityGate?.()" class="btn-action w-full py-2 text-[12px] font-bold">${tCh('featureGateCta', __uiLang)}</button>`;
+      } else {
+        const cw = currentWeights(positions, window.__livePrices || {});
+        const returnsByTicker = {};
+        for (const t of Object.keys(cw)) {
+          const serie = window.__liveSeries?.[t];
+          if (Array.isArray(serie) && serie.length >= 15) returnsByTicker[t] = toReturns(serie);
+        }
+        const coperti = Object.keys(returnsByTicker);
+        if (coperti.length < 2) {
+          rpEl.innerHTML = motivoNonMisurabileHtml('serie storiche insufficienti per almeno 2 posizioni (serve una chiave dati di mercato personale)');
+        } else {
+          // Confronto onesto SOLO sui ticker con storico misurato: una
+          // posizione senza serie non entra né nei pesi reali né nel target,
+          // mai un peso inventato per un dato mancante.
+          const cwCoperti = {}; let totCoperti = 0;
+          for (const t of coperti) { cwCoperti[t] = cw[t]; totCoperti += cw[t]; }
+          for (const t of coperti) cwCoperti[t] = totCoperti > 0 ? cwCoperti[t] / totCoperti : 0;
+          const target = riskParityWeights(returnsByTicker);
+          const suggestions = rebalanceSuggestions(cwCoperti, target);
+          const escoperti = coperti.length < positions.length ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">${tCh('riskParityPartialCoverage', __uiLang, coperti.length, positions.length)}</p>` : '';
+          const righe = coperti.map(t => `<div class="flex items-center justify-between text-[11px] py-1 border-b border-[var(--glass-border)] last:border-0"><span class="font-bold">${escapeHtml(t)}</span><span class="font-mono text-[var(--on-surface-secondary)]">${Math.round(cwCoperti[t] * 100)}% → ${Math.round(target[t] * 100)}%</span></div>`).join('');
+          const azioni = suggestions.length
+            ? suggestions.map(s => `<p class="text-[11px] ${s.action === 'reduce' ? 'text-amber-300' : 'text-emerald-300'} mt-1">${tCh(s.action === 'reduce' ? 'riskParityReduce' : 'riskParityIncrease', __uiLang, escapeHtml(s.ticker), Math.abs(s.deltaPts).toFixed(0))}</p>`).join('')
+            : `<p class="text-[11px] text-emerald-300 mt-1">${tCh('riskParityBalanced', __uiLang)}</p>`;
+          rpEl.innerHTML = `<div class="mb-2">${righe}</div>${escoperti}${azioni}<p class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 mt-2">${tCh('riskParityMethodNote', __uiLang)}</p>`;
+        }
+      }
+    }
+  }
+  window.openRiskParityGate = () => requireProFeature('risk_parity_rebalancing');
   // Sblocco progressivo (richiesto esplicitamente, "non mostrare tutte
   // quelle sezioni fino a quel momento, ma con avviso"): "Quanto rischi
   // davvero"/"Bravura o fortuna?"/"La diagnosi" mostravano ognuna il proprio
