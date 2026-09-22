@@ -517,7 +517,19 @@ const VaultDAO = {
     }
   },
   save() {
-    observePrivateArchive(this.state);
+    // Isolato in try/catch (2026-09-22, bug reale segnalato da utenti bloccati
+    // sulla schermata "Cosa c'è di nuovo" dopo un aggiornamento): questa
+    // chiamata calcola un hash ricorsivo su ~40 campi dello stato PER OGNI
+    // save(), per OGNI utente — anche chi non ha mai attivato la sync
+    // multi-dispositivo. Prima non era protetta: qualunque eccezione al suo
+    // interno (es. una struttura anomala arrivata da una migrazione/sync,
+    // o un riferimento circolare) interrompeva l'INTERO save() prima ancora
+    // di scrivere lo stato vero su localStorage — un utente che premeva "Ho
+    // capito" sulle novità restava bloccato per sempre, perché ogni nuovo
+    // tentativo rifaceva lo stesso identico crash. Stesso principio già
+    // applicato sotto a saveIosHandoff: un'osservazione collaterale non deve
+    // mai poter bloccare il salvataggio reale dei dati dell'utente.
+    try { observePrivateArchive(this.state); } catch (e) { console.error('VaultDAO.save: observePrivateArchive fallita, salvataggio continua comunque:', e); }
     const serializable = revision => ({ ...this.state, storageRevision: revision, currentDate: this.state.currentDate.toISOString() });
     const currentRevision = Number(this.state.storageRevision) || 0;
     const unchangedPayload = JSON.stringify(serializable(currentRevision));

@@ -239,6 +239,32 @@ test('VaultDAO.save: lo snapshot principale resta salvabile senza ricreare la ve
   }
 });
 
+test('VaultDAO.save: un campo dell\'archivio personale troppo annidato (stable() ricorsivo va in overflow prima di JSON.stringify nativo) NON deve mai bloccare il salvataggio vero (bug reale: utenti restavano bloccati sulla schermata "Cosa c\'è di nuovo" perché il tap su "Ho capito" chiama save(), che falliva prima di scrivere qualunque cosa)', () => {
+  const savedLS = globalThis.localStorage;
+  const savedIDB = globalThis.indexedDB;
+  const savedState = VaultDAO.state;
+  try {
+    // Struttura annidata (non circolare) a 5000 livelli: JSON.stringify nativo
+    // la serializza senza problemi, ma la ricorsione JS di stable()
+    // (observePrivateArchive → archiveHash) va in overflow di stack PRIMA —
+    // verificato empiricamente: a questa profondità JSON.stringify riesce,
+    // stable() no. Un dato così annidato può accumularsi in mesi d'uso reale
+    // (es. un merge CRDT ripetuto senza appiattimento), non è un caso di
+    // laboratorio.
+    let profondo = {}; let cur = profondo;
+    for (let i = 0; i < 5000; i++) { cur.next = {}; cur = cur.next; }
+    VaultDAO.state = { ...VaultDAO.state, transactions: {}, watchlist: [profondo], whatsNewSeen: 'x', currentDate: new Date() };
+    globalThis.localStorage = fakeLocalStorage();
+    globalThis.indexedDB = undefined;
+    assert.doesNotThrow(() => VaultDAO.save(), 'save() deve restare protetto anche quando il calcolo collaterale dell\'archivio personale esplode');
+    assert.ok(globalThis.localStorage.getItem('omega_core_db'), 'i dati veri (es. whatsNewSeen) devono essere scritti comunque, non persi per un\'eccezione collaterale');
+  } finally {
+    VaultDAO.state = savedState;
+    globalThis.localStorage = savedLS;
+    globalThis.indexedDB = savedIDB;
+  }
+});
+
 test('VaultDAO.save: una raffica conserva subito ogni snapshot locale ma accorpa IndexedDB sull’ultima versione', async () => {
   await VaultDAO.flushDurable();
   const savedLS = globalThis.localStorage;
