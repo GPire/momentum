@@ -265,6 +265,24 @@ test('VaultDAO.save: un campo dell\'archivio personale troppo annidato (stable()
   }
 });
 
+test('VaultDAO.applySyncMerge: un payload malformato da un peer (mese non-array) NON deve propagare l\'eccezione né toccare i dati locali esistenti (stessa disciplina appena applicata a save(): un\'osservazione/fusione collaterale non deve mai poter rompere lo stato)', () => {
+  const savedState = VaultDAO.state;
+  try {
+    const localiPrima = { '2026-08': [{ id: 'a', amount: 10, date: '2026-08-01' }] };
+    VaultDAO.state = { ...VaultDAO.state, transactions: localiPrima, deletedTx: {} };
+    // Un mese non-iterabile fa esplodere il "for (const tx of incoming)"
+    // interno a mergeTransactions — scenario realistico per un messaggio
+    // di rete corrotto o da una versione peer incompatibile, non un caso
+    // di laboratorio.
+    let risultato;
+    assert.doesNotThrow(() => { risultato = VaultDAO.applySyncMerge({ '2026-09': { non: 'un array' } }); });
+    assert.equal(risultato, 0, 'una sync rifiutata non deve contare come "aggiunte"');
+    assert.deepEqual(VaultDAO.state.transactions, localiPrima, 'i dati locali esistenti restano intatti dopo una sync fallita');
+  } finally {
+    VaultDAO.state = savedState;
+  }
+});
+
 test('VaultDAO.save: una raffica conserva subito ogni snapshot locale ma accorpa IndexedDB sull’ultima versione', async () => {
   await VaultDAO.flushDurable();
   const savedLS = globalThis.localStorage;

@@ -721,7 +721,21 @@ const VaultDAO = {
   // (hash chain intatta) e riallinea la testa della catena. Ritorna quante
   // ne sono state aggiunte. Usato dalla mesh al pairing e per il recupero.
   applySyncMerge(incomingByMonth) {
-    const { merged, added, tombstones, removed, updated } = mergeTransactions(this.state.transactions, incomingByMonth, this.state.deletedTx || {});
+    // Isolata (2026-09-22, stessa disciplina appena applicata a save() sopra
+    // dopo il bug reale sulla schermata "Cosa c'è di nuovo"): un peer fidato
+    // può mandare qualunque cosa nel merge — mai lasciare che un'eccezione
+    // qui in poi si propaghi fino al gestore di rete della mesh (main.js),
+    // dove non è protetta a sua volta. Nessun dato dell'utente esistente
+    // viene toccato prima di questo punto, quindi fallire "pulito" qui non
+    // perde nulla: semplicemente quella sincronizzazione viene rifiutata,
+    // riprovabile al prossimo scambio, invece di un crash silenzioso.
+    let merged, added, tombstones, removed, updated;
+    try {
+      ({ merged, added, tombstones, removed, updated } = mergeTransactions(this.state.transactions, incomingByMonth, this.state.deletedTx || {}));
+    } catch (e) {
+      console.error('VaultDAO.applySyncMerge: merge fallito, sync rifiutata (nessun dato locale toccato):', e);
+      return 0;
+    }
     this.state.transactions = merged;
     this.state.deletedTx = tombstones;
     this.state.lastHash = reconcileHead(merged);
