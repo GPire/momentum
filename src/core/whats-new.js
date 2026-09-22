@@ -622,7 +622,10 @@ RELEASES.push({
 });
 RELEASES.push({
   versione: '2026-09-22',
-  voci: [{ colore: 'green', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>', titolo: 'Corretto: schermata bloccata dopo l\'aggiornamento', testo: 'Un salvataggio collaterale poteva impedire di chiudere questa stessa schermata col tasto "Ho capito". Risolto: il salvataggio dei tuoi dati non dipende più da quel controllo.', titoloKey: 'whatsNewSaveFixTitle', testoKey: 'whatsNewSaveFixBody' }],
+  voci: [
+    { colore: 'green', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>', titolo: 'Corretto: schermata bloccata dopo l\'aggiornamento', testo: 'Un salvataggio collaterale poteva impedire di chiudere questa stessa schermata col tasto "Ho capito". Risolto: il salvataggio dei tuoi dati non dipende più da quel controllo.', titoloKey: 'whatsNewSaveFixTitle', testoKey: 'whatsNewSaveFixBody' },
+    { colore: 'primary', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/><path d="M12 7v2M12 15v2"/>', titolo: 'La previsione si mette alla prova', testo: 'Sotto "quanto puoi spendere oggi" trovi ora quanto le previsioni passate hanno azzeccato la fascia dichiarata — dopo qualche settimana d\'uso, un numero vero, non solo una promessa.', titoloKey: 'whatsNewCalibrationTitle', testoKey: 'whatsNewCalibrationBody' },
+  ],
 });
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
