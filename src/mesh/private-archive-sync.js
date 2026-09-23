@@ -22,11 +22,42 @@ const RECEIPT_FIELDS = new Set([...FIELD_SET, 'transactions']);
 const MAX_CONFLICTS = 50;
 const MAX_RECEIPTS = 100;
 
-function stable(value) {
+function stableRecursive(value) {
   if (value === undefined) return 'undefined:';
-  if (Array.isArray(value)) return `[${value.map(stable).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stable(value[k])}`).join(',')}}`;
+  if (Array.isArray(value)) return `[${value.map(stableRecursive).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableRecursive(value[k])}`).join(',')}}`;
   return JSON.stringify(value);
+}
+
+function stableIterative(value) {
+  const output = [], active = new Set(), stack = [{ kind: 'value', value }];
+  while (stack.length) {
+    const frame = stack.pop();
+    if (frame.kind === 'literal') { output.push(frame.text); continue; }
+    if (frame.kind === 'close') { active.delete(frame.value); output.push(frame.text); continue; }
+    const item = frame.value;
+    if (item === undefined) { output.push('undefined:'); continue; }
+    if (!item || typeof item !== 'object') { output.push(JSON.stringify(item)); continue; }
+    if (active.has(item)) throw new TypeError('Circular archive data cannot be hashed');
+    active.add(item);
+    const array = Array.isArray(item);
+    const keys = array ? Array.from({ length: item.length }, (_, index) => index) : Object.keys(item).sort();
+    output.push(array ? '[' : '{');
+    stack.push({ kind: 'close', value: item, text: array ? ']' : '}' });
+    for (let index = keys.length - 1; index >= 0; index--) {
+      const key = keys[index];
+      stack.push(array && !(key in item) ? { kind: 'literal', text: '' } : { kind: 'value', value: item[key] });
+      if (!array) stack.push({ kind: 'literal', text: `${JSON.stringify(key)}:` });
+      if (index) stack.push({ kind: 'literal', text: ',' });
+    }
+  }
+  return output.join('');
+}
+
+function stable(value) {
+  try { return stableRecursive(value); }
+  catch (error) { if (!(error instanceof RangeError)) throw error; }
+  return stableIterative(value);
 }
 
 export function archiveHash(value) {

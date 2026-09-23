@@ -12,6 +12,7 @@ import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
 import { observePrivateArchive } from '../mesh/private-archive-sync.js';
 import { chooseVaultCandidate, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
+import { stringifyVault } from './safe-json.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -532,11 +533,11 @@ const VaultDAO = {
     try { observePrivateArchive(this.state); } catch (e) { console.error('VaultDAO.save: observePrivateArchive fallita, salvataggio continua comunque:', e); }
     const serializable = revision => ({ ...this.state, storageRevision: revision, currentDate: this.state.currentDate.toISOString() });
     const currentRevision = Number(this.state.storageRevision) || 0;
-    const unchangedPayload = JSON.stringify(serializable(currentRevision));
+    const unchangedPayload = stringifyVault(serializable(currentRevision));
     const currentManifest = readVaultManifest(localStorage);
     if (localStorage.getItem(VAULT_MAIN_KEY) === unchangedPayload && manifestMatches(unchangedPayload, currentManifest)) return false;
     this.state.storageRevision = currentRevision + 1;
-    const payload = JSON.stringify(serializable(this.state.storageRevision));
+    const payload = stringifyVault(serializable(this.state.storageRevision));
     const manifest = vaultManifest(payload, this.state);
     try {
       writeLocalVaultSnapshot(localStorage, payload, this.state, { manifest });

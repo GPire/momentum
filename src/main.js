@@ -86,6 +86,7 @@ import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
 import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
+import { bindVaultDurability } from './core/storage-resilience.js';
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
 import { monthGrid, isoDi, parseIso, giornoAmmesso, mesePrecedente, meseSuccessivo, meseHaGiorniAmmessi } from './ui/date-picker.js';
@@ -23860,7 +23861,7 @@ async function initMomentumRealAI() {
     momentumMeshNode.onArchiveReceipt = (peerId, receipt) => {
       if (!recordPrivateArchiveReceipt(VaultDAO.state, peerId, receipt)) return;
       VaultDAO.save();
-      updatePrivateSyncStatus(peerId, 'confirmed');
+      updatePrivateSyncStatus(peerId, receipt.results.every(result => ['applied', 'matched'].includes(result.status)) ? 'confirmed' : 'authenticated');
     };
     momentumMeshNode.onSyncReceipt = (peerId, receipt) => {
       if (!recordPrivateArchiveReceipt(VaultDAO.state, peerId, receipt)) return;
@@ -24530,6 +24531,18 @@ const startMomentum = () => {
   // i budget di calcolo: path Monte Carlo, 3D on/off.
   Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
+    bindVaultDurability({
+      doc: document, win: window, vault: VaultDAO,
+      storageManager: navigator.storage,
+      hasPersonalData: () => Object.values(VaultDAO.state.transactions || {}).some(rows => rows?.length)
+        || !!VaultDAO.state.invoices?.length || !!VaultDAO.state.businessTrips?.length,
+      onResume: () => {
+        for (const peerId of momentumMeshNode?.peers?.keys() || []) {
+          momentumMeshNode.requestSync(peerId);
+          momentumMeshNode.requestArchiveSync(peerId);
+        }
+      },
+    });
   });
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startMomentum, { once: true });

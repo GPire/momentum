@@ -38,6 +38,8 @@
 // ============================================================
 'use strict';
 
+import { queueDataChannelMessages, queuedDataChannelBytes, utf8Bytes } from './data-channel-outbox.js';
+
 import { STUN_POOL } from './nat-probe.js';
 import { validComputeRequest, validComputeReply } from './compute-protocol.js';
 import { scegliStrada } from './relay-election.js';
@@ -228,7 +230,8 @@ class MeshNode {
     authorizePrivatePeer = () => false, authorizeSharedGroup = () => false,
     reconnect = true, reconnectBaseMs = 1000, reconnectMaxMs = 30000, maxReconnectAttempts = 6,
     sketchFallbackMs = 4000,
-    scheduleFn = (fn, ms) => setTimeout(fn, ms), randomFn = Math.random,
+    archiveReceiptTimeoutMs = 15_000, archiveMaxAttempts = 3,
+    scheduleFn = (fn, ms) => setTimeout(fn, ms), cancelFn = clearTimeout, randomFn = Math.random,
   } = {}) {
     this.nodeId = nodeId || crypto.randomUUID();
     this.authorizePrivatePeer = authorizePrivatePeer;
@@ -243,11 +246,15 @@ class MeshNode {
     this.reconnectMaxMs = reconnectMaxMs;
     this.maxReconnectAttempts = maxReconnectAttempts;
     this.sketchFallbackMs = sketchFallbackMs;
+    this.archiveReceiptTimeoutMs = archiveReceiptTimeoutMs;
+    this.archiveMaxAttempts = archiveMaxAttempts;
     this.getSyncSketch = null;     // () => { cells, m, k } | null
     this.reconcileSketch = null;   // (msg) => { success, txs } — riconciliazione IBLT
     this._scheduleFn = scheduleFn;
+    this._cancelFn = cancelFn;
     this._randomFn = randomFn;
     this._reconnectAttempts = new Map(); // peerId -> tentativi finora
+    this._pendingArchiveReceipts = new Map(); // peerId\0field -> patch in attesa di conferma
     this.pendingOutbound = new Map(); // targetId -> { pc } — offer inviato, in attesa di relay_answer
     this.onPeerConnected = null;    // callback opzionale (nodeId) => {}
     this.onPeerDiscovered = null;   // callback opzionale (peerId, viaPeerId) => {} — scoperto ma non ancora connesso
@@ -412,7 +419,7 @@ class MeshNode {
       } else if (msg.type === 'archive_patch') {
         this._handleArchivePatch(peerId, msg);
       } else if (msg.type === 'archive_receipt') {
-        this.onArchiveReceipt?.(peerId, msg.receipt);
+        this._handleArchiveReceipt(peerId, msg.receipt);
       } else if (msg.type === 'archive_chunk') {
         this._handleArchiveChunk(peerId, msg);
       } else if (msg.type === 'price_share') {
@@ -531,6 +538,7 @@ class MeshNode {
     channel.onclose = () => {
       if (this.peers.get(peerId)?.channel !== channel) return;
       this.peers.delete(peerId);
+      this._clearArchiveReceiptTimers(peerId);
       this._scheduleReconnect(peerId);
     };
   }
@@ -601,28 +609,122 @@ class MeshNode {
 
   _sendArchive(entry, message) {
     const raw = JSON.stringify(message);
-    if (raw.length > ARCHIVE_MAX_CHARS) {
-      this.onArchiveDeliveryProblem?.({ reason: 'too-large', bytes: raw.length });
+    const rawBytes = utf8Bytes(raw);
+    if (rawBytes > ARCHIVE_MAX_CHARS) {
+      this.onArchiveDeliveryProblem?.({ reason: 'too-large', bytes: rawBytes });
       return false;
     }
-    try {
-      if (raw.length <= ARCHIVE_CHUNK_CHARS) entry.channel.send(raw);
-      else {
-        const transferId = crypto.randomUUID();
-        const total = Math.ceil(raw.length / ARCHIVE_CHUNK_CHARS);
-        for (let seq = 0; seq < total; seq++) entry.channel.send(JSON.stringify({ type: 'archive_chunk', transferId, seq, total, part: raw.slice(seq * ARCHIVE_CHUNK_CHARS, (seq + 1) * ARCHIVE_CHUNK_CHARS) }));
+    const packets = [];
+    const negotiated = Number(entry.pc?.sctp?.maxMessageSize);
+    const maxPacketBytes = Number.isFinite(negotiated) && negotiated > 0 ? negotiated : Infinity;
+    // JSON escaping may expand each UTF-16 code unit to six ASCII bytes.
+    // Leave room for the chunk envelope even on a small negotiated SCTP size.
+    const chunkChars = Math.min(ARCHIVE_CHUNK_CHARS, Number.isFinite(maxPacketBytes) ? Math.floor((maxPacketBytes - 256) / 6) : ARCHIVE_CHUNK_CHARS);
+    if (rawBytes <= ARCHIVE_CHUNK_CHARS && rawBytes <= maxPacketBytes) packets.push(raw);
+    else {
+      if (chunkChars < 1) {
+        this.onArchiveDeliveryProblem?.({ reason: 'message-size-too-small', bytes: maxPacketBytes });
+        return false;
       }
-      return true;
-    } catch (error) {
-      this.onArchiveDeliveryProblem?.({ reason: 'send-failed', error });
-      return false;
+      const transferId = crypto.randomUUID();
+      const total = Math.ceil(raw.length / chunkChars);
+      if (total > 1024) {
+        this.onArchiveDeliveryProblem?.({ reason: 'too-many-chunks', total });
+        return false;
+      }
+      for (let seq = 0; seq < total; seq++) packets.push(JSON.stringify({ type: 'archive_chunk', transferId, seq, total, part: raw.slice(seq * chunkChars, (seq + 1) * chunkChars) }));
     }
+    return queueDataChannelMessages(entry.channel, packets, {
+      scheduleFn: this._scheduleFn,
+      onError: problem => this.onArchiveDeliveryProblem?.(problem),
+    });
   }
 
   _handleArchiveManifest(peerId, manifest) {
     const entry = this.peers.get(peerId), patch = this.getArchivePatch?.(manifest);
     if (!entry || entry.channel?.readyState !== 'open' || !patch?.fields) return;
-    for (const [field, data] of Object.entries(patch.fields)) this._sendArchive(entry, { type: 'archive_patch', patch: { version: 1, fields: { [field]: data } } });
+    const queue = (entry.archiveFieldQueue ||= new Map());
+    for (const [field, data] of Object.entries(patch.fields)) {
+      if (!this._pendingArchiveReceipts.has(this._archiveReceiptKey(peerId, field))) queue.set(field, data);
+    }
+    this._pumpArchiveFields(peerId);
+  }
+
+  _archiveReceiptKey(peerId, field) { return `${peerId}\u0000${field}`; }
+
+  _pumpArchiveFields(peerId) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open' || !entry.archiveFieldQueue?.size) return;
+    if ([...this._pendingArchiveReceipts.keys()].some(key => key.startsWith(`${peerId}\u0000`))) return;
+    const [field, data] = entry.archiveFieldQueue.entries().next().value;
+    entry.archiveFieldQueue.delete(field);
+    if (!this._sendArchiveField(peerId, field, data)) this.onArchiveDeliveryProblem?.({ reason: 'archive-queue-stopped', peerId, field });
+  }
+
+  _sendArchiveField(peerId, field, data, attempt = 1) {
+    const entry = this.peers.get(peerId);
+    if (!entry || entry.channel?.readyState !== 'open') return false;
+    const key = this._archiveReceiptKey(peerId, field);
+    const previous = this._pendingArchiveReceipts.get(key);
+    if (previous?.timer !== undefined) this._cancelFn(previous.timer);
+    const item = { field, data, hash: data?.revision?.hash, attempt, timer: undefined, queuedAt: Date.now() };
+    this._pendingArchiveReceipts.set(key, item);
+    const accepted = this._sendArchive(entry, { type: 'archive_patch', patch: { version: 1, fields: { [field]: data } } });
+    if (!accepted) { this._pendingArchiveReceipts.delete(key); return false; }
+    const waitForReceipt = () => {
+      if (this._pendingArchiveReceipts.get(key) !== item) return;
+      if (queuedDataChannelBytes(entry.channel) > 0) {
+        if (Date.now() - item.queuedAt > ARCHIVE_TRANSFER_TTL_MS) {
+          this._pendingArchiveReceipts.delete(key);
+          this.onArchiveDeliveryProblem?.({ reason: 'outbox-stalled', peerId, field });
+          return;
+        }
+        item.timer = this._scheduleFn(waitForReceipt, this.archiveReceiptTimeoutMs);
+        item.timer?.unref?.();
+        return;
+      }
+      if (item.attempt >= this.archiveMaxAttempts) {
+        this._pendingArchiveReceipts.delete(key);
+        this.onArchiveDeliveryProblem?.({ reason: 'receipt-timeout', peerId, field, attempts: item.attempt });
+        this._pumpArchiveFields(peerId);
+        return;
+      }
+      if (!this.peers.has(peerId)) { this._pendingArchiveReceipts.delete(key); return; }
+      this._sendArchiveField(peerId, field, data, item.attempt + 1);
+    };
+    if (this._pendingArchiveReceipts.get(key) === item) {
+      item.timer = this._scheduleFn(waitForReceipt, this.archiveReceiptTimeoutMs);
+      item.timer?.unref?.();
+    }
+    return true;
+  }
+
+  _handleArchiveReceipt(peerId, receipt) {
+    const confirmed = [];
+    for (const result of Array.isArray(receipt?.results) ? receipt.results : []) {
+      const key = this._archiveReceiptKey(peerId, result?.field);
+      const item = this._pendingArchiveReceipts.get(key);
+      if (!item) continue;
+      const terminal = ['rejected', 'kept-newer', 'conflict'].includes(result.status)
+        || (['applied', 'matched'].includes(result.status) && result.hash === item.hash);
+      if (!terminal) continue;
+      if (item.timer !== undefined) this._cancelFn(item.timer);
+      this._pendingArchiveReceipts.delete(key);
+      confirmed.push(result);
+    }
+    if (confirmed.length) {
+      this.onArchiveReceipt?.(peerId, { ...receipt, results: confirmed });
+      this._pumpArchiveFields(peerId);
+    }
+  }
+
+  _clearArchiveReceiptTimers(peerId) {
+    const prefix = `${peerId}\u0000`;
+    for (const [key, item] of this._pendingArchiveReceipts) {
+      if (!key.startsWith(prefix)) continue;
+      if (item.timer !== undefined) this._cancelFn(item.timer);
+      this._pendingArchiveReceipts.delete(key);
+    }
   }
 
   _handleArchivePatch(peerId, msg) {
@@ -660,7 +762,7 @@ class MeshNode {
     try {
       const complete = JSON.parse(Array.from({ length: transfer.total }, (_, i) => transfer.parts.get(i)).join(''));
       if (complete.type === 'archive_patch') this._handleArchivePatch(peerId, complete);
-      else if (complete.type === 'archive_receipt') this.onArchiveReceipt?.(peerId, complete.receipt);
+      else if (complete.type === 'archive_receipt') this._handleArchiveReceipt(peerId, complete.receipt);
       else if (complete.type === 'sync_txs') this._handleSyncTransactions(peerId, complete.txs);
     } catch { this.onArchiveDeliveryProblem?.({ reason: 'invalid-chunks' }); }
   }

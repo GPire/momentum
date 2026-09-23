@@ -482,3 +482,62 @@ alimentano Dashboard e altre card). Restano gate PRO_INVESTOR dichiarati
 nell'infrastruttura (`subscription.js`) ma non collegati: liberi per
 chiunque, non un errore nascosto — coerente con l'onestà del resto del
 progetto (`FEATURES_PER_PIANO` dichiara nel commento cosa è vero e cosa no).
+
+### Trasporto mesh e durabilità locale — 23 settembre 2026
+
+Il controllo dopo i 22 commit arrivati su `origin/main` ha mantenuto il nuovo
+scambio della chiave per la consegna differita. L'archivio personale ora usa
+una coda WebRTC con limite di memoria e backpressure: un campo grande viene
+spezzato e non riempie senza limite il buffer del canale. I campi vengono
+inviati uno per volta; il successivo parte dopo una ricevuta applicativa con
+hash corrispondente. Una ricevuta mancante provoca fino a tre tentativi,
+mentre un errore di consegna viene segnalato. Alla riconnessione resta la
+riconciliazione tramite manifest, che serve anche dopo una sospensione. I
+movimenti nuovi hanno un invio live separato; le modifiche alle altre aree
+personali non partono ancora automaticamente a ogni salvataggio e attendono
+il successivo collegamento o ritorno dell'app in primo piano.
+
+Il Vault ora tenta la richiesta di storage persistente soltanto dopo un gesto
+dell'utente e soltanto quando esistono dati personali; se il browser la nega,
+il salvataggio continua. Alla sospensione della pagina si attende la scrittura
+IndexedDB già in corso, senza garanzia che il sistema operativo lasci il tempo
+di completarla; alla ripresa i peer ancora connessi chiedono una
+nuova riconciliazione. Una serializzazione iterativa di ripiego conserva un
+archivio non circolare molto annidato quando `JSON.stringify` esaurisce lo
+stack. Anche l'impronta dell'archivio usa un ripiego iterativo solo quando la
+profondità esaurisce lo stack, mantenendo identiche le impronte normali.
+Il percorso comune è Web/PWA e webview Capacitor, senza nuova dipendenza
+nativa né copia in chiaro in un filesystem aggiuntivo.
+
+**Limiti ancora aperti:** una conferma applicativa non è una copia di backup;
+la perdita contemporanea di tutti i dispositivi senza backup resta possibile.
+Solo i campi nella allowlist dell'archivio, le transazioni e i protocolli
+specifici già collegati partecipano al sync; allegati separati in IndexedDB,
+segreti del dispositivo e dati aziendali non vengono trasferiti da questo
+percorso. Non esiste una prova fisica iOS/Android né la garanzia che una PWA o
+un'app sospesa resti attiva per sincronizzare. Mancano test su reti mobili
+vere, NAT ostili, quota piena e aggiornamenti nativi firmati. Il plugin
+Capacitor App non è stato aggiunto: l'installazione della dipendenza non si è
+completata in questo ambiente; non dichiarare agganci nativi `pause/resume`.
+La leadership di mercato richiede confronti esterni e misure di perdita,
+latenza, consumo e completamento del recupero, non segue da questi test.
+
+**Prove eseguite sul checkout del 23 settembre:** integrazione dei 22 commit
+remoti senza conflitti; 404/404 file di test eseguiti separatamente con Node
+24 (il runner parallelo resta bloccato da `spawn EPERM`); ripetuti dopo gli
+ultimi ritocchi i test mirati di mesh, archivio, persistenza e Vault, tutti
+superati. Gli stati storici sintetici v7.0 e v7.1 sono stati aperti e
+risalvati controllando ogni campo originario; i byte JSON normali rimangono
+identici al serializzatore precedente. Questi campioni non sostituiscono gli
+archivi reali di tutti gli utenti. Build portabile di produzione riuscita su
+452 moduli. Avvio della
+build su `127.0.0.1:4177` verificato in browser con Dashboard e novità
+visibili, senza errori JavaScript registrati. Non è una prova di trasferimento
+fra due dispositivi fisici né di conservazione dopo disinstallazione.
+
+**Decisione di rilascio per il nuovo trasporto/Vault:** mantenere la versione
+già pubblicata finché un collaudo con backup preventivo non copre almeno
+aggiornamento di un archivio reale preesistente, scrittura interrotta/quota
+piena, revoca e riassociazione del dispositivo, conflitti, trasferimento di
+archivio grande e recupero su iOS/Android fisici. Test e build locali da soli
+non dimostrano assenza assoluta di perdita dati sul parco dispositivi.

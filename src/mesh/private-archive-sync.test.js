@@ -109,3 +109,68 @@ test('malformed transaction bundles fail closed without callbacks or receipts', 
   assert.equal(callbacks, 0);
   assert.equal(sent, 0);
 });
+
+test('archive fields retry until an application receipt arrives', () => {
+  const scheduled = [], cancelled = new Set(), sent = [];
+  const sender = new MeshNode('a', null, {
+    authorizePrivatePeer: () => true,
+    archiveReceiptTimeoutMs: 1,
+    scheduleFn: fn => { scheduled.push(fn); return scheduled.length - 1; },
+    cancelFn: id => cancelled.add(id),
+  });
+  sender.peers.set('b', { channel: { readyState: 'open', send: raw => sent.push(JSON.parse(raw)) } });
+  const data = { value: 1200, revision: { hash: 'hash-1', versions: { a: 1 } } };
+  assert.equal(sender._sendArchiveField('b', 'monthlyBudget', data), true);
+  assert.equal(sent.length, 1);
+  scheduled[0]();
+  assert.equal(sent.length, 2);
+  sender._handleArchiveReceipt('b', { results: [{ field: 'monthlyBudget', status: 'applied', hash: 'hash-1' }] });
+  assert.equal(sender._pendingArchiveReceipts.size, 0);
+  assert.ok(cancelled.size > 0);
+});
+
+test('a deeply nested portable field keeps its data and validates on the other device', () => {
+  const nested = {}; let current = nested;
+  for (let index = 0; index < 5_000; index++) { current.next = {}; current = current.next; }
+  current.name = 'ultimo livello';
+  const source = vault('a', { watchlist: nested });
+  const target = vault('b');
+  const patch = privateArchivePatch(source, privateArchiveManifest(target));
+  assert.ok(patch.fields.watchlist.revision.hash);
+  const result = applyPrivateArchivePatch(target, { fields: { watchlist: patch.fields.watchlist } });
+  assert.equal(result.results[0].status, 'applied');
+  let restored = target.watchlist;
+  for (let index = 0; index < 5_000; index++) restored = restored.next;
+  assert.equal(restored.name, 'ultimo livello');
+});
+
+test('large archive fields are sent one at a time and only a matching receipt advances the queue', () => {
+  const sent = [], timers = [];
+  const sender = new MeshNode('a', null, {
+    authorizePrivatePeer: () => true,
+    scheduleFn: fn => { timers.push(fn); return timers.length - 1; },
+    cancelFn: () => {},
+  });
+  sender.peers.set('b', { channel: { readyState: 'open', send: raw => sent.push(JSON.parse(raw)) } });
+  sender.getArchivePatch = () => ({ fields: {
+    monthlyBudget: { value: 1200, revision: { hash: 'budget-hash', versions: { a: 1 } } },
+    salaryProfile: { value: { day: 27 }, revision: { hash: 'salary-hash', versions: { a: 1 } } },
+  } });
+  sender._handleArchiveManifest('b', { fields: {} });
+  assert.deepEqual(sent.map(packet => Object.keys(packet.patch.fields)[0]), ['monthlyBudget']);
+  sender._handleArchiveReceipt('b', { results: [{ field: 'monthlyBudget', status: 'applied', hash: 'wrong' }] });
+  assert.equal(sent.length, 1);
+  sender._handleArchiveReceipt('b', { results: [{ field: 'monthlyBudget', status: 'applied', hash: 'budget-hash' }] });
+  assert.deepEqual(sent.map(packet => Object.keys(packet.patch.fields)[0]), ['monthlyBudget', 'salaryProfile']);
+});
+
+test('archive packets respect a small negotiated SCTP message size', () => {
+  const packets = [];
+  const node = new MeshNode('a', null);
+  const entry = { pc: { sctp: { maxMessageSize: 1024 } }, channel: {
+    readyState: 'open',
+    send(raw) { assert.ok(new TextEncoder().encode(raw).byteLength <= 1024); packets.push(raw); },
+  } };
+  assert.equal(node._sendArchive(entry, { type: 'archive_patch', patch: { fields: { voiceLearning: { value: '€'.repeat(1000) } } } }), true);
+  assert.ok(packets.length > 1);
+});

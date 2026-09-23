@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 globalThis.window = globalThis.window || {};
 globalThis.navigator = globalThis.navigator || { maxTouchPoints: 0 };
@@ -28,6 +29,28 @@ function payloadWithTx(n) {
   const transactions = { '2026-08': Array.from({ length: n }, (_, i) => ({ id: `t${i}`, amount: 10 + i, category: 'spesa' })) };
   return JSON.stringify({ schemaVersion: 50.0, transactions, currentDate: new Date().toISOString() });
 }
+
+test('gli stati storici v7.0/v7.1 si aprono e risalvano senza perdere i campi precedenti', () => {
+  const fixtures = JSON.parse(readFileSync(new URL('./fixtures/historical-backups.json', import.meta.url), 'utf8'));
+  const savedLS = globalThis.localStorage, savedState = VaultDAO.state;
+  try {
+    for (const { tag, state } of fixtures.states) {
+      const ls = fakeLocalStorage();
+      ls.setItem('omega_core_db', JSON.stringify(state));
+      globalThis.localStorage = ls;
+      VaultDAO.state = { ...savedState, currentDate: new Date() };
+      VaultDAO.init();
+      const originalKeys = Object.keys(state).filter(key => !['currentDate', 'schemaVersion', 'themePreference'].includes(key));
+      for (const key of originalKeys) assert.deepEqual(VaultDAO.state[key], state[key], `${tag}: ${key} after load`);
+      VaultDAO.save();
+      const retained = JSON.parse(ls.getItem('omega_core_db'));
+      for (const key of originalKeys) assert.deepEqual(retained[key], state[key], `${tag}: ${key} after save`);
+    }
+  } finally {
+    globalThis.localStorage = savedLS;
+    VaultDAO.state = savedState;
+  }
+});
 
 test("senza migrazioni registrate, i dati passano invariati (nessuna trasformazione inventata)", () => {
   const loaded = { schemaVersion: 50.0, transactions: { "2026-07": [{ id: 1, amount: 10 }] } };
@@ -239,24 +262,19 @@ test('VaultDAO.save: lo snapshot principale resta salvabile senza ricreare la ve
   }
 });
 
-test('VaultDAO.save: un campo dell\'archivio personale troppo annidato (stable() ricorsivo va in overflow prima di JSON.stringify nativo) NON deve mai bloccare il salvataggio vero (bug reale: utenti restavano bloccati sulla schermata "Cosa c\'è di nuovo" perché il tap su "Ho capito" chiama save(), che falliva prima di scrivere qualunque cosa)', () => {
+test('VaultDAO.save: un campo personale molto annidato non blocca il salvataggio vero né il cursore delle novità', () => {
   const savedLS = globalThis.localStorage;
   const savedIDB = globalThis.indexedDB;
   const savedState = VaultDAO.state;
   try {
-    // Struttura annidata (non circolare) a 5000 livelli: JSON.stringify nativo
-    // la serializza senza problemi, ma la ricorsione JS di stable()
-    // (observePrivateArchive → archiveHash) va in overflow di stack PRIMA —
-    // verificato empiricamente: a questa profondità JSON.stringify riesce,
-    // stable() no. Un dato così annidato può accumularsi in mesi d'uso reale
-    // (es. un merge CRDT ripetuto senza appiattimento), non è un caso di
-    // laboratorio.
+    // Una struttura non circolare a 5000 livelli stressa sia l'impronta
+    // dell'archivio sia la serializzazione. Entrambe devono preservare i dati.
     let profondo = {}; let cur = profondo;
     for (let i = 0; i < 5000; i++) { cur.next = {}; cur = cur.next; }
     VaultDAO.state = { ...VaultDAO.state, transactions: {}, watchlist: [profondo], whatsNewSeen: 'x', currentDate: new Date() };
     globalThis.localStorage = fakeLocalStorage();
     globalThis.indexedDB = undefined;
-    assert.doesNotThrow(() => VaultDAO.save(), 'save() deve restare protetto anche quando il calcolo collaterale dell\'archivio personale esplode');
+    assert.doesNotThrow(() => VaultDAO.save(), 'save() deve conservare anche archivi molto annidati');
     assert.ok(globalThis.localStorage.getItem('omega_core_db'), 'i dati veri (es. whatsNewSeen) devono essere scritti comunque, non persi per un\'eccezione collaterale');
   } finally {
     VaultDAO.state = savedState;
