@@ -39,6 +39,7 @@ sezione.
 | Perimetro | Stato | Decisione |
 | --- | --- | --- |
 | Web/PWA personale | Pubblicata e funzionante sul dominio di produzione | Candidata a beta pubblica controllata |
+| Landing marketing \`/landing/\` | Implementata separatamente dall'app; build e browser locale verificati il 23 settembre 2026 | Verificare il deploy, poi misurare l'uso reale prima di attribuirle un effetto sulla conversione |
 | Android e iOS con Capacitor | Scaffold e configurazione presenti | Non pronti per gli store: mancano firma, build native e prove fisiche |
 | Trasferte personali | Acquisizione, allegati, controlli, stampa, export e riconciliazione locale presenti | Utilizzabile; non equivale a un servizio aziendale condiviso |
 | Servizio aziende e HR/Finance | Gateway pubblico e logica applicativa presenti | Non operativo finché identità, D1, storage e primo tenant non sono configurati |

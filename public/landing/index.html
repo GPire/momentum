@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080b18">
+  <meta name="description" content="Momentum mette in ordine spese, scadenze e obiettivi e ti aiuta a capire il prossimo passo. Inizia gratis, anche senza importare dati.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Momentum">
+  <meta property="og:url" content="https://momentum-finance.pages.dev/landing/">
+  <meta property="og:title" content="Momentum — I tuoi soldi, finalmente chiari">
+  <meta property="og:description" content="Spese, scadenze e obiettivi in un posto. Inizia gratis, al tuo ritmo.">
+  <meta property="og:image" content="https://momentum-finance.pages.dev/icons/icon-512.png">
+  <meta name="twitter:card" content="summary">
+  <link rel="canonical" href="https://momentum-finance.pages.dev/landing/">
+  <link rel="icon" href="/icons/favicon-32.png" sizes="32x32">
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="/fonts.css">
+  <link rel="stylesheet" href="./landing.css">
+  <script src="./landing.js" defer></script>
+  <title>Momentum — I tuoi soldi, finalmente chiari</title>
+</head>
+<body>
+  <a class="skip-link" href="#main" data-i18n="skip">Vai al contenuto</a>
+  <div class="space-field" aria-hidden="true"></div>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#inizio" aria-label="Momentum, torna all'inizio" data-i18n-aria="brandHome">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>momentum<span class="brand-point">.</span></span>
+      </a>
+      <nav class="site-nav" id="site-nav" aria-label="Navigazione principale" data-i18n-aria="mainNav">
+        <a href="#come-funziona" data-i18n="navHow">Come funziona</a>
+        <a href="#possibilita" data-i18n="navWays">Per te</a>
+        <a href="#domande" data-i18n="navQuestions">Domande</a>
+      </nav>
+      <div class="header-actions">
+        <div class="language-picker">
+          <button class="language-trigger" id="language-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="language-menu" aria-label="Scegli lingua" data-i18n-aria="chooseLanguage"><span id="current-language">IT</span><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 7.5 5 5 5-5"/></svg></button>
+          <div class="language-menu" id="language-menu" hidden role="group" aria-label="Lingue" data-i18n-aria="languages">
+            <button type="button" data-lang-choice="it">Italiano</button><button type="button" data-lang-choice="en">English</button><button type="button" data-lang-choice="de">Deutsch</button><button type="button" data-lang-choice="fr">Français</button><button type="button" data-lang-choice="es">Español</button><button type="button" data-lang-choice="nl">Nederlands</button><button type="button" data-lang-choice="pt">Português</button>
+          </div>
+        </div>
+        <a class="header-cta" data-app-link href="/?lang=it"><span data-i18n="openApp">Apri Momentum</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+        <button class="menu-trigger" id="menu-trigger" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Apri menu" data-i18n-aria="openMenu"><span></span><span></span></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero section-shell" id="inizio" aria-labelledby="hero-title">
+      <div class="hero-copy reveal">
+        <p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="heroEyebrow">Uno spazio per fare chiarezza</span></p>
+        <h1 id="hero-title"><span data-i18n="heroLineOne">I tuoi soldi.</span> <span class="hero-accent" data-i18n="heroLineTwo">Finalmente chiari.</span></h1>
+        <p class="hero-lede" data-i18n="heroBody">Spese, scadenze e obiettivi smettono di essere pezzi sparsi. Momentum li mette in relazione e ti mostra il prossimo passo, con parole semplici.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" data-app-link href="/?lang=it"><span data-i18n="startFree">Inizia gratis</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a>
+          <a class="button button-text" href="#come-funziona"><span data-i18n="seeHow">Guarda come funziona</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16m-6-6 6 6 6-6"/></svg></a>
+        </div>
+        <ul class="hero-assurances" aria-label="Per cominciare" data-i18n-aria="startBenefits"><li data-i18n="benefitOne">Nessun account per iniziare</li><li data-i18n="benefitTwo">Budget facoltativo</li><li data-i18n="benefitThree">Puoi partire senza importare</li></ul>
+      </div>
+      <div class="hero-visual reveal" aria-label="Anteprima dimostrativa di Momentum" data-i18n-aria="previewAria">
+        <div class="orbit-scene" aria-hidden="true">
+          <span class="orbit-glow"></span><span class="orbit-plane orbit-plane-one"></span><span class="orbit-plane orbit-plane-two"></span><span class="orbit-core"></span><span class="orbit-satellite satellite-one"></span><span class="orbit-satellite satellite-two"></span>
+        </div>
+        <div class="preview-shell" id="product-preview" data-mode="today">
+          <div class="preview-head"><span class="preview-kicker" data-i18n="previewDemo">ANTEPRIMA · DATI DI ESEMPIO</span><span class="preview-spark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2L12 2Z"/></svg></span></div>
+          <div class="preview-tabs" role="tablist" aria-label="Esplora le funzioni" data-i18n-aria="previewTabs"><button id="preview-tab-today" type="button" role="tab" aria-controls="preview-panel" aria-selected="true" tabindex="0" data-preview="today" data-i18n="tabToday">Oggi</button><button id="preview-tab-together" type="button" role="tab" aria-controls="preview-panel" aria-selected="false" tabindex="-1" data-preview="together" data-i18n="tabTogether">Insieme</button><button id="preview-tab-trip" type="button" role="tab" aria-controls="preview-panel" aria-selected="false" tabindex="-1" data-preview="trip" data-i18n="tabTrip">Trasferta</button></div>
+          <div class="preview-main" id="preview-panel" role="tabpanel" aria-labelledby="preview-tab-today" aria-live="polite" tabindex="0"><p class="preview-title" id="preview-title">Il tuo mese, senza sorprese</p><p class="preview-number" id="preview-number">48,39 €</p><p class="preview-label" id="preview-label">Disponibili oggi · esempio</p><div class="preview-progress" aria-hidden="true"><span></span></div><p class="preview-context" id="preview-context">Una risposta chiara prima della prossima spesa.</p></div>
+          <div class="preview-bottom"><span class="preview-orbit-dot" aria-hidden="true"></span><span data-i18n="previewFootnote">È un esempio visivo, non una stima per te.</span></div>
+        </div>
+      </div>
+      <a class="scroll-cue" href="#come-funziona" aria-label="Scorri per scoprire Momentum" data-i18n-aria="scrollDiscover"><span></span></a>
+    </section>
+
+    <section class="story-section section-shell" id="come-funziona" aria-labelledby="how-title">
+      <div class="section-intro reveal"><p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="howEyebrow">Il primo passo</span></p><h2 id="how-title" data-i18n="howTitle">Parti da dove sei.</h2><p data-i18n="howBody">Niente configurazioni complicate. Prima una cosa semplice; il resto prende forma insieme ai tuoi dati.</p></div>
+      <div class="steps">
+        <article class="step reveal"><span class="step-index">01</span><div class="step-art step-art-one" aria-hidden="true"><svg viewBox="0 0 120 100"><rect x="23" y="22" width="74" height="56" rx="14"/><path d="M43 44h34M43 57h21"/><circle cx="82" cy="62" r="13"/><path d="M82 55v14m-7-7h14"/></svg></div><h3 data-i18n="stepOneTitle">Aggiungi una spesa</h3><p data-i18n="stepOneBody">Scrivila oppure importa i tuoi movimenti. Puoi iniziare anche senza importare nulla.</p></article>
+        <article class="step reveal"><span class="step-index">02</span><div class="step-art step-art-two" aria-hidden="true"><svg viewBox="0 0 120 100"><circle cx="60" cy="50" r="32"/><path d="M60 18v32l27 17M60 50 39 72"/><circle cx="60" cy="50" r="6"/></svg></div><h3 data-i18n="stepTwoTitle">Vedi il filo</h3><p data-i18n="stepTwoBody">Categorie, scadenze e obiettivi si incontrano in una vista che puoi capire a colpo d’occhio.</p></article>
+        <article class="step reveal"><span class="step-index">03</span><div class="step-art step-art-three" aria-hidden="true"><svg viewBox="0 0 120 100"><path d="M26 74 49 52l15 11 29-37"/><path d="M76 26h17v17"/><circle cx="49" cy="52" r="5"/></svg></div><h3 data-i18n="stepThreeTitle">Scegli il prossimo passo</h3><p data-i18n="stepThreeBody">Chiedi cosa hai speso, cosa sta arrivando e dove puoi correggere la rotta.</p></article>
+      </div>
+    </section>
+
+    <section class="possibilities-section" id="possibilita" aria-labelledby="ways-title"><div class="section-shell">
+      <div class="section-intro reveal"><p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="waysEyebrow">Un posto, più strade</span></p><h2 id="ways-title" data-i18n="waysTitle">Quello che conta per te, a portata di mano.</h2><p data-i18n="waysBody">Comincia dalle cose quotidiane. Gli strumenti più profondi restano disponibili quando ti servono.</p></div>
+      <div class="ways-grid">
+        <article class="way way-daily reveal"><div class="way-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><path d="M16 7v9l6 4"/></svg></div><span class="way-number">01 / 04</span><h3 data-i18n="wayDailyTitle">Ogni giorno</h3><p data-i18n="wayDailyBody">Vedi spese, margine e scadenze prima che diventino sorprese.</p></article>
+        <article class="way way-together reveal"><div class="way-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="11" cy="11" r="4"/><circle cx="23" cy="13" r="3"/><path d="M3 27c0-6 4-10 9-10s9 4 9 10M21 21c4 0 7 2 8 6"/></svg></div><span class="way-number">02 / 04</span><h3 data-i18n="wayTogetherTitle">Insieme</h3><p data-i18n="wayTogetherBody">Dividi una spesa, tieni chiare le quote e segui i rimborsi.</p></article>
+        <article class="way way-work reveal"><div class="way-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><rect x="6" y="7" width="20" height="21" rx="3"/><path d="M11 7V5h10v2M10 14h12M10 19h8M10 24h5"/></svg></div><span class="way-number">03 / 04</span><h3 data-i18n="wayWorkTitle">In trasferta</h3><p data-i18n="wayWorkBody">Metti in ordine spese e ricevute e prepara un resoconto da consegnare.</p></article>
+        <article class="way way-market reveal"><div class="way-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 25h22M7 22l6-7 5 3 7-10"/><circle cx="25" cy="8" r="2"/></svg></div><span class="way-number">04 / 04</span><h3 data-i18n="wayMarketTitle">Se investi</h3><p data-i18n="wayMarketBody">Esplora dati e confronta ipotesi, con fonti e limiti visibili.</p></article>
+      </div>
+    </div></section>
+
+    <section class="trust-section section-shell" aria-labelledby="trust-title"><div class="trust-orbit" aria-hidden="true"></div><div class="trust-copy reveal"><p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="trustEyebrow">Il controllo resta tuo</span></p><h2 id="trust-title" data-i18n="trustTitle">Uno spazio che segue te. Non il contrario.</h2><p data-i18n="trustBody">Momentum ti aiuta a vedere meglio i tuoi numeri senza costringerti a scegliere tutto al primo accesso.</p></div><div class="trust-facts reveal"><div><span class="fact-mark" aria-hidden="true"></span><h3 data-i18n="trustOneTitle">Budget solo se lo vuoi</h3><p data-i18n="trustOneBody">Puoi impostarlo più avanti o usare Momentum senza budget.</p></div><div><span class="fact-mark" aria-hidden="true"></span><h3 data-i18n="trustTwoTitle">Archivio sul tuo dispositivo</h3><p data-i18n="trustTwoBody">I tuoi movimenti personali partono da qui. Puoi esportare una copia e scegliere cosa condividere.</p></div><div><span class="fact-mark" aria-hidden="true"></span><h3 data-i18n="trustThreeTitle">Dettagli quando servono</h3><p data-i18n="trustThreeBody">La vista semplice ti accompagna; puoi esplorare gli strumenti più avanzati quando vuoi.</p></div></div></section>
+
+    <section class="faq-section section-shell" id="domande" aria-labelledby="faq-title"><div class="section-intro reveal"><p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="faqEyebrow">Prima di iniziare</span></p><h2 id="faq-title" data-i18n="faqTitle">Le domande giuste.</h2></div><div class="faq-list reveal">
+      <details><summary><span data-i18n="faqOneQ">Devo collegare il mio conto?</span><span class="faq-toggle" aria-hidden="true"></span></summary><p data-i18n="faqOneA">No. Puoi aggiungere una spesa a mano o importare un estratto conto. Puoi anche esplorare Momentum senza importare nulla.</p></details>
+      <details><summary><span data-i18n="faqTwoQ">Serve un budget per usarlo?</span><span class="faq-toggle" aria-hidden="true"></span></summary><p data-i18n="faqTwoA">No. Il budget è una tua scelta e puoi cambiarla in seguito.</p></details>
+      <details><summary><span data-i18n="faqThreeQ">Dividere le spese è gratis?</span><span class="faq-toggle" aria-hidden="true"></span></summary><p data-i18n="faqThreeA">Sì. Divisione delle spese, obiettivi, calendario e strumenti quotidiani sono nel piano gratuito.</p></details>
+      <details><summary><span data-i18n="faqFourQ">Momentum decide dove investire al posto mio?</span><span class="faq-toggle" aria-hidden="true"></span></summary><p data-i18n="faqFourA">No. Ti mostra dati, confronti e stime con i loro limiti. Le decisioni finanziarie restano tue.</p></details>
+    </div></section>
+
+    <section class="final-section" aria-labelledby="final-title"><div class="section-shell final-inner"><div class="final-orb" aria-hidden="true"></div><p class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="finalEyebrow">Comincia quando vuoi</span></p><h2 id="final-title" data-i18n="finalTitle">La chiarezza inizia da un gesto.</h2><p data-i18n="finalBody">Apri Momentum, aggiungi una spesa o guarda come funziona. Il resto può aspettare.</p><a class="button button-primary" data-app-link href="/?lang=it"><span data-i18n="startFree">Inizia gratis</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></a></div></section>
+  </main>
+
+  <footer class="site-footer"><div class="section-shell footer-inner"><a class="brand brand-footer" href="#inizio" aria-label="Momentum, torna all'inizio" data-i18n-aria="brandHome"><span class="brand-mark" aria-hidden="true"><span></span></span><span>momentum<span class="brand-point">.</span></span></a><p data-i18n="footerLine">Più chiarezza, un passo alla volta.</p><div><a href="/privacy.html" data-i18n="privacy">Privacy</a><a href="/termini.html" data-i18n="terms">Termini</a></div></div></footer>
+</body>
+</html>
