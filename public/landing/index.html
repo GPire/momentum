@@ -17,6 +17,7 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <link rel="stylesheet" href="/fonts.css">
   <link rel="stylesheet" href="./landing.css">
+  <link rel="stylesheet" href="./landing-motion.css">
   <script src="./landing.js" defer></script>
   <title>Momentum — I tuoi soldi, finalmente chiari</title>
 </head>
@@ -58,10 +59,12 @@
           <a class="button button-text" href="#come-funziona"><span data-i18n="seeHow">Guarda come funziona</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16m-6-6 6 6 6-6"/></svg></a>
         </div>
         <ul class="hero-assurances" aria-label="Per cominciare" data-i18n-aria="startBenefits"><li data-i18n="benefitOne">Nessun account per iniziare</li><li data-i18n="benefitTwo">Budget facoltativo</li><li data-i18n="benefitThree">Puoi partire senza importare</li></ul>
+        <button class="motion-control" id="motion-control" type="button" aria-pressed="false" hidden><span class="motion-control-orbit" aria-hidden="true"></span><span id="motion-control-label">Attiva animazioni</span></button>
       </div>
       <div class="hero-visual reveal" aria-label="Anteprima dimostrativa di Momentum" data-i18n-aria="previewAria">
+        <div class="meteor-field" aria-hidden="true"><span class="meteor meteor-near"></span><span class="meteor meteor-mid"></span><span class="meteor meteor-far"></span></div>
         <div class="orbit-scene" aria-hidden="true">
-          <span class="orbit-glow"></span><span class="orbit-plane orbit-plane-one"></span><span class="orbit-plane orbit-plane-two"></span><span class="orbit-core"></span><span class="orbit-satellite satellite-one"></span><span class="orbit-satellite satellite-two"></span>
+          <span class="orbit-glow"></span><span class="orbit-plane orbit-plane-one"></span><span class="orbit-plane orbit-plane-two"></span><span class="orbit-core"></span><span class="orbit-plane orbit-plane-front"></span><span class="orbit-satellite satellite-one"></span><span class="orbit-satellite satellite-two"></span>
         </div>
         <div class="preview-shell" id="product-preview" data-mode="today">
           <div class="preview-head"><span class="preview-kicker" data-i18n="previewDemo">ANTEPRIMA · DATI DI ESEMPIO</span><span class="preview-spark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 2.2 7.8L22 12l-7.8 2.2L12 22l-2.2-7.8L2 12l7.8-2.2L12 2Z"/></svg></span></div>

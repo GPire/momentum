@@ -260,7 +260,23 @@
   const menuButton = document.getElementById("menu-trigger");
   const menu = document.getElementById("site-nav");
   const panel = document.getElementById("preview-panel");
-  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const motionMedia = matchMedia("(prefers-reduced-motion: reduce)");
+  const motionControl = document.getElementById("motion-control");
+  const motionNames = {
+    it:["Attiva animazioni","Riduci animazioni"], en:["Enable motion","Reduce motion"],
+    de:["Animationen aktivieren","Animationen reduzieren"], fr:["Activer les animations","Réduire les animations"],
+    es:["Activar animaciones","Reducir animaciones"], nl:["Animaties aanzetten","Animaties verminderen"],
+    pt:["Ativar animações","Reduzir animações"]
+  };
+  let motionOverride = false;
+  try { motionOverride = sessionStorage.getItem("momentum_landing_motion") === "on"; } catch {}
+  let reducedMotion = motionMedia.matches && !motionOverride;
+  if (motionOverride) document.documentElement.classList.add("motion-override");
+  function updateMotionControl() {
+    motionControl.hidden = !motionMedia.matches;
+    motionControl.setAttribute("aria-pressed",String(!reducedMotion));
+    document.getElementById("motion-control-label").textContent = motionNames[language][reducedMotion ? 0 : 1];
+  }
 
   function showPreview(nextMode, focus, animate = false) {
     mode = nextMode;
@@ -306,6 +322,7 @@
       link.href = destination.pathname + destination.search;
     }
     showPreview(mode,false);
+    updateMotionControl();
     if (updateUrl) {
       const nextUrl = new URL(location.href);
       nextUrl.searchParams.set("lang",language);
@@ -367,15 +384,43 @@
     });
   });
   setLanguage(language);
-  if (!reducedMotion && "IntersectionObserver" in window) {
-    const observer = new IntersectionObserver(entries => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        entry.target.classList.add("is-visible");
-        observer.unobserve(entry.target);
-      }
-    },{threshold:.08,rootMargin:"0px 0px 40px 0px"});
-    document.querySelectorAll(".reveal").forEach(element => observer.observe(element));
+  let motionStarted = false;
+  function startMotion() {
+    if (reducedMotion || motionStarted) return;
+    motionStarted = true;
+    if ("IntersectionObserver" in window) {
+      const observer = new IntersectionObserver(entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      },{threshold:.08,rootMargin:"0px 0px 40px 0px"});
+      document.querySelectorAll(".reveal").forEach(element => observer.observe(element));
+      const sceneObserver = new IntersectionObserver(entries => {
+        for (const entry of entries) entry.target.classList.toggle("scene-active",entry.isIntersecting);
+      },{rootMargin:"80px 0px"});
+      document.querySelectorAll(".hero-visual, .final-section").forEach(element => sceneObserver.observe(element));
+    } else {
+      document.querySelectorAll(".reveal").forEach(element => element.classList.add("is-visible"));
+      document.querySelectorAll(".hero-visual, .final-section").forEach(element => element.classList.add("scene-active"));
+    }
     document.documentElement.classList.add("enhanced");
   }
+  motionControl.addEventListener("click",() => {
+    motionOverride = reducedMotion;
+    reducedMotion = motionMedia.matches && !motionOverride;
+    document.documentElement.classList.toggle("motion-override",motionOverride);
+    try { sessionStorage.setItem("momentum_landing_motion",motionOverride ? "on" : "off"); } catch {}
+    updateMotionControl();
+    startMotion();
+  });
+  const syncMotionPreference = () => {
+    reducedMotion = motionMedia.matches && !motionOverride;
+    updateMotionControl();
+    startMotion();
+  };
+  if (motionMedia.addEventListener) motionMedia.addEventListener("change",syncMotionPreference);
+  else if (motionMedia.addListener) motionMedia.addListener(syncMotionPreference);
+  startMotion();
 })();
