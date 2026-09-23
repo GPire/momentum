@@ -24550,6 +24550,12 @@ else startMomentum();
 // Esposizione globale per handler inline nell'HTML (onclick="...")
 window.showToast = showToast;
 window.showSignatureAlert = showSignatureAlert;
+let lastVaultStorageWarning = 0;
+VaultDAO.onPersistenceFailure = () => {
+  if (Date.now() - lastVaultStorageWarning < 30_000) return;
+  lastVaultStorageWarning = Date.now();
+  showToastAction(tCh('vaultStorageFailed', __uiLang), tCh('vaultBackupNow', __uiLang), () => window.exportEncryptedBackup(), 'error');
+};
 // ...e per i parser di import (moduli separati che devono aggiornare la UI
 // a fine lavoro: dentro un modulo ES "renderDashboard" nudo è un
 // ReferenceError, serve il riferimento globale esplicito).

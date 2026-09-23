@@ -64,9 +64,64 @@ export function chooseVaultCandidate(candidates, countTransactions) {
   return (candidates || []).reduce((best, candidate) => {
     if (!best) return candidate;
     const tx = countTransactions(candidate.state) - countTransactions(best.state);
-    if (tx) return tx > 0 ? candidate : best;
     const revision = (Number(candidate.state?.storageRevision) || 0) - (Number(best.state?.storageRevision) || 0);
+    if (tx && revision && candidate.state?.deviceId && candidate.state.deviceId === best.state?.deviceId) {
+      const newer = revision > 0 ? candidate : best;
+      const older = revision > 0 ? best : candidate;
+      if (countTransactions(newer.state) < countTransactions(older.state)) {
+        const newerIds = new Set(Object.values(newer.state.transactions || {}).flat().map(item => String(item?.id ?? '')));
+        const removedIds = Object.values(older.state.transactions || {}).flat()
+          .map(item => String(item?.id ?? '')).filter(id => id && !newerIds.has(id));
+        if (removedIds.length && removedIds.every(id => Object.hasOwn(newer.state.deletedTx || {}, id))) return newer;
+      }
+    }
+    if (tx) return tx > 0 ? candidate : best;
     if (revision) return revision > 0 ? candidate : best;
     return (priority[candidate.source] || 0) > (priority[best.source] || 0) ? candidate : best;
   }, null);
+}
+
+// Snapshots made by the same installation can diverge when one storage write
+// succeeds and the other fails. Keep the newest settings, but recover every
+// transaction still present in another copy unless its ID was deleted
+// explicitly. Never combine archives from different device identities.
+export function reconcileVaultCandidates(candidates, countTransactions) {
+  const selected = chooseVaultCandidate(candidates, countTransactions);
+  if (!selected || candidates.length < 2) return selected;
+  const deviceId = selected.state?.deviceId;
+  if (!deviceId || candidates.some(candidate => candidate.state?.deviceId !== deviceId)) return selected;
+  const priority = { 'localStorage(shadow)': 1, indexedDB: 2, 'localStorage(main)': 3 };
+  const ordered = [...candidates].sort((a, b) =>
+    (Number(a.state?.storageRevision) || 0) - (Number(b.state?.storageRevision) || 0)
+    || (priority[a.source] || 0) - (priority[b.source] || 0));
+  const newest = ordered.at(-1);
+  const deletedTx = Object.assign({}, ...ordered.map(candidate => candidate.state.deletedTx || {}));
+  const byId = new Map();
+  for (const candidate of ordered) {
+    for (const [month, rows] of Object.entries(candidate.state.transactions || {})) {
+      if (!Array.isArray(rows)) continue;
+      for (const row of rows) {
+        const id = row?.id;
+        if (id === undefined || id === null) return selected;
+        byId.set(String(id), { month, row });
+      }
+    }
+  }
+  const transactions = {};
+  for (const [id, { month, row }] of byId) {
+    if (Object.hasOwn(deletedTx, id)) continue;
+    (transactions[month] ||= []).push(row);
+  }
+  for (const rows of Object.values(transactions)) {
+    rows.sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0) || String(a.id).localeCompare(String(b.id)));
+  }
+  const recovered = Object.values(transactions).reduce((sum, rows) => sum + rows.length, 0);
+  const latestCount = countTransactions(newest.state);
+  const latestIds = new Set(Object.values(newest.state.transactions || {}).flat().map(row => String(row.id)));
+  if (recovered === latestCount && [...byId.keys()].every(id => Object.hasOwn(deletedTx, id) || latestIds.has(id))
+      && Object.keys(deletedTx).length === Object.keys(newest.state.deletedTx || {}).length) return newest;
+  return {
+    source: 'reconciled',
+    state: { ...newest.state, transactions, deletedTx },
+  };
 }

@@ -631,6 +631,10 @@ RELEASES.push({
   versione: '2026-09-23',
   voci: [{ colore: 'purple', icona: '<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 16.5 15.5 8"/>', titolo: 'Parità di rischio, per chi investe sul serio', testo: 'In Analisi Tensor: dove sono davvero i tuoi soldi, contro dove dovrebbero essere per pesare il rischio in modo uguale — con la direzione esatta per ribilanciare. PRO_INVESTOR.', titoloKey: 'riskParityTitle', testoKey: 'riskParitySub' }],
 });
+RELEASES.push({
+  versione: '2026-09-23b',
+  voci: [{ colore: 'green', icona: '<path d="M5 12l4 4L19 6"/><path d="M4 20h16"/>', titolo: 'Archivio più sicuro negli aggiornamenti', testo: 'Momentum confronta le copie del tuo archivio e recupera i movimenti mancanti senza far riapparire quelli cancellati. Se lo spazio è esaurito, ti avvisa e propone una copia cifrata.', titoloKey: 'vaultUpgradeTitle', testoKey: 'vaultUpgradeBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

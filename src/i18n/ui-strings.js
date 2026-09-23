@@ -13462,6 +13462,20 @@ Object.assign(S.fr,{storageEfficientTitle:'Plus de place pour vos données',stor
 Object.assign(S.es,{storageEfficientTitle:'Más espacio para tus datos',storageEfficientBody:'El Vault evita copias locales redundantes, comprueba la integridad y agrupa escrituras repetidas manteniendo la compatibilidad con archivos anteriores.'});
 Object.assign(S.nl,{storageEfficientTitle:'Meer ruimte voor je gegevens',storageEfficientBody:'De Vault vermijdt dubbele lokale kopieën, controleert de integriteit en bundelt herhaalde schrijfacties, met behoud van oudere archieven.'});
 Object.assign(S.pt,{storageEfficientTitle:'Mais espaço para os teus dados',storageEfficientBody:'O Vault evita cópias locais redundantes, verifica a integridade e agrupa escritas repetidas, mantendo a compatibilidade com arquivos anteriores.'});
+Object.assign(S.it,{vaultStorageFailed:'I dati appena inseriti non sono stati salvati. Libera spazio o esporta subito una copia cifrata.',vaultBackupNow:'Esporta copia'});
+Object.assign(S.en,{vaultStorageFailed:'Your latest changes were not saved. Free up space or export an encrypted backup now.',vaultBackupNow:'Export backup'});
+Object.assign(S.de,{vaultStorageFailed:'Deine letzten Änderungen wurden nicht gespeichert. Gib Speicherplatz frei oder exportiere jetzt eine verschlüsselte Sicherung.',vaultBackupNow:'Sicherung exportieren'});
+Object.assign(S.fr,{vaultStorageFailed:'Vos dernières modifications ne sont pas enregistrées. Libérez de l’espace ou exportez une sauvegarde chiffrée.',vaultBackupNow:'Exporter la copie'});
+Object.assign(S.es,{vaultStorageFailed:'Los últimos cambios no se guardaron. Libera espacio o exporta ahora una copia cifrada.',vaultBackupNow:'Exportar copia'});
+Object.assign(S.nl,{vaultStorageFailed:'Je laatste wijzigingen zijn niet opgeslagen. Maak ruimte vrij of exporteer nu een versleutelde back-up.',vaultBackupNow:'Back-up exporteren'});
+Object.assign(S.pt,{vaultStorageFailed:'As últimas alterações não foram guardadas. Liberta espaço ou exporta já uma cópia encriptada.',vaultBackupNow:'Exportar cópia'});
+Object.assign(S.it,{vaultUpgradeTitle:'Archivio più sicuro negli aggiornamenti',vaultUpgradeBody:'Momentum confronta le copie del tuo archivio e recupera i movimenti mancanti senza far riapparire quelli cancellati. Se lo spazio è esaurito, ti avvisa e propone una copia cifrata.'});
+Object.assign(S.en,{vaultUpgradeTitle:'Safer archive upgrades',vaultUpgradeBody:'Momentum compares your archive copies and recovers missing transactions without restoring deleted ones. If storage is full, it warns you and offers an encrypted backup.'});
+Object.assign(S.de,{vaultUpgradeTitle:'Sicherere Archiv-Updates',vaultUpgradeBody:'Momentum vergleicht Archivkopien und stellt fehlende Buchungen wieder her, ohne gelöschte zurückzubringen. Bei vollem Speicher warnt es dich und bietet eine verschlüsselte Sicherung an.'});
+Object.assign(S.fr,{vaultUpgradeTitle:'Mises à jour de l’archive plus sûres',vaultUpgradeBody:'Momentum compare les copies de l’archive et récupère les opérations manquantes sans restaurer celles supprimées. Si le stockage est plein, il vous avertit et propose une sauvegarde chiffrée.'});
+Object.assign(S.es,{vaultUpgradeTitle:'Actualizaciones del archivo más seguras',vaultUpgradeBody:'Momentum compara las copias del archivo y recupera movimientos perdidos sin restaurar los eliminados. Si falta espacio, te avisa y ofrece una copia cifrada.'});
+Object.assign(S.nl,{vaultUpgradeTitle:'Veiligere archiefupdates',vaultUpgradeBody:'Momentum vergelijkt archiefkopieën en herstelt ontbrekende transacties zonder verwijderde terug te zetten. Bij volle opslag krijg je een waarschuwing en optie voor een versleutelde back-up.'});
+Object.assign(S.pt,{vaultUpgradeTitle:'Atualizações do arquivo mais seguras',vaultUpgradeBody:'O Momentum compara as cópias do arquivo e recupera movimentos em falta sem repor os eliminados. Se o espaço acabar, avisa-te e oferece uma cópia encriptada.'});
 // t(key, lang, ...args): stringa o funzione(args) -> stringa. Fallback a
 // EN se la chiave manca nella lingua richiesta, poi a IT — mai una chiave
 // grezza mostrata all'utente.

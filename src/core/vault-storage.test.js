@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { chooseVaultCandidate, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, VAULT_MANIFEST_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
+import { chooseVaultCandidate, reconcileVaultCandidates, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, VAULT_MANIFEST_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
 
 const storage = ({ quota = Infinity } = {}) => {
   const values = new Map(); let writes = 0;
@@ -54,6 +54,45 @@ test('same transaction count chooses the newest revision; transaction safety sti
   const moreData = { source: 'localStorage(shadow)', state: { storageRevision: 1, transactions: { m: [{ id: 1 }, { id: 2 }] } } };
   assert.equal(chooseVaultCandidate([current, newer], count), newer);
   assert.equal(chooseVaultCandidate([newer, moreData], count), moreData);
+});
+
+test('a newer snapshot with an explicit deletion does not resurrect the removed expense', () => {
+  const count = state => Object.values(state.transactions || {}).flat().length;
+  const older = { source: 'localStorage(main)', state: { deviceId: 'same-device', storageRevision: 8, transactions: { m: [{ id: 'keep' }, { id: 'removed' }] }, deletedTx: {} } };
+  const newer = { source: 'indexedDB', state: { deviceId: 'same-device', storageRevision: 9, transactions: { m: [{ id: 'keep' }] }, deletedTx: { removed: 1780000000000 } } };
+  assert.equal(chooseVaultCandidate([older, newer], count), newer);
+});
+
+test('a smaller snapshot without deletion evidence never wins merely by claiming a higher revision', () => {
+  const count = state => Object.values(state.transactions || {}).flat().length;
+  const older = { source: 'localStorage(main)', state: { deviceId: 'same-device', storageRevision: 8, transactions: { m: [{ id: 'keep' }, { id: 'missing' }] } } };
+  const incomplete = { source: 'indexedDB', state: { deviceId: 'same-device', storageRevision: 9, transactions: { m: [{ id: 'keep' }] }, deletedTx: {} } };
+  assert.equal(chooseVaultCandidate([older, incomplete], count), older);
+});
+
+test('same-device divergent copies retain both transaction sets and the latest settings', () => {
+  const count = state => Object.values(state.transactions || {}).flat().length;
+  const older = { source: 'localStorage(main)', state: { deviceId: 'one', storageRevision: 8, monthlyBudget: 100, transactions: { m: [{ id: 'a' }, { id: 'b' }] }, deletedTx: {} } };
+  const newer = { source: 'indexedDB', state: { deviceId: 'one', storageRevision: 9, monthlyBudget: 200, transactions: { m: [{ id: 'b' }, { id: 'c' }] }, deletedTx: {} } };
+  const result = reconcileVaultCandidates([older, newer], count);
+  assert.equal(result.state.monthlyBudget, 200);
+  assert.deepEqual(result.state.transactions.m.map(row => row.id), ['a', 'b', 'c']);
+});
+
+test('reconciliation never restores a transaction with a deletion tombstone', () => {
+  const count = state => Object.values(state.transactions || {}).flat().length;
+  const older = { source: 'localStorage(main)', state: { deviceId: 'one', storageRevision: 8, transactions: { m: [{ id: 'a' }, { id: 'b' }] }, deletedTx: {} } };
+  const newer = { source: 'indexedDB', state: { deviceId: 'one', storageRevision: 9, transactions: { m: [{ id: 'a' }] }, deletedTx: { b: 123 } } };
+  const result = reconcileVaultCandidates([older, newer], count);
+  assert.deepEqual(result.state.transactions.m.map(row => row.id), ['a']);
+  assert.equal(result.state.deletedTx.b, 123);
+});
+
+test('different device identities are not automatically combined', () => {
+  const count = state => Object.values(state.transactions || {}).flat().length;
+  const mine = { source: 'localStorage(main)', state: { deviceId: 'mine', storageRevision: 2, transactions: { m: [{ id: 'mine' }] } } };
+  const other = { source: 'indexedDB', state: { deviceId: 'other', storageRevision: 3, transactions: { m: [{ id: 'other' }] } } };
+  assert.equal(reconcileVaultCandidates([mine, other], count), other);
 });
 
 test('manifest detects a changed or truncated snapshot', () => {

@@ -1,6 +1,34 @@
 # Momentum — stato reale e lavoro restante
 
-Verifica aggiornata al **20 settembre 2026** sul commit `e99884f`. Questo è il
+## Verifica archivio prima del prossimo push — 23 settembre 2026
+
+Il controllo di upgrade usa un checkout separato del commit pubblicato
+`60efcab` e lo script `scripts/vault-upgrade-gate.mjs`. Ha generato e salvato
+con il vecchio codice **514 archivi sintetici** con numeri di movimenti da
+zero a 10.000, valute EUR/CHF/USD, lingue e caratteri diversi, ricevute,
+fatture, incassi, trasferte, obiettivi, debiti, investimenti, split e dati di
+apprendimento. Ogni archivio è stato aperto e risalvato con il codice nuovo;
+tutti i campi precedenti sono rimasti uguali. Non sono stati letti archivi di
+utenti reali.
+
+La prova ha rivelato e fatto correggere tre rischi di migrazione: quando
+`localStorage` era pieno la copia migliore in IndexedDB poteva essere ignorata;
+una spesa cancellata poteva ricomparire scegliendo per numero di movimenti;
+due copie con spese diverse potevano perdere una delle due serie. Ora gli
+snapshot della stessa installazione vengono riconciliati per ID e lapidi di
+cancellazione. Se non c'è spazio per il checkpoint, le copie originali non
+vengono sovrascritte. Se falliscono sia il salvataggio locale sia quello
+durevole, l'app segnala il mancato salvataggio e propone un backup cifrato.
+
+Verifiche: 393 file e 5.529 test superati, test mirati Vault 49/49,
+selezione copie 10/10, cronologia novità 10/10, traduzioni 9/9 e gate da
+514 casi superati. Build portabile di produzione riuscita. Nessun test
+sintetico certifica tutti gli archivi reali
+né l'assenza di cancellazioni esterne dei dati del browser. Restano obbligatori
+backup recuperabile e collaudo su iPhone/Android reali per un rilascio nativo.
+
+Verifica iniziale del **20 settembre 2026** sul commit `e99884f`, aggiornata
+con il controllo archivio del **23 settembre 2026**. Questo è il
 documento operativo canonico per decidere cosa può essere rilasciato e cosa
 deve ancora essere completato. Una funzione presente nel codice non viene
 considerata operativa finché non supera anche la prova indicata nella relativa

@@ -341,6 +341,34 @@ test('VaultDAO.save: una raffica conserva subito ogni snapshot locale ma accorpa
   }
 });
 
+test('VaultDAO.save: un errore di entrambi gli archivi non viene dichiarato come salvataggio riuscito', async () => {
+  await VaultDAO.flushDurable();
+  const savedLS = globalThis.localStorage, savedState = VaultDAO.state;
+  const savedPut = DurableStore.put, savedGet = DurableStore.get;
+  const savedCallback = VaultDAO.onPersistenceFailure, savedFailure = VaultDAO.persistenceFailure;
+  try {
+    globalThis.localStorage = fakeLocalStorage({ quota: 1 });
+    DurableStore.put = async () => { throw new Error('storage full'); };
+    DurableStore.get = async () => null;
+    let warnings = 0;
+    VaultDAO.onPersistenceFailure = () => { warnings++; };
+    VaultDAO.persistenceFailure = false;
+    VaultDAO.state = { ...savedState, storageRevision: 0, monthlyBudget: 731, currentDate: new Date() };
+    VaultDAO.save();
+    await VaultDAO.flushDurable();
+    assert.equal(VaultDAO.persistenceFailure, true);
+    assert.equal(warnings, 1, 'the UI receives an explicit failure signal');
+  } finally {
+    await VaultDAO.flushDurable();
+    VaultDAO.state = savedState;
+    VaultDAO.onPersistenceFailure = savedCallback;
+    VaultDAO.persistenceFailure = savedFailure;
+    DurableStore.put = savedPut;
+    DurableStore.get = savedGet;
+    globalThis.localStorage = savedLS;
+  }
+});
+
 // ── Recupero da tx_log per chi ha GIÀ subito il bug di perdita dati sopra
 // (2026-08-29): tx_log è uno store IndexedDB append-only separato dallo
 // snapshot "state"/"main" colpito dal bug — queste transazioni possono

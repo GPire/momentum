@@ -11,7 +11,7 @@ import { isTripDeleted } from '../trips/trip-engine.js';
 import { conTimeout } from './con-timeout.js';
 import { meseLocale } from './date-utils.js';
 import { observePrivateArchive } from '../mesh/private-archive-sync.js';
-import { chooseVaultCandidate, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
+import { reconcileVaultCandidates, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
 import { stringifyVault } from './safe-json.js';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
@@ -182,9 +182,9 @@ const DurableStore = {
 let pendingDurableVault = null;
 let durableVaultDrain = Promise.resolve();
 let durableVaultGeneration = 0;
-function queueDurableVault(payload, manifest) {
+function queueDurableVault(payload, manifest, localRetained) {
   pendingDurableVault = {
-    payload, manifest, generation: durableVaultGeneration, storage: localStorage,
+    payload, manifest, localRetained, generation: durableVaultGeneration, storage: localStorage,
     put: DurableStore.put.bind(DurableStore), get: DurableStore.get.bind(DurableStore),
   };
   if (queueDurableVault.running) return durableVaultDrain;
@@ -193,13 +193,22 @@ function queueDurableVault(payload, manifest) {
     while (pendingDurableVault) {
       const current = pendingDurableVault;
       pendingDurableVault = null;
+      let durableRetained = false;
       try {
         await current.put('state', current.payload, 'main');
         const retained = await current.get('state', 'main');
-        if (current.generation === durableVaultGeneration && retained === current.payload) {
+        durableRetained = retained === current.payload;
+        if (current.generation === durableVaultGeneration && durableRetained) {
           try { writeLocalVaultSnapshot(current.storage, current.payload, null, { durableSafe: true, manifest: current.manifest }); } catch {}
         }
       } catch (error) { console.error('VaultDAO.save: scrittura IndexedDB fallita:', error); }
+      if (current.generation === durableVaultGeneration) {
+        if (durableRetained || current.localRetained) VaultDAO.persistenceFailure = false;
+        else {
+          VaultDAO.persistenceFailure = true;
+          try { VaultDAO.onPersistenceFailure?.(); } catch (error) { console.error('VaultDAO.save: avviso salvataggio fallito:', error); }
+        }
+      }
     }
   }).finally(() => { queueDurableVault.running = false; });
   return durableVaultDrain;
@@ -447,6 +456,11 @@ const VaultDAO = {
     const main = localStorage.getItem(VAULT_MAIN_KEY);
     const shadow = localStorage.getItem(VAULT_LEGACY_SHADOW_KEY);
     const candidates = [];
+    // initDurable() may have retained a better snapshot in IndexedDB while
+    // localStorage was full. Keep it available for this boot even if mirroring
+    // it back to localStorage failed; never silently reopen the older copy.
+    const durableCandidate = this._durableCandidate;
+    this._durableCandidate = null;
     if (main) {
       try {
         const manifest = readVaultManifest(localStorage);
@@ -459,11 +473,12 @@ const VaultDAO = {
       try { candidates.push({ source: 'localStorage(shadow)', state: JSON.parse(decodeURIComponent(escape(atob(shadow)))) }); }
       catch (e) { console.error('VaultDAO.init: omega_shadow_vault corrotto — scartato:', e); }
     }
+    if (durableCandidate) candidates.push(durableCandidate);
     if (candidates.length > 0) {
-      const best = chooseVaultCandidate(candidates, this._countTx);
+      const best = reconcileVaultCandidates(candidates, this._countTx);
       if (candidates.length > 1 && candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
         const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
-        console.warn(`VaultDAO.init: le copie salvate divergono (${riepilogo}) — uso "${best.source}" (più transazioni), mai un checksum cieco.`);
+        console.warn(`VaultDAO.init: le copie salvate divergono (${riepilogo}) — uso "${best.source}" dopo confronto di movimenti, revisioni e cancellazioni.`);
       }
       try {
         const p = runSchemaMigrations(best.state);
@@ -481,6 +496,7 @@ const VaultDAO = {
   // la copia durevole. La vecchia shadow base64 resta soltanto una sorgente
   // di migrazione: dopo una scrittura verificata viene rimossa.
   async initDurable() {
+    this._durableCandidate = null;
     try {
       const idbPayload = await DurableStore.get('state', 'main');
       const lsMain = localStorage.getItem(VAULT_MAIN_KEY);
@@ -495,24 +511,34 @@ const VaultDAO = {
       tryParse(lsShadow, 'localStorage(shadow)', (raw) => decodeURIComponent(escape(atob(raw))));
       tryParse(idbPayload, 'indexedDB');
       if (candidates.length === 0) return; // nessuna copia leggibile: init() partirà dal default
+      const best = reconcileVaultCandidates(candidates, this._countTx);
+      // A readable durable copy remains available for this boot even when
+      // the separate upgrade checkpoint cannot be allocated (quota/full DB).
+      this._durableCandidate = best;
       // A one-time, separate checkpoint preserves every readable source before
       // this release reconciles them, including learning not present in the winner.
       if (!await DurableStore.get('state', 'upgrade-2026-09-11')) {
-        await DurableStore.put('state', {
-          format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(),
-          sources: candidates,
-        }, 'upgrade-2026-09-11');
+        try {
+          await DurableStore.put('state', {
+            format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(),
+            sources: candidates,
+          }, 'upgrade-2026-09-11');
+        } catch (error) {
+          console.warn('VaultDAO.initDurable: spazio insufficiente per la copia di sicurezza; non sovrascrivo le copie esistenti.', error);
+          return;
+        }
       }
-      const best = chooseVaultCandidate(candidates, this._countTx);
       if (candidates.some(c => this._countTx(c.state) !== this._countTx(best.state))) {
         const riepilogo = candidates.map(c => `${c.source}:${this._countTx(c.state)}tx`).join(', ');
-        console.warn(`VaultDAO.initDurable: copie salvate non allineate (${riepilogo}) — ricostruisco da "${best.source}" (più completa).`);
+        console.warn(`VaultDAO.initDurable: copie salvate non allineate (${riepilogo}) — ricostruisco da "${best.source}" dopo confronto di movimenti, revisioni e cancellazioni.`);
       }
       const bestPayload = JSON.stringify(best.state);
       if (idbPayload !== bestPayload) await DurableStore.put('state', bestPayload, 'main');
       const retained = idbPayload === bestPayload ? idbPayload : await DurableStore.get('state', 'main');
       if (retained !== bestPayload) throw new Error('IndexedDB non ha confermato lo snapshot riconciliato');
-      writeLocalVaultSnapshot(localStorage, bestPayload, best.state, { durableSafe: true });
+      this._durableCandidate = { source: 'indexedDB', state: best.state };
+      try { writeLocalVaultSnapshot(localStorage, bestPayload, best.state, { durableSafe: true }); }
+      catch (e) { console.warn('localStorage pieno: apro la copia verificata in IndexedDB senza sovrascrivere i dati precedenti.', e); }
     } catch (e) {
       console.warn('IndexedDB non disponibile, continuo con localStorage:', e);
     }
@@ -539,12 +565,15 @@ const VaultDAO = {
     this.state.storageRevision = currentRevision + 1;
     const payload = stringifyVault(serializable(this.state.storageRevision));
     const manifest = vaultManifest(payload, this.state);
+    let localRetained = false;
     try {
       writeLocalVaultSnapshot(localStorage, payload, this.state, { manifest });
+      localRetained = localStorage.getItem(VAULT_MAIN_KEY) === payload;
     } catch (e) {
       console.error('VaultDAO.save: scrittura di omega_core_db fallita (localStorage pieno?):', e);
+      try { localRetained = localStorage.getItem(VAULT_MAIN_KEY) === payload; } catch {}
     }
-    queueDurableVault(payload, manifest);
+    queueDurableVault(payload, manifest, localRetained);
     // Ponte iOS best-effort (2026-08-28) — vedi IOS_HANDOFF sotto: scrive un
     // istantanea in Cache Storage, MAI l'unica via di ripristino (quella
     // resta il backup file, sempre affidabile). Fire-and-forget, mai un
