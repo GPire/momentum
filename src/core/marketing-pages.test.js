@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { renderLanding, renderSitemap, renderAppBrand } from '../../scripts/generate-marketing.mjs';
+import { renderLanding, renderSitemap, renderSplitLanding, renderAppBrand } from '../../scripts/generate-marketing.mjs';
 import { previews } from '../../public/landing/landing-copy.js';
 
 const template = readFileSync(new URL('../../scripts/templates/landing.html',import.meta.url),'utf8');
@@ -98,8 +98,24 @@ test('changing display identity updates marketing text and SEO without changing 
   assert.ok(html.includes('"name":"Orbit"'));
   assert.ok(!html.includes('Momentum brings'));
   const sitemap = renderSitemap(changed,'2026-09-23');
-  assert.equal((sitemap.match(/<loc>/g) || []).length,7);
+  assert.equal((sitemap.match(/<loc>/g) || []).length,8);
   assert.ok(sitemap.includes('https://orbit.example/landing/pt/'));
+  assert.ok(sitemap.includes('https://orbit.example/landing/dividere-spese/'));
+});
+
+test('focused split page is crawlable, accurate and enters the real split task', () => {
+  const splitTemplate = readFileSync(new URL('../../scripts/templates/split-landing.html',import.meta.url),'utf8');
+  const html = renderSplitLanding(splitTemplate,brand,'rev');
+  assert.ok(html.includes('rel="canonical" href="https://momentum-finance.pages.dev/landing/dividere-spese/"'));
+  assert.ok(html.includes('href="/?lang=it&amp;intent=split"'));
+  assert.ok(html.includes('72 €'));
+  assert.ok(html.includes('48 €'));
+  assert.ok(html.includes('split.css?v=rev'));
+  assert.ok(!html.includes('{{BRAND}}'));
+  assert.ok(!html.includes('<script'));
+  const renamed = renderSplitLanding(splitTemplate,{...brand,name:'Orbit',origin:'https://orbit.example'},'rev');
+  assert.ok(renamed.includes('https://orbit.example/landing/dividere-spese/'));
+  assert.ok(renamed.includes('>Orbit<span class="point">'));
 });
 
 test('brand text in HTML is escaped', () => {

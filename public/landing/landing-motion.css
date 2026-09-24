@@ -432,12 +432,12 @@
 }
 
 .enhanced .hero-copy.is-visible > :is(.eyebrow, h1, .hero-lede, .hero-actions, .hero-assurances) {
-  animation: hero-enter .72s cubic-bezier(.2, .8, .2, 1) both;
+  animation: hero-enter .42s cubic-bezier(.2, .8, .2, 1) both;
 }
-.enhanced .hero-copy.is-visible > h1 { animation-delay: .08s; }
-.enhanced .hero-copy.is-visible > .hero-lede { animation-delay: .16s; }
-.enhanced .hero-copy.is-visible > .hero-actions { animation-delay: .24s; }
-.enhanced .hero-copy.is-visible > .hero-assurances { animation-delay: .32s; }
+.enhanced .hero-copy.is-visible > h1 { animation-delay: .03s; }
+.enhanced .hero-copy.is-visible > .hero-lede { animation-delay: .06s; }
+.enhanced .hero-copy.is-visible > .hero-actions { animation-delay: .09s; }
+.enhanced .hero-copy.is-visible > .hero-assurances { animation-delay: .12s; }
 .enhanced .hero-visual.is-visible .orbit-scene { animation: scene-enter .85s ease-out both; }
 .enhanced .hero-visual.is-visible .preview-shell { animation: card-enter .7s ease-out .23s both; }
 .enhanced .section-intro.is-visible > :is(.eyebrow, h2, p:last-child),
@@ -640,7 +640,7 @@ html.motion-paused .voice-wave i { animation: none; }
 @media (max-width: 360px) { .proof-dispute { top: 6%; padding: .4rem .65rem; font-size: .6rem; }.proof-tax-invoice, .proof-tax-received, .proof-tax-pending { gap: .15rem; padding: .5rem; }.proof-tax-next { bottom: 1.9rem; max-width: calc(100% - 1.5rem); padding: .35rem .6rem; font-size: .68rem; } }
 @media (prefers-reduced-motion: reduce) { html:not(.motion-override) .proof-scene, html:not(.motion-override) .proof-step, html:not(.motion-override) .proof-visual-progress span { transition: none; } }
 
-@keyframes hero-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes hero-enter { from { opacity: .72; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes section-arrive { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes icon-arrive { from { opacity: .35; transform: translateY(14px) rotateX(22deg) scale(.94); } to { opacity: 1; transform: translateY(0) rotateX(0) scale(1); } }
 @keyframes scene-enter { from { opacity: 0; } to { opacity: 1; } }

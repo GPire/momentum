@@ -81,6 +81,7 @@ import { parseSalaryDraft, parseReminderDraft } from './ui/money-editor-values.j
 import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
+import { splitIntentUrl } from './core/marketing-intent.js';
 import { giornoLocale, meseLocale } from './core/date-utils.js';
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
@@ -167,6 +168,14 @@ const TELEMETRY_ENDPOINT = 'https://momentum-telemetry.momentum-finance.workers.
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
 // di chiamata: mai bloccante, mai un errore visibile all'utente.
 const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
+const openRequestedSplit = () => {
+  const cleanUrl = splitIntentUrl(location.href);
+  if (!cleanUrl || new URLSearchParams(location.search).has('shared') || new URLSearchParams(location.search).has('company') || extractJoinPayload()) return false;
+  history.replaceState(null, '', cleanUrl);
+  pingFeature('split_landing_entered');
+  setTimeout(() => window.openSplitExpense(), 280);
+  return true;
+};
 const pingPresence = () => {
   sendAppObservation(TELEMETRY_ENDPOINT, 'presence', {visible:document.visibilityState === 'visible'}).catch(() => {});
   if (document.visibilityState === 'visible') sendTelemetryPings(TELEMETRY_ENDPOINT, {platform:__telemetryPlatform,cameFromInvite:__telemetryCameFromInvite}).catch(() => {});
@@ -8113,6 +8122,7 @@ window.openSplitExpense = (prefill = {}) => {
       try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
       VaultDAO.save();
       closeModal();
+      pingFeature('split_quick_saved');
       showToast(tr('saved', eur(mine)), 'success');
       renderDashboard(); renderAnalysis({ skipHeavyForecast: true });
     });
@@ -8125,6 +8135,7 @@ window.openSplitExpense = (prefill = {}) => {
       const p2p = await tryCreateP2POffer();
       _groupInvitePairing = p2p?.pairing || null;
       window.openShareCode({ code: await buildInviteCode(g, p2p?.offer), groupName: g.name, title: tCh('shareInviteTitle', __uiLang, g.name), sub: tCh('shareInviteSub', __uiLang), pairing: _groupInvitePairing });
+      pingFeature('split_invite_prepared');
     });
     // Il markup di .segmented-control è rigenerato da zero a ogni render()
     // (innerHTML), quindi anche la sua pillola va ri-creata da zero — l'unico
@@ -18533,6 +18544,7 @@ const endGenesis = () => {
           // arrivato durante il primo avvio, prima che il form fosse pronto.
           consumeQuickAddLink();
           if (window._pendingQuickAdd) { const p = window._pendingQuickAdd; window._pendingQuickAdd = null; setTimeout(() => window.openPrefilledAdd(p), 400); }
+          openRequestedSplit();
           // Open the app without another form. Budget and salary remain available
           // through explicit actions and the existing once-only real-data prompt.
         };
@@ -23360,6 +23372,7 @@ const initApp = () => {
   // impedisce alla hero di essere dipinta prima ancora che questo file venga
   // scaricato — se cambi una, cambia l'altra.
   const hasOnboarded = haCompletatoOnboarding(VaultDAO.state);
+  const requestedSplitAtBoot = !!splitIntentUrl(location.href);
   if (hasOnboarded) {
     const gen = $('#genesis-container');
     if (gen) gen.remove();
@@ -23402,7 +23415,7 @@ const initApp = () => {
     // mai prima — non deve competere col primo paint né sembrare un
     // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
     // arrivato", poi eventualmente "cosa è cambiato".
-    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
+    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else if (!requestedSplitAtBoot) showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
     // Ponte iOS Safari→PWA (2026-08-28, vedi vault.js): appena aperta una
     // PWA installata su iOS SENZA transazioni proprie, controlla se Safari
     // ha lasciato un'istantanea recente in Cache Storage — best-effort, mai
@@ -23473,6 +23486,7 @@ const initApp = () => {
       // account, senza capire cos'è un'app on-device.
       consumeTripReviewLink();
       consumeQuickAddLink(); // link "quick-add" da un'automazione iOS Shortcuts
+      openRequestedSplit();
       // Feedback proposto UNA sola volta, dopo un uso reale (non al primo
       // avvio, mai un popup che torna): 10 giorni da quando questo
       // dispositivo ha iniziato a usare Momentum. Mai più dopo la prima

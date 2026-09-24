@@ -80,6 +80,7 @@ export function renderLanding(template, code, brand, revision) {
     .replaceAll('/?lang=it',`/?lang=${code}`)
     .replaceAll('href="/privacy.html"',`href="/privacy.html?lang=${code}"`)
     .replaceAll('href="/termini.html"',`href="/termini.html?lang=${code}"`);
+  if (code === 'it') html = html.replace('<nav class="footer-nav" aria-label="Navigazione del sito">', '<nav class="footer-nav" aria-label="Navigazione del sito"><a href="/landing/dividere-spese/">Dividere le spese</a>');
 
   const alternate = localeCodes.map(other => `  <link rel="alternate" hreflang="${other}" href="${esc(brand.origin + pathFor(other))}">`).join('\n');
   const featureList = ['wayDailyTitle','wayTogetherTitle','wayWorkTitle','wayTaxTitle','wayMarketTitle','wayArchiveTitle']
@@ -98,9 +99,15 @@ export function renderLanding(template, code, brand, revision) {
     `  <meta name="twitter:card" content="summary_large_image">\n  <meta property="og:locale" content="${localeTags[code]}">\n${alternate}\n  <link rel="alternate" hreflang="x-default" href="${esc(brand.origin + '/landing/')}">\n  <script type="application/ld+json">${JSON.stringify(schema).replaceAll('<','\\u003c')}</script>`);
 }
 
+export function renderSplitLanding(template, brand, revision) {
+  assertBrand(brand);
+  return template.replaceAll('Momentum',esc(brand.name)).replaceAll('{{BRAND}}',esc(brand.name)).replaceAll('{{ORIGIN}}',brand.origin).replaceAll('{{REVISION}}',revision);
+}
+
 export function renderSitemap(brand, date) {
   assertBrand(brand);
-  const urls = localeCodes.map(code => `  <url><loc>${esc(brand.origin + pathFor(code))}</loc><lastmod>${date}</lastmod></url>`).join('\n');
+  const urls = [...localeCodes.map(code => brand.origin + pathFor(code)), brand.origin + '/landing/dividere-spese/']
+    .map(url => `  <url><loc>${esc(url)}</loc><lastmod>${date}</lastmod></url>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
 
@@ -125,6 +132,11 @@ export function generateMarketing() {
     mkdirSync(target,{recursive:true});
     writeFileSync(join(target,'index.html'),renderLanding(template,code,brand,revision));
   }
+  const splitTemplate = readFileSync(join(root,'scripts/templates/split-landing.html'),'utf8');
+  const splitRevision = createHash('sha256').update(readFileSync(join(root,'public/landing/split.css'))).digest('hex').slice(0,12);
+  const splitTarget = join(root,'public/landing/dividere-spese');
+  mkdirSync(splitTarget,{recursive:true});
+  writeFileSync(join(splitTarget,'index.html'),renderSplitLanding(splitTemplate,brand,splitRevision));
   writeFileSync(join(root,'public/sitemap.xml'),renderSitemap(brand,new Date().toISOString().slice(0,10)));
   writeFileSync(join(root,'public/robots.txt'),`User-agent: *\nAllow: /\n\nSitemap: ${brand.origin}/sitemap.xml\n`);
   const manifestTemplate = readFileSync(join(root,'scripts/templates/manifest.json'),'utf8');

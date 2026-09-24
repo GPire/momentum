@@ -1,5 +1,41 @@
 # Momentum — stato reale e lavoro restante
 
+## Percorso d'ingresso e velocità web — 24 settembre 2026
+
+È stata aggiunta una pagina statica italiana dedicata a dividere una spesa,
+con esempio verificabile (72 € fra tre persone), spiegazione delle quote,
+contestazioni, condivisione e limiti dei link. Ha HTML leggibile senza
+JavaScript, CSS dedicato e leggero, canonical, collegamento dalla landing e
+voce nella sitemap. Il pulsante porta all'intento `split`: un utente già
+attivato apre la divisione; al primo avvio l'intento resta nell'URL fino alla
+fine dell'onboarding, poi viene consumato una volta. Non sostituisce il link
+di invito di un gruppo. Tre nuove pietre miliari anonime distinguono ingresso,
+salvataggio della divisione e preparazione dell'invito, sempre soggette
+all'opt-out della telemetria e senza importi o nomi. Non formano ancora un
+funnel di sessione completo: il collector pubblicato deve ricevere la nuova
+versione prima che quei contatori siano operativi.
+
+La landing generale ora mostra subito il testo principale anche durante
+l'entrata animata. I sei URL di peso Plus Jakarta Sans per ciascun subset
+erano byte per byte identici: il CSS dichiara una sola faccia variabile per
+subset. Le risorse statiche versionate sul dominio Pages hanno regole di
+cache mirate; il vecchio mirror Netlify resta no-store per non lasciare PWA
+ferme. Le intestazioni pubbliche dopo il deploy devono essere lette e
+confrontate con quelle attese prima di attribuire un beneficio reale alla
+cache.
+
+Verifiche locali: 59 test mirati superati (marketing, intento, telemetria
+client e worker), sintassi del modulo app verificata e build portabile di
+produzione riuscita su 454 moduli. La pagina dedicata è stata letta nel
+browser locale a 320, 390, 588, 768 e 1440 px senza scorrimento orizzontale;
+la testata a 320 px è stata corretta dopo l'ispezione visiva. Il chunk iniziale
+dell'app rimane circa 3,33 MB minificati / 1,13 MB gzip: questa modifica
+non chiude il blocco di velocità dell'app. PageSpeed Insights ha risposto
+con quota esaurita (HTTP 429), quindi LCP/INP/CLS non sono stati misurati
+su utenti reali. Mancano prove fisiche del percorso split, inviti e recupero
+con rete intermittente; la verifica visiva dell'app locale in una sessione
+con movimenti privati è stata fermata dal controllo automatico.
+
 ## Verifica archivio prima del prossimo push — 23 settembre 2026
 
 Il controllo di upgrade usa un checkout separato del commit pubblicato

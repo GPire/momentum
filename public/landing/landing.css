@@ -230,6 +230,7 @@ details[open] .faq-toggle{background:rgba(172,155,255,.15);border-color:rgba(203
 .language-menu:not([hidden]){animation:menu-arrive .22s ease-out both}
 .enhanced .reveal{opacity:0;transform:translateY(16px);transition:opacity .63s ease,transform .63s cubic-bezier(.2,.8,.2,1)}
 .enhanced .reveal.is-visible{opacity:1;transform:none}
+.enhanced .hero-copy.reveal{opacity:1;transform:none;transition:none}
 .enhanced .hero-visual.reveal{transition-delay:.09s}
 @keyframes orbit-depth-one{0%,100%{transform:rotate(-26deg) rotateY(-14deg) rotateX(11deg)}50%{transform:rotate(-19deg) rotateY(16deg) rotateX(-9deg)}}
 @keyframes orbit-depth-two{0%,100%{transform:rotate(41deg) rotateY(14deg) rotateX(-12deg)}50%{transform:rotate(49deg) rotateY(-15deg) rotateX(11deg)}}
