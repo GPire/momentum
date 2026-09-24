@@ -24,6 +24,7 @@ export const splitCopy = {
   next: ['Vedi la divisione', 'See the split', 'Aufteilung ansehen', 'Voir le partage', 'Ver el reparto', 'Bekijk de verdeling', 'Ver a divisão'],
   editPeople: ['Modifica persone e importi', 'Edit people and amounts', 'Personen und Beträge bearbeiten', 'Modifier personnes et montants', 'Editar personas e importes', 'Personen en bedragen wijzigen', 'Editar pessoas e valores'],
   peopleCount: ['{0} persone', '{0} people', '{0} Personen', '{0} personnes', '{0} personas', '{0} personen', '{0} pessoas'],
+  peopleCountOne: ['{0} persona', '{0} person', '{0} Person', '{0} personne', '{0} persona', '{0} persoon', '{0} pessoa'],
   yourShare: ['La tua parte', 'Your share', 'Dein Anteil', 'Votre part', 'Tu parte', 'Jouw deel', 'Sua parte'],
   balanced: ['Avete già pagato ciascuno la propria parte.', 'Everyone has already paid their share.', 'Alle haben ihren Anteil bereits bezahlt.', 'Chacun a déjà payé sa part.', 'Cada persona ya pagó su parte.', 'Iedereen heeft het eigen deel al betaald.', 'Todos já pagaram sua parte.'],
   editIncome: ['Modifica accredito', 'Edit income', 'Einkommen bearbeiten', 'Modifier le revenu', 'Editar ingreso', 'Inkomen wijzigen', 'Editar entrada'],
@@ -80,7 +81,7 @@ export const splitCopy = {
 };
 
 export function tSplit(key, lang = 'en', ...values) {
-  const row = splitCopy[key];
+  const row = key === 'peopleCount' && Number(values[0]) === 1 ? splitCopy.peopleCountOne : splitCopy[key];
   if (!row) return key;
   const index = languages.indexOf(lang);
   return row[index < 0 ? 1 : index].replace(/\{(\d+)\}/g, (_, i) => String(values[Number(i)] ?? ''));

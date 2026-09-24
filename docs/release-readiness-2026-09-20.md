@@ -42,6 +42,8 @@ browser hanno verificato il cambio di saldo e layout a 320 e 1440 px.
 Sul server locale unificato `127.0.0.1:4179` il CTA è stato cliccato nel
 browser da un primo avvio pulito: dopo il caricamento si è aperta la modale
 "Dividi una spesa" senza passare dall'onboarding o chiedere un budget. Il
+percorso è stato riprovato in Chrome; nello stesso controllo è stata corretta
+la dicitura iniziale "1 persone" in tutte le sette lingue. Il
 vecchio server `4178` serviva soltanto `public` e non poteva risolvere la
 route dell'app: non è un difetto della pagina pubblicata, ma non va più usato
 per collaudare l'intero percorso. Test mirati rieseguiti singolarmente con
