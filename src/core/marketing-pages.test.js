@@ -115,6 +115,7 @@ test('focused split page is crawlable, accurate and enters the real split task',
   assert.ok(html.includes('Con uno storico sufficiente'));
   assert.ok(html.includes('split.css?v=rev'));
   assert.ok(html.includes('split.js?v=rev'));
+  assert.ok(html.includes('id="split-motion-control"'));
   assert.ok(!html.includes('{{BRAND}}'));
   assert.ok(!html.includes('/assets/'));
   assert.ok(!html.includes('/src/main.js'));

@@ -52,6 +52,14 @@ continua a restituire `spawn EPERM`, quindi il collaudo non è una suite
 completa. Le animazioni sono disattivate sul browser di prova che dichiara
 `prefers-reduced-motion: reduce`; resta da verificare l'effetto con movimento
 normale su un dispositivo reale. La pagina split è per ora solo in italiano.
+Su dispositivi che dichiarano movimento ridotto, la pagina split espone ora
+un comando esplicito per attivare i reveal e le orbite; la scelta viene
+condivisa con la landing nella sessione. Il contenuto resta visibile anche
+quando il movimento è spento. In Chrome locale con preferenza di movimento
+ridotto, il comando è stato provato in entrambi i versi: l'orb torna ad animarsi
+su richiesta e il progresso della scena cambia durante lo scroll; disattivando
+il comando, i testi restano visibili. Resta da verificare il ritmo visivo su un
+dispositivo fisico con movimento normale.
 Il bundle dell'app resta 3,33 MB minificati (1,13 MB gzip) e richiede un
 lavoro separato di suddivisione e una misura sul primo risultato mobile.
 
