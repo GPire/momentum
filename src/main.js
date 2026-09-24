@@ -19312,8 +19312,7 @@ window.setInvestsPreference = (invests) => {
   renderAnalysisTensorPrefCard();
   window.updateAnalysisTensorVisibility?.();
   renderSemanticQaCard(); renderSentimentLocalCard();
-  const card = document.getElementById('live-prices-card');
-  if (card) card.style.display = invests ? '' : 'none';
+  updateLivePricesCardVisibility();
   haptic('light');
   showToast(invests ? tCh('analysisPrefOnToast', __uiLang) : tCh('analysisPrefOffToast', __uiLang), 'success');
 };
@@ -19644,24 +19643,19 @@ function updateUiComplexityVisibility() {
   applyMotionPreference();
   const essenziale = resolveUiComplexity() === 'essenziale';
   document.getElementById('dashboard-view')?.setAttribute('data-clarity', essenziale ? 'essenziale' : 'completo');
-  // #live-prices-card ESCLUSA di proposito: ha già una condizione propria
-  // (shouldShowAnalysisTensor, poco sotto in navigate()) che scrive sullo
-  // STESSO style.display — combinarle qui rischierebbe di far vincere
-  // l'ultima funzione chiamata invece della decisione giusta. La combinazione
-  // vera vive in quell'unico punto, non qui.
+  // La scheda delle fonti resta raggiungibile anche in Essenziale per chi ha
+  // scelto gli investimenti: il percorso semplice è visibile, i campi delle
+  // chiavi rimangono chiusi nei dettagli finché servono davvero.
   $$('.advanced-card').forEach(card => { if (card.id !== 'live-prices-card') card.style.display = essenziale ? 'none' : ''; });
   $$('[data-ui-complexity]').forEach(btn => { const active = btn.dataset.uiComplexity === resolveUiComplexity(); btn.classList.toggle('active', active); btn.setAttribute('aria-pressed', String(active)); });
   const current = document.getElementById('appearance-current');
   if (current) current.textContent = tCh(essenziale ? 'analysisComplexityEssential' : 'analysisComplexityFull', __uiLang);
   updateLivePricesCardVisibility();
 }
-// Estratta perché usata in DUE momenti (apertura di Momentum Vault E ogni
-// tocco del selettore Essenziale/Completa): la stessa combinazione scritta
-// due volte a mano è la stessa classe di bug appena vista per il tastierino
-// del Command Center (due copie che possono divergere in silenzio).
+// Un solo punto decide in base all'interesse corrente per gli investimenti.
 function updateLivePricesCardVisibility() {
   const c = document.getElementById('live-prices-card');
-  if (c) c.style.display = (shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) && resolveUiComplexity() !== 'essenziale') ? '' : 'none';
+  if (c) c.style.display = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) ? '' : 'none';
 }
 const motionMediaOriginals = new WeakMap();
 function motionIsReduced() {
@@ -19896,12 +19890,9 @@ const navigate = (view) => {
     // accanto a #tax-settings-card, non più mescolato ai contenuti di
     // trading/investimento di Analisi Tensor.
     renderPayrollSummary(); window.updateReminderQuickDates(); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderBrakeDesc(); renderInstallGuide(); renderQuickAddGuideCard(); renderNeuroSymExplainCard(); renderProLicenseCard(); renderAnalysisTensorPrefCard(); window.renderBackupHealthCard?.(); window.renderDataFreshnessCard?.(); renderNotifyPrefs(); renderSemanticQaCard(); renderSentimentLocalCard(); renderSourceReliabilitySummary(); applyReadingEasePreferences();
-    // Vista Essenziale/Completa (2026-09-03): anche qui, non solo in Analisi
-    // Tensor — "Come funziona Momentum" e "Chat generica" sono marcate
-    // .advanced-card e seguono la regola generica; #live-prices-card ha una
-    // condizione propria in PIÙ (deve sparire anche per chi non investe),
-    // quindi la combina qui, un solo punto, mai due funzioni che scrivono
-    // sullo stesso style.display in ordine imprevedibile.
+    // In Essenziale la scheda investimenti resta visibile a chi li ha scelti;
+    // i campi tecnici sono già richiusi. Il resto delle .advanced-card segue
+    // la regola generale della vista Essenziale/Completa.
     updateUiComplexityVisibility();
     refreshSegmentIndicators();
     // BUG REALE trovato: al primo avvio VaultDAO.state.liveDataKeys non è

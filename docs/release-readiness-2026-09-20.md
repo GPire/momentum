@@ -5,6 +5,8 @@
 Il Vault ora separa le analisi disponibili con i dati già presenti nel
 dispositivo dalle quotazioni esterne facoltative. La guida resta accessibile
 in un tocco, mentre i campi delle varie chiavi sono raccolti nei dettagli.
+La scheda resta raggiungibile anche in vista Essenziale se l'utente sceglie
+gli investimenti, senza esporre subito i campi tecnici.
 La ricerca titoli dell'interfaccia usa la cascata già implementata Alpha
 Vantage → Twelve Data → FMP; prima passava solo Alpha Vantage. Il prezzo
 azionario prova Alpha Vantage e poi Twelve Data se entrambe le chiavi sono
