@@ -39,7 +39,7 @@ export const lines = {
       "On a work trip","Photograph a receipt, link the expense to a trip and prepare a report to hand over.",
       "If you invest","Compare assets, scenarios and portfolio risk, with sources and limits in view.",
       "You stay in control","A space that follows you. Not the other way around.",
-      "Momentum helps you see your numbers more clearly without asking you to decide everything on day one.",
+      "You choose when to add a budget, link another device or correct a suggestion.",
       "Budget only if you want one","Set it later, or use Momentum without a budget.",
       "Records on your device","Your transactions start on your device. No account is needed to begin; link another device only if you choose to.",
       "Suggestions that learn from you","When you correct a category, Momentum uses your choice to suggest it better next time. You decide.",
@@ -48,7 +48,7 @@ export const lines = {
       "Do I need a budget?","No. A budget is your choice, and you can change it later.",
       "Is splitting expenses free?","Yes. Splitting expenses, goals, calendar and everyday tools are in the free plan.",
       "Will Momentum decide where I should invest?","No. It shows data, comparisons and estimates with their limits. Financial decisions remain yours.",
-      "Start when you're ready","Clarity starts with one action.","Open Momentum, add an expense or just take a look. The rest can wait.",
+      "Start when you're ready","Clarity starts with one action.","Open Momentum and try one expense or the example data. You do not need to connect a bank account to begin.",
       "More clarity, one step at a time.","Privacy","Terms",
       "Self-employment and invoices","Invoices and partial payments, tax estimates and guides to official steps.",
       "Your records, in order","Import transactions, keep a copy and choose what to share.",
@@ -81,7 +81,7 @@ export const lines = {
       "Auf Dienstreise","Fotografiere den Beleg, ordne die Ausgabe der Reise zu und bereite die Abrechnung vor.",
       "Wenn du investierst","Vergleiche Wertpapiere, Szenarien und Portfoliorisiken mit sichtbaren Quellen und Grenzen.",
       "Du behältst die Kontrolle","Ein Ort, der sich dir anpasst. Nicht umgekehrt.",
-      "Momentum hilft dir, deine Zahlen besser zu sehen, ohne dass du gleich alles entscheiden musst.",
+      "Du entscheidest, wann du ein Budget festlegst, ein weiteres Gerät verbindest oder einen Vorschlag korrigierst.",
       "Budget nur, wenn du willst","Lege es später fest oder nutze Momentum ohne Budget.",
       "Daten auf deinem Gerät","Deine Buchungen beginnen auf deinem Gerät. Zum Start brauchst du kein Konto; weitere Geräte verbindest du nur auf Wunsch.",
       "Vorschläge, die von dir lernen","Wenn du eine Kategorie korrigierst, nutzt Momentum deine Wahl für bessere Vorschläge. Du entscheidest.",
@@ -90,7 +90,7 @@ export const lines = {
       "Brauche ich ein Budget?","Nein. Ein Budget ist deine Entscheidung und lässt sich später ändern.",
       "Ist das Teilen von Ausgaben kostenlos?","Ja. Ausgaben teilen, Ziele, Kalender und Alltagsfunktionen gehören zum kostenlosen Plan.",
       "Entscheidet Momentum, wo ich investieren soll?","Nein. Es zeigt Daten, Vergleiche und Schätzungen mit ihren Grenzen. Finanzentscheidungen triffst du selbst.",
-      "Starte, wenn du bereit bist","Klarheit beginnt mit einem Schritt.","Öffne Momentum, füge eine Ausgabe hinzu oder schau dich erst einmal um. Der Rest kann warten.",
+      "Starte, wenn du bereit bist","Klarheit beginnt mit einem Schritt.","Öffne Momentum und probiere eine Ausgabe oder die Beispieldaten aus. Zum Start musst du kein Bankkonto verbinden.",
       "Mehr Klarheit, Schritt für Schritt.","Datenschutz","Nutzungsbedingungen",
       "Selbstständig und Rechnungen","Rechnungen und Teilzahlungen, Steuerschätzungen und Anleitungen für amtliche Schritte.",
       "Deine Daten, geordnet","Importiere Buchungen, bewahre eine Kopie auf und bestimme, was du teilst.",
@@ -123,7 +123,7 @@ export const lines = {
       "En déplacement","Photographiez le reçu, reliez la dépense au voyage et préparez le compte rendu à transmettre.",
       "Si vous investissez","Comparez titres, scénarios et risque de votre portefeuille, avec sources et limites visibles.",
       "Vous gardez le contrôle","Un espace qui vous suit. Pas l'inverse.",
-      "Momentum vous aide à mieux voir vos chiffres sans tout décider dès le premier jour.",
+      "Choisissez quand définir un budget, relier un autre appareil ou corriger une suggestion.",
       "Un budget si vous le souhaitez","Définissez-le plus tard ou utilisez Momentum sans budget.",
       "Données sur votre appareil","Vos opérations commencent sur votre appareil. Aucun compte n'est requis au départ ; reliez un autre appareil seulement si vous le souhaitez.",
       "Des suggestions qui apprennent de vous","Quand vous corrigez une catégorie, Momentum tient compte de votre choix pour la suite. Vous décidez toujours.",
@@ -132,7 +132,7 @@ export const lines = {
       "Faut-il un budget ?","Non. Le budget est votre choix, modifiable plus tard.",
       "Le partage des dépenses est-il gratuit ?","Oui. Partage des dépenses, objectifs, calendrier et outils du quotidien font partie de l'offre gratuite.",
       "Momentum décide-t-il où investir à ma place ?","Non. Il présente données, comparaisons et estimations avec leurs limites. Les décisions financières restent les vôtres.",
-      "Commencez quand vous voulez","La clarté commence par un geste.","Ouvrez Momentum, ajoutez une dépense ou regardez simplement. Le reste peut attendre.",
+      "Commencez quand vous voulez","La clarté commence par un geste.","Ouvrez Momentum et essayez une dépense ou les données d'exemple. Aucun compte bancaire à connecter pour commencer.",
       "Plus de clarté, un pas après l'autre.","Confidentialité","Conditions",
       "Activité indépendante et factures","Factures et paiements partiels, estimations fiscales et guides des démarches officielles.",
       "Vos données, en ordre","Importez vos opérations, gardez une copie et choisissez ce que vous partagez.",
@@ -165,7 +165,7 @@ export const lines = {
       "En un viaje de trabajo","Fotografía el recibo, vincula el gasto al viaje y prepara el informe para entregar.",
       "Si inviertes","Compara activos, escenarios y riesgo de tu cartera, con fuentes y límites visibles.",
       "Tú tienes el control","Un espacio que se adapta a ti. No al revés.",
-      "Momentum te ayuda a entender mejor tus cifras sin pedirte que decidas todo al empezar.",
+      "Tú decides cuándo añadir un presupuesto, vincular otro dispositivo o corregir una sugerencia.",
       "Presupuesto solo si quieres","Defínelo después o usa Momentum sin presupuesto.",
       "Datos en tu dispositivo","Tus movimientos empiezan en tu dispositivo. No necesitas una cuenta para empezar; vincula otro dispositivo solo si lo eliges.",
       "Sugerencias que aprenden de ti","Si corriges una categoría, Momentum usa tu elección para sugerirla mejor la próxima vez. Tú decides.",
@@ -174,7 +174,7 @@ export const lines = {
       "¿Necesito un presupuesto?","No. Tú decides si quieres uno y puedes cambiarlo después.",
       "¿Dividir gastos es gratis?","Sí. Dividir gastos, objetivos, calendario y herramientas cotidianas están en el plan gratuito.",
       "¿Momentum decide dónde invertir por mí?","No. Te muestra datos, comparaciones y estimaciones con sus límites. Las decisiones financieras son tuyas.",
-      "Empieza cuando quieras","La claridad empieza con un gesto.","Abre Momentum, añade un gasto o simplemente mira cómo funciona. Lo demás puede esperar.",
+      "Empieza cuando quieras","La claridad empieza con un gesto.","Abre Momentum y prueba con un gasto o con los datos de ejemplo. No necesitas vincular una cuenta bancaria para empezar.",
       "Más claridad, paso a paso.","Privacidad","Términos",
       "Autónomos y facturas","Facturas y cobros parciales, estimaciones fiscales y guías de los trámites oficiales.",
       "Tus datos, en orden","Importa movimientos, guarda una copia y elige qué compartir.",
@@ -207,7 +207,7 @@ export const lines = {
       "Op zakenreis","Fotografeer een bon, koppel de uitgave aan de reis en maak een verslag om in te leveren.",
       "Als je belegt","Vergelijk beleggingen, scenario's en portefeuillerisico met zichtbare bronnen en grenzen.",
       "Jij houdt de controle","Een plek die jou volgt. Niet andersom.",
-      "Momentum helpt je je cijfers beter te begrijpen zonder dat je meteen alles moet beslissen.",
+      "Jij kiest wanneer je een budget instelt, een ander apparaat koppelt of een suggestie verbetert.",
       "Budget alleen als je wilt","Stel het later in of gebruik Momentum zonder budget.",
       "Gegevens op je apparaat","Je transacties beginnen op je apparaat. Je hebt geen account nodig om te starten; koppel een ander apparaat alleen als je dat wilt.",
       "Suggesties die van jou leren","Corrigeer je een categorie, dan gebruikt Momentum die keuze voor een beter voorstel de volgende keer. Jij beslist.",
@@ -216,7 +216,7 @@ export const lines = {
       "Heb ik een budget nodig?","Nee. Een budget is jouw keuze en kun je later wijzigen.",
       "Is uitgaven verdelen gratis?","Ja. Uitgaven verdelen, doelen, kalender en dagelijkse hulpmiddelen zitten in het gratis plan.",
       "Bepaalt Momentum waar ik moet beleggen?","Nee. Je ziet gegevens, vergelijkingen en schattingen met hun beperkingen. Financiële beslissingen blijven van jou.",
-      "Begin wanneer je wilt","Helderheid begint met één stap.","Open Momentum, voeg een uitgave toe of kijk eerst rond. De rest kan wachten.",
+      "Begin wanneer je wilt","Helderheid begint met één stap.","Open Momentum en probeer één uitgave of de voorbeeldgegevens. Je hoeft geen bankrekening te koppelen om te beginnen.",
       "Meer overzicht, stap voor stap.","Privacy","Voorwaarden",
       "Zelfstandig werk en facturen","Facturen en deelbetalingen, belastingschattingen en gidsen voor officiële stappen.",
       "Je gegevens, op orde","Importeer transacties, bewaar een kopie en kies wat je deelt.",
@@ -249,7 +249,7 @@ export const lines = {
       "Em viagem de trabalho","Fotografe o recibo, associe a despesa à viagem e prepare o relatório para entregar.",
       "Se investe","Compare ativos, cenários e risco da carteira, com fontes e limites visíveis.",
       "O controlo é seu","Um espaço que acompanha o seu ritmo. Não o contrário.",
-      "Momentum ajuda-o a compreender melhor os seus números sem exigir todas as decisões no primeiro dia.",
+      "Escolha quando definir um orçamento, ligar outro dispositivo ou corrigir uma sugestão.",
       "Orçamento só se quiser","Defina-o mais tarde ou use o Momentum sem orçamento.",
       "Dados no seu dispositivo","Os seus movimentos começam no dispositivo. Não precisa de conta para começar; ligue outro dispositivo só se quiser.",
       "Sugestões que aprendem consigo","Se corrigir uma categoria, o Momentum usa a sua escolha para a sugerir melhor da próxima vez. A decisão é sua.",
@@ -258,7 +258,7 @@ export const lines = {
       "Preciso de um orçamento?","Não. É uma escolha sua e pode alterá-la mais tarde.",
       "Dividir despesas é grátis?","Sim. Divisão de despesas, objetivos, calendário e ferramentas do dia a dia estão no plano gratuito.",
       "O Momentum decide onde devo investir?","Não. Mostra dados, comparações e estimativas com os respetivos limites. As decisões financeiras são suas.",
-      "Comece quando quiser","A clareza começa com um gesto.","Abra o Momentum, adicione uma despesa ou veja como funciona. O resto pode esperar.",
+      "Comece quando quiser","A clareza começa com um gesto.","Abra o Momentum e experimente uma despesa ou os dados de exemplo. Não precisa de ligar uma conta bancária para começar.",
       "Mais clareza, um passo de cada vez.","Privacidade","Termos",
       "Trabalho independente e faturas","Faturas e pagamentos parciais, estimativas fiscais e guias para as etapas oficiais.",
       "Os seus dados, organizados","Importe movimentos, guarde uma cópia e escolha o que partilhar.",
@@ -278,36 +278,43 @@ export const previews = {
     it: {
       today:["Il tuo mese, senza sorprese","48,39 €","Disponibili oggi · esempio","Una risposta chiara prima della prossima spesa."],
       together:["Una spesa, quote chiare","3","Persone · esempio","Ognuno vede la sua parte e cosa resta da rimborsare."],
-      trip:["Spese di viaggio in ordine","4","Ricevute · esempio","Ritrova le prove di spesa e prepara il resoconto."]
+      trip:["Spese di viaggio in ordine","4","Ricevute · esempio","Ritrova le prove di spesa e prepara il resoconto."],
+      invoice:["Una fattura, incasso parziale","300 €","Ancora da ricevere · esempio","Incassati 200 € su 500 €: vedi subito quanto manca."]
     },
     en: {
       today:["Your month, without surprises","€48.39","Available today · example","A clear answer before your next expense."],
       together:["One cost, clear shares","3","People · example","See each person's share and what remains to be repaid."],
-      trip:["Work expenses in order","4","Receipts · example","Find your receipts and prepare your report."]
+      trip:["Work expenses in order","4","Receipts · example","Find your receipts and prepare your report."],
+      invoice:["One invoice, partial payment","€300","Still due · example","€200 received out of €500: see what is still due."]
     },
     de: {
       today:["Dein Monat, ohne Überraschungen","48,39 €","Heute verfügbar · Beispiel","Eine klare Antwort vor der nächsten Ausgabe."],
       together:["Eine Ausgabe, klare Anteile","3","Personen · Beispiel","Sieh jeden Anteil und was noch zurückgezahlt werden muss."],
-      trip:["Reisekosten im Blick","4","Belege · Beispiel","Finde deine Belege und bereite die Abrechnung vor."]
+      trip:["Reisekosten im Blick","4","Belege · Beispiel","Finde deine Belege und bereite die Abrechnung vor."],
+      invoice:["Eine Rechnung, Teilzahlung","300 €","Noch offen · Beispiel","200 € von 500 € erhalten: Sieh, was noch offen ist."]
     },
     fr: {
       today:["Votre mois, sans surprise","48,39 €","Disponibles aujourd'hui · exemple","Une réponse claire avant la prochaine dépense."],
       together:["Une dépense, des parts claires","3","Personnes · exemple","Voyez la part de chacun et ce qui reste à rembourser."],
-      trip:["Frais de déplacement classés","4","Reçus · exemple","Retrouvez vos justificatifs et préparez votre compte rendu."]
+      trip:["Frais de déplacement classés","4","Reçus · exemple","Retrouvez vos justificatifs et préparez votre compte rendu."],
+      invoice:["Une facture, paiement partiel","300 €","Encore dus · exemple","200 € reçus sur 500 € : voyez ce qu'il reste à recevoir."]
     },
     es: {
       today:["Tu mes, sin sorpresas","48,39 €","Disponibles hoy · ejemplo","Una respuesta clara antes del próximo gasto."],
       together:["Un gasto, partes claras","3","Personas · ejemplo","Ve la parte de cada uno y lo que queda por devolver."],
-      trip:["Gastos de viaje ordenados","4","Recibos · ejemplo","Encuentra tus recibos y prepara el informe."]
+      trip:["Gastos de viaje ordenados","4","Recibos · ejemplo","Encuentra tus recibos y prepara el informe."],
+      invoice:["Una factura, cobro parcial","300 €","Pendientes · ejemplo","Has cobrado 200 € de 500 €: mira cuánto queda."]
     },
     nl: {
       today:["Je maand, zonder verrassingen","€ 48,39","Vandaag beschikbaar · voorbeeld","Een duidelijk antwoord voor je volgende uitgave."],
       together:["Eén uitgave, duidelijke delen","3","Personen · voorbeeld","Zie ieders deel en wat nog terugbetaald moet worden."],
-      trip:["Reiskosten op orde","4","Bonnetjes · voorbeeld","Vind je bonnetjes terug en maak je verslag."]
+      trip:["Reiskosten op orde","4","Bonnetjes · voorbeeld","Vind je bonnetjes terug en maak je verslag."],
+      invoice:["Een factuur, deelbetaling","€ 300","Nog te ontvangen · voorbeeld","€ 200 van € 500 ontvangen: zie wat nog openstaat."]
     },
     pt: {
       today:["O seu mês, sem surpresas","48,39 €","Disponíveis hoje · exemplo","Uma resposta clara antes da próxima despesa."],
       together:["Uma despesa, quotas claras","3","Pessoas · exemplo","Veja a parte de cada pessoa e o que falta reembolsar."],
-      trip:["Despesas de viagem organizadas","4","Recibos · exemplo","Encontre os comprovativos e prepare o relatório."]
+      trip:["Despesas de viagem organizadas","4","Recibos · exemplo","Encontre os comprovativos e prepare o relatório."],
+      invoice:["Uma fatura, pagamento parcial","300 €","Ainda por receber · exemplo","Recebeu 200 € de 500 €: veja o que falta."]
     }
   };

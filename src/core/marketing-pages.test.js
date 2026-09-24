@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { renderLanding, renderSitemap, renderAppBrand } from '../../scripts/generate-marketing.mjs';
+import { previews } from '../../public/landing/landing-copy.js';
 
 const template = readFileSync(new URL('../../scripts/templates/landing.html',import.meta.url),'utf8');
 const brand = {name:'Momentum',wordmark:'momentum',origin:'https://momentum-finance.pages.dev'};
@@ -28,6 +29,15 @@ test('each landing locale has its own readable page, canonical URL and working a
     assert.ok(html.includes(`data-i18n="wayTaxTitle"`));
     assert.ok(html.includes('id="intelligenza"'));
     assert.ok(html.includes('id="landing-orb-canvas"'));
+    assert.ok(html.includes('class="site-nav-cta"'));
+    assert.ok(html.includes('class="preview-stage"'));
+    assert.ok(html.includes('class="preview-graphic-trip"'));
+    assert.ok(html.includes('id="preview-tab-invoice"'));
+    assert.equal((html.match(/role="tab" aria-controls="preview-panel"/g) || []).length,4);
+    for (const mode of ['today','together','trip','invoice']) assert.equal(previews[code][mode].length,4);
+    assert.ok(html.includes('class="intelligence-progress"'));
+    assert.equal((html.match(/class="faq-index"/g) || []).length,4);
+    assert.ok(html.includes('class="footer-nav"'));
     assert.ok(html.includes('data-i18n="intelligenceVoiceTitle"'));
     assert.ok(html.includes('data-i18n="intelligenceForecastTitle"'));
     assert.ok(html.includes('data-i18n="trustPrivacyLink"'));
@@ -58,9 +68,9 @@ test('each landing locale has its own readable page, canonical URL and working a
 
 test('landing modules use JavaScript assets served with a module-compatible MIME type', () => {
   const entry = readFileSync(new URL('../../public/landing/landing.js',import.meta.url),'utf8');
-  for (const specifier of [...entry.matchAll(/from\s+["'](\.\/[^"']+)["']/g)].map(match => match[1])) {
-    assert.match(specifier,/\.js$/);
-    assert.doesNotThrow(() => readFileSync(new URL(`../../public/landing/${specifier.slice(2)}`,import.meta.url)));
+  for (const filename of ['landing-copy.js','landing-orb.js']) {
+    assert.ok(entry.includes(`./${filename}?v=\${revision}`));
+    assert.doesNotThrow(() => readFileSync(new URL(`../../public/landing/${filename}`,import.meta.url)));
   }
 });
 

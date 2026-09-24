@@ -1,8 +1,11 @@
-import { keys, lines, previews } from "./landing-copy.js";
-import { createLandingOrb } from "./landing-orb.js";
-
-(() => {
+(async () => {
   "use strict";
+
+  const revision = encodeURIComponent(new URL(import.meta.url).searchParams.get("v") || "dev");
+  const [{ keys, lines, previews }, { createLandingOrb }] = await Promise.all([
+    import(`./landing-copy.js?v=${revision}`),
+    import(`./landing-orb.js?v=${revision}`)
+  ]);
 
   const textNodes = [...document.querySelectorAll("[data-i18n]")];
   const ariaNodes = [...document.querySelectorAll("[data-i18n-aria]")];
@@ -20,8 +23,10 @@ import { createLandingOrb } from "./landing-orb.js";
 
   const supported = Object.keys(copy);
   const url = new URL(location.href);
-  const pathLanguage = url.pathname === "/landing/" ? "it" : url.pathname.match(/^\/landing\/(en|de|fr|es|nl|pt)\//)?.[1];
-  const requested = pathLanguage || (url.searchParams.get("lang") || "").toLowerCase().slice(0,2);
+  const pathLanguage = url.pathname.match(/^\/landing\/(en|de|fr|es|nl|pt)\//)?.[1];
+  const queryLanguage = (url.searchParams.get("lang") || "").toLowerCase().slice(0,2);
+  const baseLanguage = url.pathname === "/landing/" || url.pathname === "/landing/index.html" ? "it" : "";
+  const requested = pathLanguage || queryLanguage || baseLanguage;
   const browserLanguage = (navigator.languages || [navigator.language || "en"]).map(value => value.slice(0,2).toLowerCase()).find(value => supported.includes(value));
   let language = supported.includes(requested) ? requested : browserLanguage || "en";
   let mode = "today";
@@ -90,6 +95,8 @@ import { createLandingOrb } from "./landing-orb.js";
   const intelligenceVisual = intelligenceStory.querySelector(".intelligence-visual");
   const trustStory = document.querySelector("[data-trust-story]");
   const trustSteps = [...trustStory.querySelectorAll("[data-trust-step]")];
+  const faqSection = document.querySelector(".faq-section");
+  const faqItems = [...faqSection.querySelectorAll("details")];
   const proofStory = document.querySelector("[data-proof-story]");
   const proofSteps = [...proofStory.querySelectorAll("[data-proof-step]")];
   const fiscalStory = document.querySelector("[data-fiscal-story]");
@@ -282,6 +289,7 @@ import { createLandingOrb } from "./landing-orb.js";
     menuButton.setAttribute("aria-expanded","false");
     menuButton.setAttribute("aria-label",copy[language].openMenu);
   }
+  window.addEventListener("resize",() => { if (innerWidth > 980 && menu.classList.contains("is-open")) closeNavigation(); },{passive:true});
   languageButton.addEventListener("click",() => {
     const opening = languageMenu.hidden;
     languageMenu.hidden = !opening;
@@ -329,6 +337,10 @@ import { createLandingOrb } from "./landing-orb.js";
       showPreview(tabs[nextIndex].dataset.preview,true,true);
     });
   });
+  faqItems.forEach((item,index) => item.addEventListener("toggle",() => {
+    const active = item.open ? index : faqItems.findIndex(question => question.open);
+    faqSection.dataset.activeQuestion = String(active);
+  }));
   setLanguage(language);
   let motionStarted = false;
   function startMotion() {
