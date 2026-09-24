@@ -4,7 +4,7 @@ import {
   keyTokens, predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit,
   settlementIntelligence, settleAdvice,
 } from './split-predictor.js';
-import { createGroup, addSharedExpense, simplifyAcrossGroups } from './split-engine.js';
+import { createGroup, claimMember, addSharedExpense, simplifyAcrossGroups } from './split-engine.js';
 
 // Helper: costruisce un gruppo salvato con una spesa.
 function grp(name, members, { payer, amount, date, shares } = {}) {
@@ -66,7 +66,8 @@ test('netAcrossGroups compensa i debiti tra gruppi diversi con la stessa persona
     grp('Casa', ['Io', 'Marco'], { payer: 'Io', amount: 100 }),
     grp('Viaggio', ['Io', 'Marco'], { payer: 'Marco', amount: 100 }),
   ];
-  const net = netAcrossGroups(past);
+  const linked = past.map(g => claimMember(claimMember(g, 'm0', 'device-io'), 'm1', 'device-marco'));
+  const net = netAcrossGroups(linked, { deviceId: 'device-io' });
   assert.equal(net.length, 0); // si compensano → nessuna posizione aperta
 });
 
@@ -75,11 +76,22 @@ test('netAcrossGroups mostra il netto reale quando NON si compensa del tutto', (
     grp('Casa', ['Io', 'Marco'], { payer: 'Io', amount: 100 }),   // Marco -50
     grp('Viaggio', ['Io', 'Marco'], { payer: 'Marco', amount: 40 }), // Io -20
   ];
-  const net = netAcrossGroups(past);
+  const linked = past.map(g => claimMember(claimMember(g, 'm0', 'device-io'), 'm1', 'device-marco'));
+  const net = netAcrossGroups(linked, { deviceId: 'device-io' });
   assert.equal(net.length, 1);
   assert.equal(net[0].name, 'Marco');
   assert.ok(Math.abs(net[0].net - 30) < 0.01); // Marco mi deve 30 netti
   assert.equal(net[0].groups, 2);
+});
+
+test('netAcrossGroups non confonde omonimi o gruppi senza identità collegata', () => {
+  const first = claimMember(claimMember(grp('A', ['Io', 'Marco'], { payer: 'Io', amount: 100 }), 'm0', 'device-io'), 'm1', 'marco-a');
+  const second = claimMember(claimMember(grp('B', ['Io', 'Marco'], { payer: 'Marco', amount: 100 }), 'm0', 'device-io'), 'm1', 'marco-b');
+  assert.deepEqual(netAcrossGroups([first, second]), []);
+  const rows = netAcrossGroups([first, second], { deviceId: 'device-io' });
+  assert.equal(rows.length, 2);
+  assert.deepEqual(new Set(rows.map(row => row.identity)), new Set(['marco-a', 'marco-b']));
+  assert.deepEqual(rows.map(row => row.net).sort((a, b) => a - b), [-50, 50]);
 });
 
 test('parseSplitLine: una riga → importo, descrizione, persone', () => {

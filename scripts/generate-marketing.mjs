@@ -5,6 +5,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { keys, lines, previews } from '../public/landing/landing-copy.js';
+import { journeyWords } from './journey-copy.mjs';
+import { renderJourneyLanding, journeyPath, journeyLocales, journeySlugs } from './journey-pages.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const localeCodes = ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt'];
@@ -80,7 +82,9 @@ export function renderLanding(template, code, brand, revision) {
     .replaceAll('/?lang=it',`/?lang=${code}`)
     .replaceAll('href="/privacy.html"',`href="/privacy.html?lang=${code}"`)
     .replaceAll('href="/termini.html"',`href="/termini.html?lang=${code}"`);
-  if (code === 'it') html = html.replace('<nav class="footer-nav" aria-label="Navigazione del sito">', '<nav class="footer-nav" aria-label="Navigazione del sito"><a href="/landing/dividere-spese/">Dividere le spese</a>');
+  const featureWords = journeyWords(code, brand.name);
+  const featureLinks = Object.keys(journeySlugs).map((kind,index) => `<a href="${journeyPath(code,kind)}">${esc(index === 0 ? featureWords.wayTogetherTitle : index === 1 ? featureWords.wayWorkTitle : featureWords.fiscalEyebrow)}</a>`).join('');
+  html = html.replace('<nav class="footer-nav" aria-label="Navigazione del sito">', `<nav class="footer-nav" aria-label="Navigazione del sito">${featureLinks}`);
 
   const alternate = localeCodes.map(other => `  <link rel="alternate" hreflang="${other}" href="${esc(brand.origin + pathFor(other))}">`).join('\n');
   const featureList = ['wayDailyTitle','wayTogetherTitle','wayWorkTitle','wayTaxTitle','wayMarketTitle','wayArchiveTitle']
@@ -106,7 +110,7 @@ export function renderSplitLanding(template, brand, revision, scriptRevision = r
 
 export function renderSitemap(brand, date) {
   assertBrand(brand);
-  const urls = [...localeCodes.map(code => brand.origin + pathFor(code)), brand.origin + '/landing/dividere-spese/']
+  const urls = [...localeCodes.map(code => brand.origin + pathFor(code)), ...journeyLocales.flatMap(code => Object.keys(journeySlugs).map(kind => brand.origin + journeyPath(code,kind)))]
     .map(url => `  <url><loc>${esc(url)}</loc><lastmod>${date}</lastmod></url>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`;
 }
@@ -138,6 +142,13 @@ export function generateMarketing() {
   const splitTarget = join(root,'public/landing/dividere-spese');
   mkdirSync(splitTarget,{recursive:true});
   writeFileSync(join(splitTarget,'index.html'),renderSplitLanding(splitTemplate,brand,splitRevision,splitScriptRevision));
+  const journeyRevision = createHash('sha256').update(readFileSync(join(root,'public/landing/journey.css'))).update(readFileSync(join(root,'public/landing/journey.js'))).digest('hex').slice(0,12);
+  for (const code of journeyLocales) for (const kind of Object.keys(journeySlugs)) {
+    if (code === 'it' && kind === 'split') continue;
+    const target = join(root,'public',journeyPath(code,kind));
+    mkdirSync(target,{recursive:true});
+    writeFileSync(join(target,'index.html'),renderJourneyLanding(code,kind,brand,journeyRevision));
+  }
   writeFileSync(join(root,'public/sitemap.xml'),renderSitemap(brand,new Date().toISOString().slice(0,10)));
   writeFileSync(join(root,'public/robots.txt'),`User-agent: *\nAllow: /\n\nSitemap: ${brand.origin}/sitemap.xml\n`);
   const manifestTemplate = readFileSync(join(root,'scripts/templates/manifest.json'),'utf8');

@@ -639,6 +639,13 @@ RELEASES.push({
   versione: '2026-09-24',
   voci: [{ colore: 'purple', icona: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 12h8M12 8v8"/>', titolo: 'Dividi una spesa al primo tocco', testo: 'Dal sito puoi aprire direttamente la divisione di una spesa, anche al primo accesso e senza compilare il profilo finanziario.', titoloKey: 'splitEntryTitle', testoKey: 'splitEntryBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-24b',
+  voci: [
+    { colore: 'green', icona: '<path d="M3 7h18M3 12h18M3 17h18"/><path d="m15 5 2 2 4-4"/>', titolo: 'Quote diverse, conti che tornano', testo: 'Nel gruppo puoi assegnare una quota a ciascuno. Momentum blocca importi incompleti, somma ogni centesimo e tiene le spese future separate dai debiti reali.', titoloKey: 'splitExactTitle', testoKey: 'splitExactBody' },
+    { colore: 'gold', icona: '<path d="M4 20V4h9l2 3h5v13H4Z"/><path d="M8 12h8M8 16h5"/>', titolo: 'Un percorso chiaro per le trasferte', testo: 'Scegli se tenere uno storico personale, preparare un resoconto aziendale, esportare verso un gestionale o controllare rimborsi e carta.', titoloKey: 'tripRoutesTitle', testoKey: 'tripRoutesBody' },
+  ],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

@@ -1,7 +1,15 @@
-// Only known public landing intents may request an in-app action.
-export function splitIntentUrl(url) {
+// Public landing links may request only these local, user-visible actions.
+const allowed = new Set(['split', 'trips', 'tax']);
+
+export function marketingIntent(url) {
   const parsed = new URL(url);
-  if (parsed.searchParams.get('intent') !== 'split') return null;
+  const type = parsed.searchParams.get('intent');
+  if (!allowed.has(type)) return null;
   parsed.searchParams.delete('intent');
-  return parsed.pathname + parsed.search + parsed.hash;
+  return { type, cleanUrl: parsed.pathname + parsed.search + parsed.hash };
+}
+
+export function splitIntentUrl(url) {
+  const request = marketingIntent(url);
+  return request?.type === 'split' ? request.cleanUrl : null;
 }

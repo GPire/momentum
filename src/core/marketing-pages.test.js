@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { renderLanding, renderSitemap, renderSplitLanding, renderAppBrand } from '../../scripts/generate-marketing.mjs';
 import { previews } from '../../public/landing/landing-copy.js';
+import { renderJourneyLanding, journeyPath, journeySlugs } from '../../scripts/journey-pages.mjs';
 
 const template = readFileSync(new URL('../../scripts/templates/landing.html',import.meta.url),'utf8');
 const brand = {name:'Momentum',wordmark:'momentum',origin:'https://momentum-finance.pages.dev'};
@@ -98,9 +99,29 @@ test('changing display identity updates marketing text and SEO without changing 
   assert.ok(html.includes('"name":"Orbit"'));
   assert.ok(!html.includes('Momentum brings'));
   const sitemap = renderSitemap(changed,'2026-09-23');
-  assert.equal((sitemap.match(/<loc>/g) || []).length,8);
+  assert.equal((sitemap.match(/<loc>/g) || []).length,28);
   assert.ok(sitemap.includes('https://orbit.example/landing/pt/'));
   assert.ok(sitemap.includes('https://orbit.example/landing/dividere-spese/'));
+});
+
+test('focused split, travel and tax pages are localized, static and lead to the real task', () => {
+  const stylesheet = readFileSync(new URL('../../public/landing/journey.css',import.meta.url));
+  const script = readFileSync(new URL('../../public/landing/journey.js',import.meta.url));
+  assert.ok(stylesheet.length < 26000);
+  assert.ok(script.length < 5000);
+  for (const code of languages) for (const kind of Object.keys(journeySlugs)) {
+    const html = renderJourneyLanding(code,kind,brand,'rev');
+    assert.ok(html.includes(`<html lang="${code}">`));
+    assert.ok(html.includes(`rel="canonical" href="${brand.origin + journeyPath(code,kind)}"`));
+    assert.ok(html.includes(`href="/?lang=${code}&amp;intent=${kind}"`));
+    assert.equal((html.match(/hreflang="/g) || []).length,8);
+    assert.equal((html.match(/class="journey-step" data-reveal/g) || []).length,3);
+    assert.ok(html.includes('data-demo-toggle'));
+    assert.ok(html.includes('journey.js?v=rev'));
+    assert.ok(!html.includes('/src/main.js'));
+    assert.ok(!html.includes('undefined'));
+    if (kind === 'trips') assert.ok(html.includes('not received') || code !== 'en');
+  }
 });
 
 test('focused split page is crawlable, accurate and enters the real split task', () => {

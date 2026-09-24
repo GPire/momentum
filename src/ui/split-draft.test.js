@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft } from './split-draft.js';
+import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft, equalGroupShareDraft, weightedGroupShareDraft, groupShareDraft } from './split-draft.js';
 import { displayNames, computeBalances, myMemberId } from '../split/split-engine.js';
 import { splitCopy, tSplit } from '../i18n/split-workspace.js';
 
@@ -63,4 +63,23 @@ test('small sums and multiple payers never create negative shares or change expl
       assert.deepEqual(computeBalances(group),computeBalances(buildSplitDraft(args)));
     }
   }
+});
+
+test('group quote editor preserves every cent for ten people and rejects unfinished or invalid sums', () => {
+  const ids = Array.from({ length: 10 }, (_, i) => `p${i}`);
+  const equal = equalGroupShareDraft(ids, '100.01');
+  assert.equal(groupShareDraft(ids, equal, '100.01').valid, true);
+  assert.equal(Math.round(Object.values(groupShareDraft(ids, equal, '100.01').shares.byId).reduce((s, v) => s + v, 0) * 100), 10001);
+  assert.deepEqual(groupShareDraft(ids, { ...equal, p3: 'wrong' }, '100.01'), { valid: false, reason: 'invalid' });
+  assert.deepEqual(groupShareDraft(ids, { ...equal, p3: '' }, '100.01'), { valid: false, reason: 'invalid' });
+  assert.deepEqual(groupShareDraft(ids, { ...equal, p3: '0' }, '100.01'), { valid: false, reason: 'difference', differenceCents: Math.round(Number(equal.p3) * 100) });
+  assert.equal(groupShareDraft(ids, equal, '100.01', { foreignCurrency: true }).shares.weights.p3, Math.round(Number(equal.p3) * 100));
+});
+
+test('historical share suggestion always allocates the full amount at the cent', () => {
+  const ids = ['a', 'b', 'c'];
+  const draft = weightedGroupShareDraft(ids, { a: .33, b: .33, c: .33 }, '10.01');
+  assert.deepEqual(draft, { a: '3.34', b: '3.34', c: '3.33' });
+  assert.equal(groupShareDraft(ids, draft, '10.01').valid, true);
+  assert.equal(weightedGroupShareDraft(ids, { a: .5, b: -.1 }, '10.01'), null);
 });

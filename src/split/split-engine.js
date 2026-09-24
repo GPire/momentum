@@ -60,7 +60,10 @@ export function createGroup({ name = 'Gruppo', members = [], id, baseCurrency = 
 // commento in testa al file).
 export function addSharedExpense(group, { payer, amount, description = '', date, shares, originalAmount, originalCurrency, exchangeRate } = {}) {
   const amt = round2(amount);
-  if (!(amt > 0)) throw new Error('importo non valido');
+  const baseCurrency = group.baseCurrency || 'EUR';
+  const converted = originalCurrency && originalCurrency !== baseCurrency;
+  if (!Number.isFinite(amount) || !Number.isSafeInteger(Math.round(amount * 100)) || !(amt > 0)) throw new Error('importo non valido');
+  if (!converted && Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6) throw new Error('importo non valido');
   if (!group.members.some(m => m.id === payer)) throw new Error('pagante non nel gruppo');
   const ids = group.members.map(m => m.id);
 
@@ -69,7 +72,6 @@ export function addSharedExpense(group, { payer, amount, description = '', date,
   // due numeri che non si spiegano a vicenda (stesso principio delle quote
   // che devono sommare esatte in shares.byId, sopra).
   let valutaExtra = {};
-  const baseCurrency = group.baseCurrency || 'EUR';
   if (originalCurrency && originalCurrency !== baseCurrency) {
     if (!(originalAmount > 0) || !(exchangeRate > 0)) throw new Error('valuta originale senza importo o tasso di cambio');
     const atteso = round2(originalAmount * exchangeRate);
@@ -100,19 +102,29 @@ function idealShares(ids, amt, shares) {
     const each = amt / ids.length;
     for (const id of ids) owed[id] = each;
   } else if (shares.equalAmong) {
-    const grp = shares.equalAmong.filter(id => ids.includes(id));
-    if (!grp.length) throw new Error('nessun partecipante valido');
+    const grp = shares.equalAmong;
+    if (!Array.isArray(grp) || !grp.length || new Set(grp).size !== grp.length || grp.some(id => !ids.includes(id))) throw new Error('partecipanti non validi');
     const each = amt / grp.length;
     for (const id of grp) owed[id] = each;
   } else if (shares.byId) {
-    let sum = 0;
-    for (const [id, q] of Object.entries(shares.byId)) { if (ids.includes(id)) { owed[id] = +q; sum += +q; } }
-    if (Math.abs(round2(sum) - amt) > 0.01) throw new Error('le quote non sommano all\'importo');
+    let cents = 0;
+    const entries = Object.entries(shares.byId);
+    if (!entries.length || entries.some(([id]) => !ids.includes(id))) throw new Error('quote non valide');
+    for (const [id, q] of entries) {
+      if (typeof q !== 'number' || !Number.isFinite(q) || q < 0 || !Number.isSafeInteger(Math.round(q * 100)) || Math.abs(q * 100 - Math.round(q * 100)) > 1e-6) throw new Error('quote non valide');
+      const part = Math.round(q * 100);
+      cents += part;
+      if (!Number.isSafeInteger(cents)) throw new Error('quote non valide');
+      owed[id] = part / 100;
+    }
+    if (cents !== Math.round(amt * 100)) throw new Error('le quote non sommano all\'importo');
   } else if (shares.weights) {
-    const w = shares.weights; const tot = Object.values(w).reduce((a, b) => a + (+b || 0), 0);
-    if (tot <= 0) throw new Error('pesi non validi');
-    for (const [id, ww] of Object.entries(w)) if (ids.includes(id)) owed[id] = amt * (+ww) / tot;
-  }
+    const entries = Object.entries(shares.weights);
+    if (!entries.length || entries.some(([id, value]) => !ids.includes(id) || typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new Error('pesi non validi');
+    const tot = entries.reduce((sum, [, value]) => sum + value, 0);
+    if (!Number.isFinite(tot) || tot <= 0) throw new Error('pesi non validi');
+    for (const [id, value] of entries) owed[id] = amt * value / tot;
+  } else throw new Error('regola di divisione non valida');
   return owed;
 }
 

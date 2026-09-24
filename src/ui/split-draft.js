@@ -22,6 +22,54 @@ export function validSplitAmounts(people, paid, owed, mode) {
   return !shares.includes(null) && shares.reduce((sum, value) => sum + Math.round(value * 100), 0) === cents;
 }
 
+export function equalGroupShareDraft(memberIds, amount, involved = memberIds) {
+  const cents = Math.round((splitAmount(amount) || 0) * 100);
+  const active = memberIds.filter(id => involved.includes(id));
+  if (!active.length) return {};
+  const each = Math.floor(cents / active.length), extra = cents % active.length;
+  return Object.fromEntries(memberIds.map(id => {
+    const index = active.indexOf(id);
+    return [id, index < 0 ? '0' : ((each + (index < extra ? 1 : 0)) / 100).toFixed(2)];
+  }));
+}
+
+export function weightedGroupShareDraft(memberIds, weights, amount) {
+  const parsed = splitAmount(amount);
+  const values = memberIds.map(id => weights?.[id]);
+  if (!(parsed > 0) || !memberIds.length || values.some(value => typeof value !== 'number' || !Number.isFinite(value) || value < 0)) return null;
+  const totalWeight = values.reduce((sum, value) => sum + value, 0);
+  if (!(totalWeight > 0) || !Number.isFinite(totalWeight)) return null;
+  const cents = Math.round(parsed * 100);
+  const exact = values.map(value => cents * value / totalWeight);
+  const parts = exact.map(Math.floor);
+  let remaining = cents - parts.reduce((sum, value) => sum + value, 0);
+  const order = memberIds.map((_, index) => index).sort((a, b) => (exact[b] - parts[b]) - (exact[a] - parts[a]) || a - b);
+  for (let index = 0; index < remaining; index++) parts[order[index]]++;
+  return Object.fromEntries(memberIds.map((id, index) => [id, (parts[index] / 100).toFixed(2)]));
+}
+
+// Converts the editable per-person amounts to the existing split engine rule.
+// Foreign-currency inputs are weights: conversion and final cent allocation
+// happen once in the base currency, so no exchange-rate rounding can invent a
+// missing or extra cent. The form never saves while the input total differs.
+export function groupShareDraft(memberIds, values, amount, { foreignCurrency = false } = {}) {
+  const total = splitAmount(amount);
+  if (!(total > 0) || !Number.isSafeInteger(Math.round(total * 100))) return { valid: false, reason: 'amount' };
+  if (!memberIds.length || new Set(memberIds).size !== memberIds.length) return { valid: false, reason: 'members' };
+  const cents = {};
+  for (const id of memberIds) {
+    if (values?.[id] == null || String(values[id]).trim() === '') return { valid: false, reason: 'invalid' };
+    const value = splitAmount(values?.[id]);
+    if (value == null) return { valid: false, reason: 'invalid' };
+    cents[id] = Math.round(value * 100);
+  }
+  const differenceCents = Math.round(total * 100) - Object.values(cents).reduce((sum, value) => sum + value, 0);
+  if (!Number.isSafeInteger(differenceCents) || differenceCents !== 0) return { valid: false, reason: 'difference', differenceCents };
+  return { valid: true, shares: foreignCurrency
+    ? { weights: cents }
+    : { byId: Object.fromEntries(memberIds.map(id => [id, cents[id] / 100])) } };
+}
+
 // Adapt a multi-payer form to the existing engine. Stable IDs distinguish
 // namesakes; integer cents preserve both payer totals and the chosen shares.
 export function buildSplitDraft({ members, paid, owed = {}, mode = 'equal', name, id, deviceId, selfId = 'Io' }) {

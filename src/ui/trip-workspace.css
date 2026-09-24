@@ -120,6 +120,7 @@
 .trip-route-options button:focus-visible { outline:2px solid var(--primary); outline-offset:3px; }
 .trip-route-description { font-size:14px; line-height:1.6; margin:18px 0 10px; }
 .trip-route-status,.trip-route-note { color:var(--on-surface-secondary); font-size:12px; line-height:1.6; }
+.trip-route-evidence { border:1px solid color-mix(in srgb,var(--primary) 24%,var(--outline)); border-radius:14px; background:color-mix(in srgb,var(--primary) 8%,var(--surface-elevated)); color:var(--on-surface); padding:11px 13px; font-size:13px; line-height:1.5; }
 .trip-route-status span { margin-inline:6px; }
 .trip-route-actions { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0; }
 .trip-route-actions button { flex:1; min-height:48px; padding:12px 16px; border:1px solid var(--outline); border-radius:16px; font-weight:650; }

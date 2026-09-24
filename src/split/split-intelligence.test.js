@@ -119,3 +119,51 @@ test('forecastGroupBalances: senza ricorrenti i saldi proiettati = correnti', ()
   assert.equal(f.upcoming.length, 0);
   assert.deepEqual(f.projected, f.current);
 });
+
+test('forecastGroupBalances: dieci persone e quote custom mantengono i centesimi e il saldo totale', () => {
+  let group = createGroup({ id: 'ten', name: 'viaggio', members: Array.from({ length: 10 }, (_, i) => `Persona ${i + 1}`) });
+  const ids = group.members.map(member => member.id);
+  const shares = { weights: Object.fromEntries(ids.map((id, i) => [id, i + 1])) };
+  for (const date of ['2026-04-01', '2026-05-01', '2026-06-01']) {
+    group = addSharedExpense(group, { payer: ids[0], amount: 100.01, description: 'Casa', date, shares });
+  }
+  const forecast = forecastGroupBalances(group, computeBalances, { now: Date.parse('2026-06-10'), horizonDays: 35 });
+  assert.equal(forecast.upcoming.length, 1);
+  assert.equal(forecast.upcoming[0].basis, 'consistent-history');
+  assert.equal(Math.round(Object.values(forecast.upcoming[0].estimatedShares).reduce((sum, value) => sum + value, 0) * 100), 10001);
+  assert.ok(forecast.upcoming[0].estimatedShares[ids[9]] > forecast.upcoming[0].estimatedShares[ids[0]]);
+  assert.ok(Math.abs(Object.values(forecast.projected).reduce((sum, value) => sum + value, 0)) < .001);
+});
+
+test('forecastGroupBalances: ripartizioni discordanti restano visibili senza modificare i saldi', () => {
+  let group = g3();
+  const ids = group.members.map(member => member.id);
+  group = addSharedExpense(group, { payer: ids[0], amount: 90, description: 'Affitto', date: '2026-04-01' });
+  group = addSharedExpense(group, { payer: ids[0], amount: 90, description: 'Affitto', date: '2026-05-01', shares: { equalAmong: [ids[0], ids[1]] } });
+  group = addSharedExpense(group, { payer: ids[0], amount: 90, description: 'Affitto', date: '2026-06-01' });
+  const forecast = forecastGroupBalances(group, computeBalances, { now: Date.parse('2026-06-10'), horizonDays: 35 });
+  assert.equal(forecast.upcoming[0].basis, 'needs-confirmation');
+  assert.equal(forecast.upcoming[0].estimatedShares, null);
+  assert.deepEqual(forecast.projected, forecast.current);
+});
+
+test('forecastGroupBalances: un nuovo membro fa sospendere la vecchia divisione equa', () => {
+  let group = g3();
+  const payer = group.members[0].id;
+  for (const date of ['2026-04-01', '2026-05-01', '2026-06-01']) {
+    group = addSharedExpense(group, { payer, amount: 90, description: 'Affitto', date });
+  }
+  group = { ...group, members: [...group.members, { id: 'new', name: 'Nuovo' }] };
+  const forecast = forecastGroupBalances(group, computeBalances, { now: Date.parse('2026-06-10'), horizonDays: 35 });
+  assert.equal(forecast.upcoming[0].basis, 'needs-confirmation');
+  assert.deepEqual(forecast.projected, forecast.current);
+});
+
+test('un importo storico non valido non genera una cifra prevista', () => {
+  let group = g3();
+  const payer = group.members[0].id;
+  for (const date of ['2026-04-01', '2026-05-01', '2026-06-01'])
+    group = addSharedExpense(group, { payer, amount: 90, description: 'Affitto', date });
+  group.expenses[1] = { ...group.expenses[1], amount: NaN };
+  assert.deepEqual(detectRecurring(group, { now: Date.parse('2026-06-10') }), []);
+});

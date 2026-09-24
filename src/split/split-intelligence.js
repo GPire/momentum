@@ -10,8 +10,8 @@
 //     coinvolto, dai pattern passati (meno tap, meno attrito).
 //  3. flagAnomaly — un importo fuori scala rispetto allo storico di QUELLA
 //     spesa (median/MAD robusti): "la bolletta è il triplo del solito".
-//  4. forecastGroupBalances — proietta i saldi a fine orizzonte assumendo che
-//     le ricorrenti continuino: "a fine mese sarai in credito di X".
+//  4. forecastGroupBalances — proietta solo le ricorrenti per cui pagatore e
+//     quote sono coerenti nello storico. Non trasforma quote custom in quote eque.
 //
 // REGOLA #1 (onestà): niente invenzioni. Ogni funzione TACE (ritorna null / lista
 // vuota) sotto la soglia di evidenza. Nessuna confidenza gonfiata: deriva da
@@ -85,6 +85,7 @@ export function detectRecurring(group, { now = Date.now(), minOccurrences = 3, m
     if (cv > maxCv) continue; // troppo irregolare → non è una vera ricorrente
     const lastDate = dates[dates.length - 1];
     const amounts = exps.map(e => e.amount);
+    if (amounts.some(value => !Number.isFinite(value) || !(value > 0) || !Number.isSafeInteger(Math.round(value * 100)))) continue;
     // confidenza onesta: cresce col numero di occorrenze e con la regolarità.
     const regularity = Math.max(0, 1 - cv / maxCv);
     const confidence = Math.min(0.99, (1 - 1 / exps.length) * (0.5 + 0.5 * regularity));
@@ -162,35 +163,75 @@ export function flagAnomaly(group, { description, amount }, { minSamples = 4, k 
   };
 }
 
+// Quote storiche abbastanza stabili da mostrare come ipotesi, non come debito.
+// Un nuovo membro, un pagatore incerto o ripartizioni discordanti richiedono
+// una scelta umana: in quei casi la ricorrente si vede ma non sposta i saldi.
+function recurringProfile(group, key) {
+  const samples = byDescription(group).get(key) || [];
+  if (samples.length < 3) return null;
+  const members = group.members.map(m => m.id);
+  const memberSet = new Set(members);
+  const payerCounts = new Map();
+  const fractions = [];
+  for (const expense of samples) {
+    if (!(expense.amount > 0) || !memberSet.has(expense.payer)) return null;
+    const shares = Object.entries(expense.owed || {});
+    if (!shares.length || shares.some(([id, value]) => !memberSet.has(id) || !Number.isFinite(value) || value < 0 || !Number.isSafeInteger(Math.round(value * 100)) || Math.abs(value * 100 - Math.round(value * 100)) > 1e-6)) return null;
+    if (expense.split?.mode === 'equal' && shares.length !== members.length) return null;
+    const sumCents = shares.reduce((total, [, value]) => total + Math.round(value * 100), 0);
+    if (sumCents !== Math.round(expense.amount * 100)) return null;
+    payerCounts.set(expense.payer, (payerCounts.get(expense.payer) || 0) + 1);
+    fractions.push(Object.fromEntries(members.map(id => [id, (expense.owed[id] || 0) / expense.amount])));
+  }
+  const [payer, count] = [...payerCounts].sort((a, b) => b[1] - a[1])[0] || [];
+  if (!payer || count / samples.length < .75) return null;
+  const share = Object.fromEntries(members.map(id => [id, median(fractions.map(row => row[id]))]));
+  if (fractions.some(row => members.some(id => Math.abs(row[id] - share[id]) > .1))) return null;
+  const total = Object.values(share).reduce((sum, value) => sum + value, 0);
+  if (!(total > 0)) return null;
+  return { payer, share: Object.fromEntries(members.map(id => [id, share[id] / total])), samples: samples.length };
+}
+
+function projectedCents(amount, share, memberIds) {
+  const cents = Math.round(amount * 100);
+  const rows = memberIds.map(id => ({ id, exact: cents * share[id] }));
+  const result = Object.fromEntries(rows.map(row => [row.id, Math.floor(row.exact)]));
+  let remaining = cents - Object.values(result).reduce((sum, value) => sum + value, 0);
+  rows.sort((a, b) => (b.exact % 1) - (a.exact % 1) || a.id.localeCompare(b.id));
+  for (let i = 0; i < remaining; i++) result[rows[i].id]++;
+  return result;
+}
+
 // ── 4. FORECAST DEI SALDI a fine orizzonte ──────────────────────────────────
-// Proietta i saldi correnti aggiungendo le spese RICORRENTI attese entro
-// l'orizzonte (ognuna divisa equamente, come tipicamente accade). Restituisce i
-// saldi proiettati e l'elenco delle spese in arrivo. Richiede computeBalances
-// passato dall'esterno per non accoppiare i moduli.
+// Simulazione revocabile, mai un addebito o una spesa salvata. Richiede
+// computeBalances dall'esterno per non accoppiare i moduli.
 export function forecastGroupBalances(group, computeBalances, { horizonDays = 30, now = Date.now() } = {}) {
   const current = computeBalances(group);
   const projected = { ...current };
   const recurring = detectRecurring(group, { now });
   const upcoming = [];
   const memberIds = group.members.map(m => m.id);
+  const today = Date.parse(new Date(now).toISOString().slice(0, 10));
   for (const r of recurring) {
-    // chi paga la prossima? Il pagatore abituale di QUELLA spesa (predittivo):
-    // così il saldo di chi anticipa la ricorrente cresce, com'è nella realtà.
-    const shape = predictExpenseShape(group, r.description);
-    const payer = shape?.payer ?? memberIds[0];
-    // quante occorrenze cadono nella finestra [now, now+horizon]
+    // Un vecchio abbonamento fermo da tempo non deve riapparire come previsione.
+    if (r.daysUntilNext < -3 || r.cadenceDays < 1) continue;
+    const profile = recurringProfile(group, r.key);
+    // Quante occorrenze cadono nella finestra [now, now+horizon].
     let t = parseDate(r.nextExpectedDate);
-    while (t !== null && t <= now + horizonDays * DAY) {
-      if (t >= now) {
+    while (t !== null && t <= today + horizonDays * DAY) {
+      if (t >= today) {
+        const owedCents = profile ? projectedCents(r.typicalAmount, profile.share, memberIds) : null;
         upcoming.push({
-          description: r.description, date: new Date(t).toISOString().slice(0, 10),
-          amount: r.typicalAmount, predictedPayer: payer,
+          key: r.key, description: r.description, date: new Date(t).toISOString().slice(0, 10),
+          amount: r.typicalAmount, predictedPayer: profile?.payer || null,
+          estimatedShares: owedCents && Object.fromEntries(memberIds.map(id => [id, owedCents[id] / 100])),
+          samples: profile?.samples || 0,
+          basis: profile ? 'consistent-history' : 'needs-confirmation',
         });
-        // divisione equa tra i membri; il pagatore predetto viene accreditato
-        // dell'intero importo (paga lui) e addebitato solo della sua quota.
-        const each = r.typicalAmount / (memberIds.length || 1);
-        for (const id of memberIds) projected[id] = Math.round(((projected[id] || 0) - each) * 100) / 100;
-        projected[payer] = Math.round(((projected[payer] || 0) + r.typicalAmount) * 100) / 100;
+        if (owedCents) {
+          for (const id of memberIds) projected[id] = Math.round((projected[id] || 0) * 100 - owedCents[id]) / 100;
+          projected[profile.payer] = Math.round((projected[profile.payer] || 0) * 100 + Math.round(r.typicalAmount * 100)) / 100;
+        }
       }
       t += r.cadenceDays * DAY;
     }

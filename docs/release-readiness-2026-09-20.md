@@ -645,3 +645,57 @@ aggiornamento di un archivio reale preesistente, scrittura interrotta/quota
 piena, revoca e riassociazione del dispositivo, conflitti, trasferimento di
 archivio grande e recupero su iOS/Android fisici. Test e build locali da soli
 non dimostrano assenza assoluta di perdita dati sul parco dispositivi.
+
+### Split verificabile e percorsi pubblici — 24 settembre 2026
+
+Il salvataggio di una divisione ora richiede importo finito e quote valide,
+espresse al centesimo e con somma esatta. Gli importi nella valuta del gruppo
+con frazioni di centesimo vengono rifiutati; un importo convertito viene
+arrotondato una sola volta nella valuta base. Le quote suggerite dallo storico
+distribuiscono i centesimi residui prima della conferma; se l'utente modifica
+una quota senza riequilibrare le altre, la schermata mostra lo scarto e
+disabilita salvataggio e invito. L'ipotesi di spesa ricorrente usa soltanto
+storia coerente per pagatore e ripartizione, e resta un'ipotesi: non crea una
+spesa o un debito. La curva di cassa include solo saldi di gruppi con un unico
+slot personale rivendicato, valuta omogenea, spese non contestate e registro
+aritmeticamente valido; se un gruppo non soddisfa questi requisiti, la cifra
+split viene sospesa e il motivo segnalato. La compensazione fra gruppi non
+accoppia più persone solo perché hanno lo stesso nome: richiede identità
+collegate e un rapporto a due persone. Gli archivi esistenti non vengono
+riscritti da queste verifiche.
+
+Tre percorsi pubblici statici (split, trasferte, Partita IVA) sono generati in
+sette lingue, con intenzione di apertura della relativa funzione consumata una
+sola volta nell'app. La comunicazione su trasferte e fisco distingue
+preparazione/export da invio ricevuto e adempimento ufficiale; nessun
+connettore o invio nazionale viene dichiarato attivo sulla base delle pagine.
+
+**Prove locali:** test mirati di calcolo, validazione, lingue e pagine
+282/282; una divisione da 10,01 € fra due persone ha mostrato 5,01 € e
+5,00 € nel browser locale, mentre un aumento non compensato ha mostrato lo
+scarto e bloccato le azioni. Generazione delle pagine e build portabile di
+produzione riuscite (459 moduli). La suite completa separata per file è
+passata: **408/408 file**, senza fallimenti; dopo l'ultimo controllo di
+identità, della quota lasciata vuota e degli importi sub-centesimo,
+altri **142/142 test Split** superati.
+Pagina Trasferte verificata nel
+browser locale: l'esempio cambia stato senza presentare la preparazione come
+ricezione. Queste prove non sostituiscono il collaudo su dispositivi fisici.
+
+**Limiti di rilascio:** l'uguaglianza aritmetica al centesimo è verificabile
+per dati validi, ma una previsione non può essere garantita come debito reale;
+identità, importi e cambi inseriti dall'utente richiedono conferma. Il bundle
+iniziale dell'app resta grande (circa 3,35 MB minificati, 1,14 MB gzip) e non
+è stata fatta una prova su rete mobile e telefoni fisici. Le nuove pagine non
+sono ancora state verificate nella distribuzione Cloudflare. Restano i blocchi
+di Vault/sync, connettori aziendali, verifiche fiscali e pagamenti dichiarati
+nelle sezioni precedenti: questa revisione non abilita un rilascio globale o
+una promessa di superiorità verso i concorrenti.
+
+Il lavoro è registrato nel branch locale
+`codex/split-calculation-safety-and-journeys`; non è su `main` né nella
+distribuzione pubblica. Il push del branch di anteprima è stato tentato il
+24 settembre con Git di sistema e runtime, ma il gestore delle credenziali
+non dispone di un accesso funzionante in questo ambiente. Nessun token
+incollato in chat è stato usato. La verifica Cloudflare attende quindi un
+push autenticato; i risultati locali non valgono come collaudo cloud.

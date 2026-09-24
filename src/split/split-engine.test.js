@@ -191,6 +191,27 @@ test('quote ESATTE per persona (byId) devono sommare all\'importo', () => {
   assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 100, shares: { byId: { m0: 40, m1: 50 } } }), /sommano/);
 });
 
+test('una spesa con importi o quote non validi non entra nel gruppo', () => {
+  const g = createGroup({ members: ['A', 'B'] });
+  for (const amount of [Infinity, NaN, -1, 0, 10.001, Number.MAX_SAFE_INTEGER])
+    assert.throws(() => addSharedExpense(g, { payer: 'm0', amount }));
+  for (const byId of [
+    { m0: 50, m1: 50, estraneo: 10 },
+    { m0: 100, m1: -1 },
+    { m0: Infinity, m1: 0 },
+    { m0: 50.001, m1: 49.999 },
+    { m0: 50 },
+  ]) assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 100, shares: { byId } }));
+  for (const weights of [
+    { m0: 1, estraneo: 1 },
+    { m0: 1, m1: -1 },
+    { m0: Infinity, m1: 1 },
+    { m0: 0, m1: 0 },
+  ]) assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 100, shares: { weights } }));
+  assert.throws(() => addSharedExpense(g, { payer: 'm0', amount: 100, shares: { equalAmong: ['m1', 'estraneo'] } }));
+  assert.equal(g.expenses.length, 0);
+});
+
 test('ripartizione a PESI (weights): proporzionale', () => {
   let g = createGroup({ members: ['A', 'B', 'C'] });
   g = addSharedExpense(g, { payer: 'm0', amount: 120, shares: { weights: { m0: 1, m1: 1, m2: 2 } } });

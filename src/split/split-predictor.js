@@ -25,6 +25,8 @@
 'use strict';
 
 import { slotOf } from '../predict/context-predictor.js';
+import { computeBalances, myMemberId } from './split-engine.js';
+import { confirmedSplitLiability } from './split-liability.js';
 
 const norm = (s) => String(s ?? '').trim();
 const lower = (s) => norm(s).toLowerCase();
@@ -155,49 +157,28 @@ export function predictShares(pastGroups = [], people = [], { minGroups = 2, tol
   return { shares: byOriginal, confident: matches.length >= minGroups, samples: matches.length };
 }
 
-// ── 3. POSIZIONE NETTA CROSS-GRUPPO (il gap di Splitwise) ────────────────────
-// Splitwise netta i debiti DENTRO un gruppo. Ma con la stessa persona sei in
-// più gruppi (casa, viaggi, cene) → quello che conta è la posizione TOTALE.
-// Somma, per ogni persona, quanto ti deve/le devi in TUTTI i gruppi, e dà il
-// netto reale ("con Marco, in tutto, sei in pari / ti deve 12€"). Ordina per
-// importo assoluto (chi saldare prima). Ritorna [{name, net, groups}] con
-// net>0 = ti deve, net<0 = gli devi. meNames = come compari tu nei gruppi.
-export function netAcrossGroups(pastGroups = [], { meNames = ['io', 'me'] } = {}) {
-  const me = new Set(meNames.map(lower));
-  const byPerson = new Map(); // name -> { net, groups:Set }
-  for (const g of (pastGroups || [])) {
-    const idToName = Object.fromEntries((g.members || []).map(m => [m.id, norm(m.name || m)]));
-    const myIds = (g.members || []).filter(m => me.has(lower(m.name || m))).map(m => m.id);
-    if (!myIds.length) continue;
-    // Saldo di ciascun membro nel gruppo: pagato − dovuto.
-    const bal = {};
-    for (const m of g.members) bal[m.id] = 0;
-    for (const e of (g.expenses || [])) {
-      bal[e.payer] = (bal[e.payer] || 0) + (+e.amount || 0);
-      for (const [id, q] of Object.entries(e.owed || {})) bal[id] = (bal[id] || 0) - (+q || 0);
-    }
-    const myBal = myIds.reduce((s, id) => s + (bal[id] || 0), 0);
-    if (Math.abs(myBal) < 0.005) continue;
-    // Attribuisci il mio saldo alle controparti in proporzione al loro saldo
-    // opposto (chi mi deve / a chi devo dentro questo gruppo).
-    const others = g.members.filter(m => !me.has(lower(m.name || m)));
-    const opp = others.filter(m => Math.sign(bal[m.id] || 0) === -Math.sign(myBal));
-    const totalOpp = opp.reduce((s, m) => s + Math.abs(bal[m.id] || 0), 0) || 1;
-    for (const m of opp) {
-      const share = myBal * (Math.abs(bal[m.id] || 0) / totalOpp);
-      const nm = idToName[m.id];
-      const rec = byPerson.get(nm) || { net: 0, groups: new Set() };
-      rec.net += share; rec.groups.add(g.name || g.id);
-      byPerson.set(nm, rec);
-    }
+// Compensazione fra gruppi solo se entrambe le persone hanno la stessa
+// identità rivendicata nei due gruppi. In gruppi con tre o più persone il
+// debito è collettivo: attribuirlo a una coppia sarebbe una scelta, non un
+// calcolo. Nomi uguali, valute diverse e spese contestate non sono prove.
+export function netAcrossGroups(pastGroups = [], { deviceId, currency = 'EUR' } = {}) {
+  if (!deviceId) return [];
+  const byPerson = new Map();
+  for (const group of pastGroups || []) {
+    if (group?.members?.length !== 2 || !confirmedSplitLiability([group], { deviceId, currency }).complete) continue;
+    const selfId = myMemberId(group, deviceId);
+    const other = group.members.find(member => member.id !== selfId);
+    if (!other?.claimedBy || other.claimedBy === deviceId) continue;
+    const cents = Math.round((computeBalances(group)[selfId] || 0) * 100);
+    if (!Number.isSafeInteger(cents) || cents === 0) continue;
+    const record = byPerson.get(other.claimedBy) || { name: norm(other.name), cents: 0, groups: new Set() };
+    record.cents += cents;
+    record.groups.add(group.id);
+    byPerson.set(other.claimedBy, record);
   }
-  const out = [];
-  for (const [name, rec] of byPerson) {
-    const net = round2(rec.net);
-    if (Math.abs(net) < 0.01) continue;
-    out.push({ name, net, groups: rec.groups.size });
-  }
-  return out.sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
+  return [...byPerson].flatMap(([identity, record]) => record.cents ? [{
+    identity, name: record.name, net: record.cents / 100, groups: record.groups.size,
+  }] : []).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 }
 
 // ── 5. INTELLIGENZA SUL SETTLEMENT: quando conviene DAVVERO saldare ──────────

@@ -32,6 +32,9 @@ import { reviewWorkspaceCopy } from './i18n/review-workspace.js';
 import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
 import { evaluateTripPredictions } from './trips/trip-prediction.js';
 import { tripReimbursementHtml } from './ui/trip-reimbursement.js';
+import { splitAnomalyMessage, splitShapeSuggestion } from './ui/split-anomaly.js';
+import { splitForesightActionCopy, splitForesightShareCopy, splitForesightEvidenceCopy, splitForesightDisclaimerCopy } from './i18n/split-foresight.js';
+import { reimbursementBalance } from './trips/reimbursement-balance.js';
 import { creditPickerHtml, bindCreditPicker } from './ui/trip-credit-picker.js';
 import { tripRouteWorkspaceHtml, bindTripRouteWorkspace } from './ui/trip-route-workspace.js';
 import { tripApprovalFlowCopy } from './i18n/trip-approval-flow.js';
@@ -66,7 +69,10 @@ document.fonts?.ready.then(fitVisibleAmounts);
 import { validateRestoredState, prepareRestoredState, checkpointBeforeRestore, readRestoreCheckpoint, writeRestoredArchive } from './core/restore-safety.js';
 import { executePublicUnits } from './mesh/compute-protocol.js';
 import { tSplit } from './i18n/split-workspace.js';
-import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft } from './ui/split-draft.js';
+import { splitAmount, splitInputEdit, validSplitAmounts, buildSplitDraft, equalGroupShareDraft, weightedGroupShareDraft, groupShareDraft } from './ui/split-draft.js';
+import { splitCustomSharesCopy } from './i18n/split-custom-shares.js';
+import { splitLiabilityNotice } from './i18n/split-liability-copy.js';
+import { confirmedSplitLiability } from './split/split-liability.js';
 import { shouldShowAddHint } from './ui/first-use-hint.js';
 import { formatSplitMoney } from './ui/split-money.js';
 import { shiftCalendarMonth, weekOffsetForMonth, calendarViewForKey, calendarPosition } from './ui/calendar-period.js';
@@ -81,7 +87,7 @@ import { parseSalaryDraft, parseReminderDraft } from './ui/money-editor-values.j
 import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
-import { splitIntentUrl } from './core/marketing-intent.js';
+import { marketingIntent } from './core/marketing-intent.js';
 import { giornoLocale, meseLocale } from './core/date-utils.js';
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
@@ -168,16 +174,18 @@ const TELEMETRY_ENDPOINT = 'https://momentum-telemetry.momentum-finance.workers.
 // qualcosa a caso). Wrapper unico per non ripetere il .catch in ogni punto
 // di chiamata: mai bloccante, mai un errore visibile all'utente.
 const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch(() => {}); };
-const openRequestedSplit = () => {
-  const cleanUrl = splitIntentUrl(location.href);
-  if (!cleanUrl || new URLSearchParams(location.search).has('shared') || new URLSearchParams(location.search).has('company') || extractJoinPayload()) return false;
+const openRequestedMarketing = () => {
+  const request = marketingIntent(location.href);
+  if (!request || new URLSearchParams(location.search).has('shared') || new URLSearchParams(location.search).has('company') || extractJoinPayload()) return false;
   setTimeout(() => {
     try {
-      window.openSplitExpense();
+      const open = { split: window.openSplitExpense, trips: window.openBusinessTrips, tax: window.openTaxDiscover }[request.type];
+      if (typeof open !== 'function') return;
+      open();
       // Keep the request through a service-worker reload or a failed open.
-      history.replaceState(null, '', cleanUrl);
-      pingFeature('split_landing_entered');
-    } catch (error) { console.warn('split entry:', error); }
+      history.replaceState(null, '', request.cleanUrl);
+      pingFeature({split:'split_landing_entered',trips:'trip_landing_entered',tax:'tax_landing_entered'}[request.type]);
+    } catch (error) { console.warn('marketing entry:', error); }
   }, 280);
   return true;
 };
@@ -313,7 +321,7 @@ import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, st
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
-import { predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
+import { predictCoSplitters, predictShares, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
 import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
@@ -7896,7 +7904,7 @@ window.openSplitExpense = (prefill = {}) => {
     description: prefill.description || '', quickOpen: false, quickLine: '', stage: 'people',
     people: ['Io'], names: {Io:'Io'},
     paid: prefill.amount > 0 ? { Io: String(prefill.amount) } : {},
-    splitMode: 'equal', owed: {},
+    splitMode: 'equal', owed: {}, modeGuidance: '',
   };
   const addDraftPerson = name => {
     const clean = String(name ?? '').trim().slice(0,40);
@@ -7960,8 +7968,6 @@ window.openSplitExpense = (prefill = {}) => {
     // in questo giorno — non la sola frequenza. Fallback a frequenza pura.
     const ctx = predictCoSplitters(past, { description: state.description, date: new Date() }).filter(f => !participantNames().includes(f.name));
     const freq = (ctx.length ? ctx : frequentCoSplitters(past).filter(f => !participantNames().includes(f.name))).slice(0, 4);
-    // Posizione netta cross-gruppo con le persone già nel gruppo (il gap di Splitwise).
-    const nets = netAcrossGroups(past).filter(n => state.people.includes(n.name));
     // Se con QUESTE persone dividi di solito NON equo (affitto 25/75), lo propongo.
     const hasDuplicateNames = new Set(participantNames()).size !== state.people.length;
     const unambiguousPast = past.filter(g => new Set(g.members.map(m => m.name)).size === g.members.length);
@@ -8035,7 +8041,7 @@ window.openSplitExpense = (prefill = {}) => {
           <div class="split-add-person"><label for="sp-newname">${tr('person')}</label><div class="split-inline-input"><input id="sp-newname" type="text" maxlength="40" placeholder="${tr('nameExample')}" autocomplete="off" enterkeyhint="done"/><button id="sp-add-person" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>${tr('add')}</button></div></div>
           <div id="sp-suggestions" data-split-live>${freq.length ? `<small>${tr('suggested')}</small><div class="split-people-suggestions">${freq.map(f => `<button type="button" data-add="${esc(f.name)}">${esc(f.name)}</button>`).join('')}</div>` : ''}</div><small>${tr('zeroHint')}</small>${hasDuplicateNames ? `<p class="split-identity-note">${tr('duplicates')}</p>` : ''}
         </section>
-        </div><div class="split-result-stage"><button id="sp-edit-people" class="split-edit-people" type="button">${tr('editPeople')}</button><div id="sp-result-summary" data-split-live class="split-result-summary"><span>${tr('peopleCount',state.people.length)}</span><strong>${eur(t)}</strong></div><section class="split-step"><header><h4 id="sp-how-title"><span aria-hidden="true">2</span>${tr('how')}</h4></header><div class="split-mode-choices" role="group" aria-labelledby="sp-how-title">${modeChoices}</div><p class="split-share-meaning">${tr('shareMeaning')}</p>
+        </div><div class="split-result-stage"><button id="sp-edit-people" class="split-edit-people" type="button">${tr('editPeople')}</button><div id="sp-result-summary" data-split-live class="split-result-summary"><span>${tr('peopleCount',state.people.length)}</span><strong>${eur(t)}</strong></div><section class="split-step"><header><h4 id="sp-how-title"><span aria-hidden="true">2</span>${tr('how')}</h4></header><div class="split-mode-choices" role="group" aria-labelledby="sp-how-title">${modeChoices}</div><p class="split-share-meaning">${tr('shareMeaning')}</p><p id="sp-mode-guidance" class="split-mode-guidance" role="status" aria-live="polite">${state.modeGuidance ? tr(state.modeGuidance) : ''}</p>
         ${state.splitMode === 'equal' ? `<div id="sp-per-head" class="split-per-head" data-split-live><span>${tr('yourShare')}</span><strong>${eur(perHead)}</strong></div>${hasRemainder ? `<small>${tr('roundingHint')}</small>` : ''}` : `<div class="split-custom"><p id="sp-shares-hint" data-split-live>${tr('sharesHint',eur(t))}</p>${sharePred ? `<button id="sp-usepred" type="button" class="split-usual">${tr('usual')} · ${state.people.map(p => `${esc(personLabel(p))} ${Math.round((sharePred.shares[state.names[p]] || 0) * 100)}%`).join(' · ')}</button>` : ''}${state.people.map((p,i) => `<div class="split-person-row split-custom-row"><label for="sp-owed-${i}">${esc(personLabel(p))}</label><div class="split-money-input"><input id="sp-owed-${i}" data-owed="${esc(p)}" aria-label="${esc(tr('shareLabel', personLabel(p)))}" type="text" inputmode="decimal" value="${esc(state.owed[p] ?? '')}" placeholder="0"/><span aria-hidden="true">€</span></div></div>`).join('')}<p id="sp-remaining" data-split-live class="split-remaining" data-valid="${splitValid()}">${invalidAmount ? tr('invalid') : Math.abs(owedRemaining) < 0.01 ? tr('exact') : owedRemaining > 0 ? tr('missing',eur(owedRemaining)) : tr('excess',eur(-owedRemaining))}</p></div>`}</section>
         ${preview}
         <div class="split-submit"><button id="sp-save" type="button" class="btn-action btn-primary" ${canPreview ? '' : 'disabled'} aria-describedby="sp-preview">${tr('save')}</button><button id="sp-share" type="button" ${canPreview ? '' : 'disabled'}>${tr('invite')}</button></div><p class="split-privacy-note">${tr('note')}</p></div><div class="split-next"><button id="sp-next" type="button" class="btn-action btn-primary" ${validSplitAmounts(state.people,state.paid,{},'equal') && state.people.length > 1 ? '' : 'disabled'}>${tr('next')}</button><small id="sp-next-total" data-split-live>${tr('peopleCount',state.people.length)} · ${eur(t)}</small></div>
@@ -8096,11 +8102,23 @@ window.openSplitExpense = (prefill = {}) => {
     document.querySelectorAll('[data-owed]').forEach(inp => bindSplitMoneyInput(inp, value => { state.owed[inp.dataset.owed] = value; render(true); }));
     $('#sp-usepred')?.addEventListener('click', () => {
       const t2 = total();
-      if (sharePred && t2 > 0) { state.people.forEach(p => { state.owed[p] = (Math.round((sharePred.shares[state.names[p]] || 0) * t2 * 100) / 100).toFixed(2); }); render(); }
+      if (sharePred && t2 > 0) {
+        const weights = Object.fromEntries(state.people.map(p => [p, sharePred.shares[state.names[p]] || 0]));
+        const suggested = weightedGroupShareDraft(state.people, weights, t2);
+        if (suggested) { state.owed = suggested; render(); }
+      }
     });
     document.querySelectorAll('[data-splitmode]').forEach(b => b.addEventListener('click', () => {
       const mode = b.dataset.splitmode;
-      if (mode === state.splitMode) return;
+      if (mode === state.splitMode) {
+        state.modeGuidance = mode === 'equal' ? 'equalSelected' : 'customSelected';
+        const guidance = $('#sp-mode-guidance');
+        if (guidance) guidance.textContent = tr(state.modeGuidance);
+        const next = mode === 'equal' ? $('#sp-per-head') : $('[data-owed]');
+        next?.scrollIntoView({block:'nearest',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+        if (mode === 'custom') next?.focus({preventScroll:true});
+        return;
+      }
       // Start from the exact equal allocation, including remainder cents.
       // Switching away and back never overwrites a person's explicit shares.
       if (mode === 'custom' && !Object.keys(state.owed).length && validSplitAmounts(state.people, state.paid, {}, 'equal')) {
@@ -8108,6 +8126,7 @@ window.openSplitExpense = (prefill = {}) => {
         state.owed = Object.fromEntries(state.people.map(id => [id, (equalGroup.expenses.reduce((sum, expense) => sum + Math.round((expense.owed[id] || 0) * 100), 0) / 100).toFixed(2)]));
       }
       state.splitMode = mode;
+      state.modeGuidance = mode === 'equal' ? 'equalSelected' : 'customSelected';
       render();
       document.querySelector(`[data-splitmode="${mode}"]`)?.focus({preventScroll:true});
     }));
@@ -8198,12 +8217,14 @@ const ICON_FLAG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf8', '#22d3ee'] } = {}) {
   let f;
+  let splitLiability;
   const nowMs = Date.now();
   try {
     const subs = subscriptionSummary(VaultDAO.state.transactions, new Date());
-    // Ciò che devo agli amici: scenario a parte (la data la decide l'utente).
-    const net = netAcrossGroups(VaultDAO.state.splitGroups || []);
-    const owed = Math.abs(Math.min(0, net.reduce((s, p) => s + Math.min(0, p.net), 0)));
+    // Solo saldi dei miei slot rivendicati, non nomi uguali in gruppi diversi.
+    // Se una valuta, identità o spesa è incerta, non mostriamo una cifra parziale.
+    splitLiability = confirmedSplitLiability(VaultDAO.state.splitGroups || [], { deviceId: VaultDAO.state.deviceId });
+    const owed = splitLiability.complete ? splitLiability.owed : 0;
     // Le rate BNPL (Klarna/PayPal/Scalapay...) sono eventi certi quanto un
     // impegno dichiarato: entrano nella STESSA riga temporale via il ponte
     // generico extraLedgerEvents, con la lunghezza-piano già appresa da questo
@@ -8336,6 +8357,7 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       </div>
       ${lever ? `<p class="text-[10.5px] mt-2 text-[var(--primary)]">${ICON_IDEA}${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
       ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
+      ${splitLiability && !splitLiability.complete ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(splitLiabilityNotice(__uiLang))}</p>` : ''}
       <div class="cash-explorer" data-cash-points="${escapeHtml(JSON.stringify(pts.map(p => ({date:dayName(p.date),mid:eur(p.p50),low:eur(p.p10),high:eur(p.p90)}))))}">
         <div class="cash-reading"><span data-cash-date>${dayName(pts[0].date)}</span><strong data-cash-value>${eur(pts[0].p50)}</strong></div>
         <p class="cash-reading-kind">${tCh(f.relative ? 'cashRelative' : 'cashEstimated', __uiLang)}</p>
@@ -10313,24 +10335,31 @@ window.openActivationQuestions = (onDone = null) => {
 // Pannello "Momentum prevede" (split-intelligence.js): spese ricorrenti in
 // arrivo + proiezione saldo a fine mese. On-device, dai soli dati del gruppo.
 // Compare SOLO se c'è davvero qualcosa da prevedere (mai un box vuoto/inventato).
-function renderSplitForesight(g, names) {
-  const eur = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
+function renderSplitForesight(g, names, myId) {
+  const currency = /^[A-Z]{3}$/.test(g.baseCurrency || '') ? g.baseCurrency : 'EUR';
+  const money = new Intl.NumberFormat(__uiLang, { style: 'currency', currency });
+  const eur = n => money.format(+n || 0);
   const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const rec = detectRecurring(g).filter(r => r.daysUntilNext >= -3 && r.daysUntilNext <= 45);
+  const now = Date.now();
+  const rec = detectRecurring(g, { now }).filter(r => r.daysUntilNext >= -3 && r.daysUntilNext <= 45);
   if (!rec.length) return '';
+  const upcoming = forecastGroupBalances(g, computeBalances, { horizonDays: 45, now }).upcoming;
   const rows = rec.slice(0, 3).map(r => {
     const when = r.daysUntilNext <= 0 ? tCh('foreNowLabel', __uiLang) : tCh('foreInDays', __uiLang, r.daysUntilNext);
-    const payer = predictExpenseShape(g, r.description);
-    const who = payer?.payer ? tCh('foreUsuallyPays', __uiLang, esc(names[payer.payer] || '?')) : '';
-    return `<div class="flex items-center justify-between gap-2 py-1.5 text-[13px] border-b border-[var(--outline)] last:border-0">
-      <span class="min-w-0"><b>${esc(r.description)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(r.typicalAmount)} ${when}${who}</span></span>
-      <span class="shrink-0 text-[11px] text-[var(--on-surface-secondary)]">${Math.round(r.confidence * 100)}%</span>
+    const match = upcoming.find(item => item.key === r.key && item.date === r.nextExpectedDate);
+    const who = match?.predictedPayer ? tCh('foreUsuallyPays', __uiLang, esc(names[match.predictedPayer] || '?')) : '';
+    const share = myId && match?.estimatedShares?.[myId] != null
+      ? `<small class="split-recurring-share">${esc(splitForesightShareCopy(__uiLang, eur(match.estimatedShares[myId]), match.samples))}</small>` : '';
+    return `<div class="split-recurring-row flex items-center justify-between gap-2 py-1.5 text-[13px] border-b border-[var(--outline)] last:border-0">
+      <span class="min-w-0"><b>${esc(r.description)}</b> · <span class="text-[var(--on-surface-secondary)]">${eur(r.typicalAmount)} ${when}${who}</span>${share}</span>
+      <span class="shrink-0 text-[11px] text-[var(--on-surface-secondary)]">${esc(splitForesightEvidenceCopy(__uiLang, r.occurrences))}</span>
     </div>`;
   }).join('');
   return `<div class="card p-3">
     <div class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>${tCh('foreEyebrow', __uiLang)}</div>
     ${rows}
-    <p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${tCh('foreDisclaimer', __uiLang)}</p>
+    <button type="button" data-prepare-recurring class="split-recurring-action">${esc(splitForesightActionCopy(__uiLang))}</button>
+    <p class="text-[10.5px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${esc(splitForesightDisclaimerCopy(__uiLang))}</p>
   </div>`;
 }
 
@@ -10539,7 +10568,7 @@ window.openSplitGroup = (openId = null) => {
   // sempre, zero attrito). Non-null solo quando l'utente apre esplicitamente
   // "un'altra valuta?" — un viaggiatore che paga in CHF durante un gruppo in
   // EUR, il caso raro, mai il default per il caso comune.
-  const form = { payer: null, amount: '', desc: '', involved: null, currency: null, showCurrency: false }; // involved=null → tutti
+  const form = { payer: null, amount: '', desc: '', involved: null, currency: null, showCurrency: false, custom: false, customShares: {} }; // involved=null → tutti
 
   const render = (liveSync = false) => {
     const g = currentId ? groups().find(x => x.id === currentId) : null;
@@ -10606,6 +10635,7 @@ window.openSplitGroup = (openId = null) => {
     // Retrocompatibile: gruppi creati prima di questa feature non hanno
     // baseCurrency salvata, EUR era già il comportamento implicito.
     const baseCurrency = g.baseCurrency || 'EUR';
+    const shareCopy = splitCustomSharesCopy(__uiLang);
     // BUG REALE trovato beta-testando con un SECONDO dispositivo simulato
     // (2026-08-27): "chi deve cosa a chi" confrontava i nomi con la stringa
     // letterale 'Io' — corretto SOLO per il dispositivo che ha creato il
@@ -10711,14 +10741,16 @@ window.openSplitGroup = (openId = null) => {
         </div></details>
         ${cstat.testo ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${esc(tCh('splitNoticePending', __uiLang, cstat.discussioniAperte))} · ${eur(cstat.importoInDiscussione)}. ${tCh('splitNoticeExcluded', __uiLang)}</span></div>` : ''}
         ${(g.expenses || []).length ? `<details data-split-fold="expenses" ${expandedPanels.has('expenses') ? 'open' : ''} class="split-fold${liveSync ? ' split-sync-pulse' : ''}"><summary><span>${tSplit('showExpenses', __uiLang)}</span><span class="split-fold-count">${g.expenses.length}</span><i aria-hidden="true"></i></summary><div class="split-fold-body split-rows-in">${expRows}</div></details>` : ''}
-        ${renderSplitForesight(g, names)}
-        <button id="sg-show-expense" class="btn-action btn-primary" type="button" aria-expanded="${form.showExpense === true || !g.expenses.length}" aria-controls="sg-expense-form">${tSplit('addExpense',__uiLang)}</button><div id="sg-expense-form" class="card p-3 split-group-form" ${form.showExpense === true || !g.expenses.length ? '' : 'hidden'}>
+        ${renderSplitForesight(gSaldo, names, myId)}
+        <button id="sg-show-expense" class="btn-action btn-primary" type="button" aria-expanded="${form.showExpense === true || !g.expenses.length}" aria-controls="sg-expense-form">${tSplit('addExpense',__uiLang)}</button><div id="sg-expense-form" class="card p-3 split-group-form${form.custom ? ' is-custom' : ''}" ${form.showExpense === true || !g.expenses.length ? '' : 'hidden'}>
           <h4>${tSplit('addExpense',__uiLang)}</h4>
           <div class="flex flex-wrap gap-1.5 mb-2">${members.map(m => `<button data-payer="${m.id}" aria-pressed="${form.payer === m.id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${form.payer === m.id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(names[m.id])} paga</button>`).join('')}</div>
           <div class="flex gap-2">
             <input id="sg-amt" type="text" inputmode="decimal" value="${esc(form.amount)}" class="w-28 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm font-mono min-w-0" placeholder="0,00" name="sg-amt" aria-label="${tSplit('amount',__uiLang)} ${esc(form.currency || baseCurrency)}" />
             <input id="sg-desc" value="${esc(form.desc)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${tCh('splitPurposeExample',__uiLang)}" name="sg-desc" aria-label="${tCh('splitPurposeLabel',__uiLang)}" />
           </div>
+          <p id="sg-anomaly" class="split-anomaly-note" role="status" hidden></p>
+          <button id="sg-use-shape" class="split-shape-suggestion" type="button" hidden></button>
           <!-- Gap reale: un gruppo di viaggio assumeva un'unica valuta mai
                dichiarata — chi pagava in una valuta diversa (CHF durante un
                weekend in Svizzera, GBP a Londra) non aveva modo di
@@ -10740,8 +10772,14 @@ window.openSplitGroup = (openId = null) => {
                onesto ma sbagliato. Apre un editor a righe (item-split.js),
                stesso addSharedExpense alla fine, nessuna seconda strada. -->
           <button onclick="window.openItemSplitEditor('${g.id}')" type="button" class="sg-currency-toggle" style="margin-left:.4rem"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>${esc(tCh('itemSplitEntryPoint', __uiLang))}</button>
-          <div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">${tSplit('participants',__uiLang)}</div>
-          <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" aria-pressed="${involved.includes(m.id)}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div>
+          <button id="sg-custom-toggle" type="button" class="split-custom-toggle" aria-expanded="${form.custom}" aria-controls="sg-custom-panel">${esc(shareCopy[form.custom ? 1 : 0])}</button>
+          <div id="sg-custom-panel" class="split-custom-panel" ${form.custom ? '' : 'hidden'}>
+            <p>${esc(shareCopy[2])}</p>
+            <div class="split-custom-grid">${members.map(m => `<label><span>${esc(names[m.id])}</span><input data-custom-share="${esc(m.id)}" type="text" inputmode="decimal" value="${esc(form.customShares[m.id] ?? '0')}" aria-label="${esc(shareCopy[3])} ${esc(names[m.id])}" autocomplete="off" /></label>`).join('')}</div>
+            <p id="sg-share-status" class="split-custom-status" role="status" aria-live="polite"></p>
+          </div>
+          <div ${form.custom ? 'hidden' : ''}><div class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 mb-1">${tSplit('participants',__uiLang)}</div>
+            <div class="flex flex-wrap gap-1.5">${members.map(m => `<button data-involve="${m.id}" aria-pressed="${involved.includes(m.id)}" class="text-[11px] px-2.5 py-1 rounded-full border ${involved.includes(m.id) ? 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10' : 'border-[var(--outline)] text-[var(--on-surface-secondary)] line-through'}">${esc(names[m.id])}</button>`).join('')}</div></div>
           <button id="sg-addexp" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl mt-2 text-sm">${tSplit('addExpense',__uiLang)}</button>
         </div>
 
@@ -10765,6 +10803,57 @@ window.openSplitGroup = (openId = null) => {
 
     // bind
     $('#sg-show-expense')?.addEventListener('click', e => { const formNode=$('#sg-expense-form'); formNode.hidden=!formNode.hidden; form.showExpense=!formNode.hidden; e.currentTarget.setAttribute('aria-expanded',String(!formNode.hidden)); if(!formNode.hidden) $('#sg-amt')?.focus({preventScroll:true}); });
+    const shareDraft = () => groupShareDraft(members.map(member => member.id), form.customShares, form.amount,
+      { foreignCurrency: form.showCurrency && form.currency && form.currency !== baseCurrency });
+    const showShareStatus = () => {
+      if (!form.custom) return;
+      const status = $('#sg-share-status'), save = $('#sg-addexp');
+      if (!status || !save) return;
+      const result = shareDraft();
+      const shownCurrency = form.showCurrency ? form.currency || baseCurrency : baseCurrency;
+      const money = new Intl.NumberFormat(__uiLang, { style: 'currency', currency: shownCurrency });
+      status.textContent = result.valid ? shareCopy[7] : result.reason === 'amount' ? shareCopy[8]
+        : result.reason === 'difference' ? `${shareCopy[result.differenceCents > 0 ? 4 : 5]} ${money.format(Math.abs(result.differenceCents) / 100)}` : shareCopy[6];
+      status.dataset.valid = String(result.valid);
+      save.disabled = !result.valid;
+    };
+    $('#sg-custom-toggle')?.addEventListener('click', () => {
+      if (!form.custom && !Object.keys(form.customShares).length)
+        form.customShares = equalGroupShareDraft(members.map(member => member.id), form.amount, form.involved || members.map(member => member.id));
+      form.custom = !form.custom;
+      render();
+      if (form.custom) $('[data-custom-share]')?.focus({ preventScroll: true });
+    });
+    document.querySelectorAll('[data-custom-share]').forEach(input => bindSplitMoneyInput(input, value => {
+      form.customShares[input.dataset.customShare] = value;
+      showShareStatus();
+    }));
+    showShareStatus();
+    $('[data-prepare-recurring]')?.addEventListener('click', () => {
+      const next = detectRecurring(groupForSettlement(g)).find(item => item.daysUntilNext >= -3 && item.daysUntilNext <= 45);
+      if (!next) return;
+      const shape = splitShapeSuggestion(groupForSettlement(g), next.description, names, __uiLang);
+      const coming = forecastGroupBalances(groupForSettlement(g), computeBalances, { horizonDays: 45 }).upcoming
+        .find(item => item.key === next.key && item.date === next.nextExpectedDate);
+      form.desc = next.description;
+      form.amount = String(next.typicalAmount);
+      form.custom = false;
+      form.customShares = {};
+      if (shape) { form.payer = shape.payer; form.involved = shape.involved; }
+      if (coming?.estimatedShares) {
+        form.payer = coming.predictedPayer;
+        const values = members.map(member => coming.estimatedShares[member.id] || 0);
+        if (Math.max(...values) - Math.min(...values) > .01) {
+          form.custom = true;
+          form.customShares = Object.fromEntries(members.map(member => [member.id, (coming.estimatedShares[member.id] || 0).toFixed(2)]));
+        }
+      }
+      form.showCurrency = false;
+      form.currency = null;
+      form.showExpense = true;
+      render();
+      $('#sg-amt')?.focus({ preventScroll: true });
+    });
     $('#sg-discover')?.addEventListener('click', () => window.openMomentumReveal(g));
     $('#sg-back')?.addEventListener('click', () => { currentId = null; render(); });
     $('#sg-name')?.addEventListener('change', (e) => { persist(renameGroup(g, e.target.value)); render(); });
@@ -10788,8 +10877,34 @@ window.openSplitGroup = (openId = null) => {
       if (nuovoChip) { nuovoChip.classList.add('type-toggle-pop'); }
     }));
     document.querySelectorAll('[data-split-fold]').forEach(panel => panel.addEventListener('toggle', () => { form.expandedPanels = [...document.querySelectorAll('[data-split-fold][open]')].map(open => open.dataset.splitFold); }));
-    bindSplitMoneyInput($('#sg-amt'), value => { form.amount = value; });
-    $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; });
+    let suggestedShape = null;
+    const showSplitAnomaly = () => {
+      const note = $('#sg-anomaly');
+      const shapeButton = $('#sg-use-shape');
+      if (!note || !shapeButton) return;
+      const relevantHistory = groupForSettlement(g);
+      const message = splitAnomalyMessage(groupForSettlement(g), {
+        description: form.desc, amount: splitAmount(form.amount),
+        inputCurrency: form.showCurrency ? form.currency : baseCurrency,
+      }, __uiLang);
+      note.textContent = message || '';
+      note.hidden = !message;
+      suggestedShape = splitShapeSuggestion(relevantHistory, form.desc, names, __uiLang);
+      const isSame = suggestedShape && form.payer === suggestedShape.payer
+        && JSON.stringify(form.involved || members.map(member => member.id)) === JSON.stringify(suggestedShape.involved);
+      shapeButton.textContent = suggestedShape?.message || '';
+      shapeButton.hidden = !suggestedShape || isSame;
+    };
+    bindSplitMoneyInput($('#sg-amt'), value => { form.amount = value; showSplitAnomaly(); showShareStatus(); });
+    $('#sg-desc')?.addEventListener('input', (e) => { form.desc = e.target.value; showSplitAnomaly(); });
+    $('#sg-use-shape')?.addEventListener('click', () => {
+      if (!suggestedShape) return;
+      form.payer = suggestedShape.payer;
+      form.involved = suggestedShape.involved;
+      render();
+      $('#sg-addexp')?.focus({ preventScroll: true });
+    });
+    showSplitAnomaly();
     $('#sg-currency-on')?.addEventListener('click', () => { form.showCurrency = true; form.currency = ultimaValutaEstera(g) || (baseCurrency === 'CHF' ? 'EUR' : 'CHF'); render(); });
     $('#sg-currency-off')?.addEventListener('click', () => { form.showCurrency = false; form.currency = null; render(); });
     $('#sg-currency')?.addEventListener('change', (e) => { form.currency = e.target.value; render(); });
@@ -10797,7 +10912,9 @@ window.openSplitGroup = (openId = null) => {
       const amtInserito = splitAmount(form.amount);
       if (!(amtInserito > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
       const inv = form.involved || members.map(m => m.id);
-      const shares = inv.length < members.length ? { equalAmong: inv } : undefined;
+      const custom = form.custom ? shareDraft() : null;
+      if (custom && !custom.valid) { showShareStatus(); return; }
+      const shares = custom ? custom.shares : inv.length < members.length ? { equalAmong: inv } : undefined;
       const btn = e.currentTarget;
       // Spesa in un'altra valuta: il campo importo è quanto si è PAGATO
       // davvero (es. 45 CHF), non ancora convertito — il tasso del giorno
@@ -10812,13 +10929,13 @@ window.openSplitGroup = (openId = null) => {
         if (!rate) { showToast(`Non riesco a recuperare il tasso ${form.currency}→${baseCurrency} in questo momento. Riprova.`, 'error'); return; }
         try {
           const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito * rate, description: form.desc, shares, originalAmount: amtInserito, originalCurrency: form.currency, exchangeRate: rate });
-          persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.showCurrency = false; form.currency = null; render();
+          persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.custom = false; form.customShares = {}; form.showCurrency = false; form.currency = null; render();
         } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
         return;
       }
       try {
         const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito, description: form.desc, shares });
-        persist(ng); form.amount = ''; form.desc = ''; form.involved = null; render();
+        persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.custom = false; form.customShares = {}; render();
       } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
@@ -12553,7 +12670,7 @@ window.openBusinessTrip = (tripId) => {
       </div>`);
 
     $('#trip-back')?.addEventListener('click', () => window.openBusinessTrips());
-    bindTripRouteWorkspace({ lang: __uiLang, checks: exportChecks, select: mode => pingFeature(['trip_route_personal','trip_route_company','trip_route_companion','trip_route_finance'][mode]), action: action => {
+    bindTripRouteWorkspace({ lang: __uiLang, checks: exportChecks, reimbursement: reimbursementBalance(trip, allTx), companySubmission: trip.companySubmission, select: mode => pingFeature(['trip_route_personal','trip_route_company','trip_route_companion','trip_route_finance'][mode]), action: action => {
       if (action === 'check') pingFeature('trip_validation_blocked');
       if (action === 'export') return window.openCompanyExportMapping(trip.id);
       if (action === 'reconcile') return window.openCardReconciliation(trip.id);
@@ -23379,7 +23496,7 @@ const initApp = () => {
   // impedisce alla hero di essere dipinta prima ancora che questo file venga
   // scaricato — se cambi una, cambia l'altra.
   const hasOnboarded = haCompletatoOnboarding(VaultDAO.state);
-  const requestedSplitAtBoot = !!splitIntentUrl(location.href);
+  const requestedMarketingAtBoot = marketingIntent(location.href);
   if (hasOnboarded) {
     const gen = $('#genesis-container');
     if (gen) gen.remove();
@@ -23422,7 +23539,7 @@ const initApp = () => {
     // mai prima — non deve competere col primo paint né sembrare un
     // blocco. Un ritardo breve, non zero: l'utente deve prima vedere "sono
     // arrivato", poi eventualmente "cosa è cambiato".
-    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else if (!requestedSplitAtBoot) showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
+    setTimeout(() => { try { if (new URLSearchParams(location.search).has('company')) window.openBusinessTrips(); else if (!requestedMarketingAtBoot) showWhatsNewIfDue(); } catch (e) { console.warn('whats-new:', e); } }, 900);
     // Ponte iOS Safari→PWA (2026-08-28, vedi vault.js): appena aperta una
     // PWA installata su iOS SENZA transazioni proprie, controlla se Safari
     // ha lasciato un'istantanea recente in Cache Storage — best-effort, mai
@@ -23493,7 +23610,7 @@ const initApp = () => {
       // account, senza capire cos'è un'app on-device.
       consumeTripReviewLink();
       consumeQuickAddLink(); // link "quick-add" da un'automazione iOS Shortcuts
-      openRequestedSplit();
+      openRequestedMarketing();
       // Feedback proposto UNA sola volta, dopo un uso reale (non al primo
       // avvio, mai un popup che torna): 10 giorni da quando questo
       // dispositivo ha iniziato a usare Momentum. Mai più dopo la prima
@@ -23532,17 +23649,17 @@ const initApp = () => {
       const canvas = document.getElementById('genesis-canvas');
       if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
     });
-  } else if (requestedSplitAtBoot) {
-    // La pagina pubblica promette di dividere una spesa, non di compilare un
-    // profilo finanziario. Usa l'attivazione lampo già collaudata per gli inviti:
-    // niente budget o interessi d'investimento inventati, poi apre la divisione.
-    activateLite({ invests: false, entry: 'split' });
+  } else if (requestedMarketingAtBoot) {
+    // I link pubblici aprono direttamente split, trasferte o fisco senza
+    // imporre il profilo finanziario prima del primo risultato. Il profilo
+    // lampo resta esplicitamente incompleto, mai una risposta inventata.
+    activateLite({ invests: false, entry: requestedMarketingAtBoot.type });
     const gen = $('#genesis-container'); if (gen) gen.remove();
     $('#app-core').classList.remove('hidden');
     $('#app-core').style.opacity = '1';
     updateStreak();
     bootUI();
-    openRequestedSplit();
+    openRequestedMarketing();
   }
   // Il cielo stellato del primo avvio è ora in CSS PURO (index.html: .starfield),
   // quindi non serve disegnarlo da JS: è sempre presente, gira su qualsiasi

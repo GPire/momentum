@@ -13,6 +13,8 @@ export const PRODUCT_TELEMETRY_EVENTS = Object.freeze(['transaction_editor_opene
   'tax_eligibility_opened',
   'split_quick_opened',
   'split_landing_entered',
+  'trip_landing_entered',
+  'tax_landing_entered',
   'split_quick_saved',
   'split_invite_prepared',
   'split_group_opened',
