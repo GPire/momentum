@@ -355,7 +355,7 @@ function detectLiveRegimeFor(assetKey) {
     return detectRegime(series.map(pt => pt.close));
   } catch (_) { return null; }
 }
-import { fetchLiveCryptoPrice, fetchLiveStockPrice, STOCK_PROVIDER_IDS } from './alpha/live-price.js';
+import { fetchLiveCryptoPrice, fetchConfiguredStockPrice, STOCK_PROVIDER_IDS } from './alpha/live-price.js';
 import { buildPayoutRequest, buildPayoutLink, resolvePayout, PAYOUT_METHODS, PAYOUT_LABELS } from './split/payout.js';
 import { tPayout } from './i18n/payout.js';
 import { buildRepaymentCode } from './split/repayment-share.js';
@@ -374,7 +374,7 @@ import { recordVoiceCorrection } from './voice/voice-learning.js';
 import { mergeMorphology, initMorphology, predictMorphology } from './ai/merchant-morphology.js';
 import { chat as chatMultilingual } from './ai/chat.js';
 import { resolveQaLanguage, detectDeviceLanguage, SUPPORTED as QA_SUPPORTED_LANGS } from './i18n/detect.js';
-import { detectNewsIntent, looksLikeBareAssetQuery } from './predict/news-intent.js';
+import { detectNewsIntent, looksLikeBareAssetQuery, needsDynamicAssetExtraction } from './predict/news-intent.js';
 import { predictAmount, getQuickAddSuggestions, matchSolito } from './predict/amount-memory.js';
 import { rankSuggestionsByContext, predictCategoriesNow } from './predict/context-predictor.js';
 import { nextExpenseNudge, splitReminder, amountEntryImpact, budgetAfterExpense, amountVsTypical, monthTrajectoryFocus, splitCandidate } from './predict/command-center.js';
@@ -8665,11 +8665,9 @@ window.openCommitmentsManager = (onDone = null) => {
   window.closeModal = function () { origClose(); if (onDone) onDone(); window.closeModal = origClose; };
 };
 
-// ── CHIAVE PERSONALE PER PREZZI LIVE (Alpha Vantage, opzionale) ─────────────
-// Vive solo in VaultDAO.state.liveDataKeys (locale, cifrato come tutto il
-// resto del vault): nessun server Momentum esiste a cui inviarla. Le cripto
-// non ne hanno bisogno (CoinGecko è aperto); azioni/indici sì, perché
-// Yahoo/Stooq bloccano le chiamate dirette dal browser (verificato CORS).
+// ── CHIAVI PERSONALI PER LE FONTI DI MERCATO (facoltative) ──────────────────
+// Restano nello stato locale del Vault e vengono inviate solo al provider
+// scelto quando lo si interroga. CoinGecko non richiede chiavi per le cripto.
 // Un pallino verde/grigio invece di un paragrafo che appariva SOLO a chiave
 // già salvata (altrimenti restava vuoto — nessun modo di capire a colpo
 // d'occhio quali dei 5 provider mancano ancora di essere configurati).
@@ -8710,7 +8708,7 @@ window.saveLiveDataKey = (provider) => {
 // serve davvero una carta, mai la stessa frase per tutti a prescindere.
 const API_KEY_GUIDES = {
   alphavantage: {
-    title: 'Prezzi live per azioni/ETF',
+    title: 'Quotazioni azioni/ETF (di norma a fine giornata)',
     url: 'https://www.alphavantage.co/support/#api-key',
     freeNoCard: true,
     steps: ['Apri il sito (si apre in una scheda nuova)', 'Lascia pure il menu com\'è, scrivi la tua email nel campo "Email"', 'Premi il pulsante verde "GET FREE API KEY"', 'Copia il codice che appare e torna qui'],
@@ -9113,11 +9111,12 @@ window.runAssetSearch = async () => {
   resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Cerco...</p>`;
   try {
     const { searchAsset } = await import('./alpha/asset-search.js');
-    const { results, stale } = await searchAsset(query, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window), cache: assetSearchCache });
+    const keys = VaultDAO.state.liveDataKeys || {};
+    const { results, stale, stockWarning } = await searchAsset(query, { apiKey: keys.alphavantage, twelvedataKey: keys.twelvedata, fmpKey: keys.fmp, fetchImpl: fetch.bind(window), cache: assetSearchCache });
     lastSearchResults = results;
-    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Nessun risultato${stale ? ' (offline: nemmeno in cache)' : ''}.</p>`; return; }
-    resultsEl.innerHTML = (stale ? `<p class="text-[11px] text-amber-300 mb-1">Offline: risultati dall'ultima ricerca.</p>` : '') + results.map((r, i) =>
-      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${r.symbol}</b> · ${r.name}${r.kind === 'stock' ? ` (${translateRegionLabel(r.region) || 'azione/ETF'})` : ' (cripto)'}</button>`
+    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(stockWarning || tCh('assetSearchEmpty', __uiLang))}</p>`; return; }
+    resultsEl.innerHTML = (stale ? `<p class="text-[11px] text-amber-300 mb-1">${tCh('assetSearchCached', __uiLang)}</p>` : '') + (stockWarning ? `<p class="text-[11px] text-amber-300 mb-1">${escapeHtml(stockWarning)}</p>` : '') + results.map((r, i) =>
+      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${escapeHtml(r.symbol || '')}</b> · ${escapeHtml(r.name || '')}${r.kind === 'stock' ? ` (${escapeHtml(translateRegionLabel(r.region) || 'azione/ETF')})` : ' (cripto)'}</button>`
     ).join('');
   } catch (e) {
     resultsEl.innerHTML = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
@@ -9128,20 +9127,25 @@ window.selectAsset = async (idx) => {
   const asset = lastSearchResults[idx];
   const detailEl = document.getElementById('asset-detail');
   if (!asset || !detailEl) return;
+  if (!/^[A-Za-z0-9._^:-]{1,24}$/.test(asset.symbol || '')) {
+    detailEl.textContent = tCh('assetSearchEmpty', __uiLang);
+    return;
+  }
   detailEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Carico prezzo e notizie...</p>`;
   let priceHtml = '';
   try {
-    const { fetchLiveCryptoPrice, fetchLiveStockPrice } = await import('./alpha/live-price.js');
+    const { fetchLiveCryptoPrice, fetchConfiguredStockPrice } = await import('./alpha/live-price.js');
     if (asset.kind === 'crypto') {
       const { price, asOf } = await fetchLiveCryptoPrice(asset.id);
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
       priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
-    } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
-      const { price, asOf } = await fetchLiveStockPrice(asset.symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
+    } else if (VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
+      const { price, asOf, marketAsOf, source } = await fetchConfiguredStockPrice(asset.symbol, { keys: VaultDAO.state.liveDataKeys });
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Live · Alpha Vantage · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
+      const quote = new Intl.NumberFormat(__uiLocale, { maximumFractionDigits: 5 }).format(price);
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${quote}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(source)} · ${marketAsOf ? tCh('assetQuoteMarketDay', __uiLang, escapeHtml(marketAsOf)) : tCh('assetQuoteReceived', __uiLang, new Date(asOf).toLocaleTimeString(__uiLocale))} · ${tCh('assetQuoteCurrencyNote', __uiLang)}</p>`;
     } else {
-      priceHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Aggiungi la tua chiave Alpha Vantage qui sopra per vedere il prezzo live.</p>`;
+      priceHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('assetQuoteKeyNeeded', __uiLang)}</p>`;
     }
   } catch (e) {
     priceHtml = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
@@ -9250,13 +9254,14 @@ window.selectAsset = async (idx) => {
   const derivatiBtn = asset.kind === 'crypto'
     ? `<button onclick="window.showCryptoPosizionamento('${asset.symbol}')" id="deriv-btn-${asset.symbol}" class="text-[10px] font-bold text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5 ml-1.5">Posizionamento derivati →</button><div id="deriv-result-${asset.symbol}" class="mt-1.5"></div>`
     : '';
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${asset.symbol}</b> · ${asset.name}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}${derivatiBtn}
+  window.addSelectedAssetToWatchlist = () => window.addToWatchlist(asset.symbol, asset.kind, asset.id, asset.name);
+  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${escapeHtml(asset.symbol)}</b> · ${escapeHtml(asset.name || '')}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}${derivatiBtn}
     <div class="flex gap-1.5 mt-2">
       <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]" name="alert-direction"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
-      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="Soglia €" name="alert-threshold" aria-label="Soglia €" />
+      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="${asset.kind === 'crypto' ? 'Soglia €' : 'Soglia nel listino'}" name="alert-threshold" aria-label="${asset.kind === 'crypto' ? 'Soglia €' : 'Soglia nel listino'}" />
       <button onclick="window.addPriceAlert('${asset.symbol}','${asset.kind}')" class="px-2.5 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Avvisami</button>
     </div>
-    <button onclick="window.addToWatchlist('${asset.symbol}','${asset.kind}','${asset.id}','${(asset.name || '').replace(/'/g, "\\'")}')" class="mt-1.5 text-[10px] text-[var(--primary)] underline">Segui questo asset (aggiorna il prezzo da solo, senza rifare la ricerca)</button>
+    <button onclick="window.addSelectedAssetToWatchlist()" class="mt-1.5 text-[10px] text-[var(--primary)] underline">Segui questo asset (aggiorna il prezzo da solo, senza rifare la ricerca)</button>
   </div>`;
 };
 
@@ -9462,6 +9467,11 @@ window.addToWatchlist = (symbol, kind, id, name) => {
   showToast(`${symbol} seguito: il prezzo si aggiorna da solo, non serve rifare la ricerca.`, 'success');
   renderWatchlist();
 };
+function formatTrackedQuote(amount, kind) {
+  return kind === 'crypto'
+    ? formatMoney(amount)
+    : new Intl.NumberFormat(__uiLocale, { maximumFractionDigits: 5 }).format(amount);
+}
 window.removeFromWatchlist = (symbol) => {
   VaultDAO.state.watchlist = (VaultDAO.state.watchlist || []).filter(w => w.symbol !== symbol);
   VaultDAO.save();
@@ -9473,11 +9483,15 @@ function renderWatchlist() {
   const list = VaultDAO.state.watchlist || [];
   if (!list.length) { el.innerHTML = ''; return; }
   const live = window.__livePrices || {};
-  el.innerHTML = list.map(w => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
-    <span><b>${w.symbol}</b> · ${w.name || ''} ${Number.isFinite(live[w.symbol]) ? `— <span class="text-[var(--gold)] font-mono">${formatMoney(live[w.symbol])}</span>` : '<span class="text-slate-500">in aggiornamento...</span>'}</span>
-    <button onclick="window.removeFromWatchlist('${w.symbol}')" class="text-rose-300">${ICON_REMOVE_SM}</button>
+  el.innerHTML = list.map((w, index) => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
+    <span><b>${escapeHtml(w.symbol || '')}</b> · ${escapeHtml(w.name || '')} ${Number.isFinite(live[w.symbol]) ? `— <span class="text-[var(--gold)] font-mono">${formatTrackedQuote(live[w.symbol], w.kind)}</span>` : '<span class="text-slate-500">in aggiornamento...</span>'}</span>
+    <button onclick="window.removeFromWatchlistAt(${index})" class="text-rose-300">${ICON_REMOVE_SM}</button>
   </div>`).join('');
 }
+window.removeFromWatchlistAt = index => {
+  const item = VaultDAO.state.watchlist?.[index];
+  if (item) window.removeFromWatchlist(item.symbol);
+};
 
 // Notifica di SISTEMA reale (Web Notification API): un toast si vede solo
 // se l'app è aperta in quel momento — un avviso di prezzo deve arrivare
@@ -9740,7 +9754,7 @@ window.addPriceAlert = async (symbol, kind) => {
         }
       }
     } catch (_) {}
-    showToast(`Ti avviserò quando ${symbol} ${direction === 'above' ? 'supera' : 'scende sotto'} ${formatMoney(threshold)}.`, 'success');
+    showToast(`Ti avviserò quando ${symbol} ${direction === 'above' ? 'supera' : 'scende sotto'} ${formatTrackedQuote(threshold, kind)}.`, 'success');
     renderPriceAlerts();
   } catch (e) {
     showToast(e.message, 'error');
@@ -9756,11 +9770,15 @@ function renderPriceAlerts() {
   if (!el) return;
   const alerts = VaultDAO.state.priceAlerts || [];
   if (!alerts.length) { el.innerHTML = ''; return; }
-  el.innerHTML = alerts.map(a => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
-    <span class="flex items-center gap-1.5">${a.triggeredAt ? ICON_ALERT_ACTIVE : ICON_ALERT_PENDING} <b>${a.symbol}</b> ${a.direction === 'above' ? '>' : '<'} ${formatMoney(a.threshold)}${a.triggeredAt ? ` — scattato a ${formatMoney(a.triggeredPrice)}` : ''}</span>
-    <button onclick="window.removePriceAlertUI('${a.id}')" class="text-rose-300">${ICON_REMOVE_SM}</button>
+  el.innerHTML = alerts.map((a, index) => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
+    <span class="flex items-center gap-1.5">${a.triggeredAt ? ICON_ALERT_ACTIVE : ICON_ALERT_PENDING} <b>${escapeHtml(a.symbol || '')}</b> ${a.direction === 'above' ? '>' : '<'} ${formatTrackedQuote(a.threshold, a.kind)}${a.triggeredAt ? ` — scattato a ${formatTrackedQuote(a.triggeredPrice, a.kind)}` : ''}</span>
+    <button onclick="window.removePriceAlertAt(${index})" class="text-rose-300">${ICON_REMOVE_SM}</button>
   </div>`).join('');
 }
+window.removePriceAlertAt = index => {
+  const item = VaultDAO.state.priceAlerts?.[index];
+  if (item) window.removePriceAlertUI(item.id);
+};
 window.removePriceAlertUI = (id) => {
   VaultDAO.state.priceAlerts = removePriceAlert(VaultDAO.state.priceAlerts || [], id);
   VaultDAO.save();
@@ -23196,7 +23214,12 @@ const initApp = () => {
         return;
       }
       const keys = VaultDAO.state.liveDataKeys || {};
-      const hasCloudKey = keys.gemini || keys.groq || keys.deepseek || keys.openai || keys.anthropic;
+      let cloudTools = null;
+      if (res.intent === 'unknown') {
+        try { cloudTools = await import('./ai/chat-fallback.js'); } catch (_) { /* il percorso locale resta disponibile */ }
+      }
+      const configuredProviders = cloudTools?.configuredChatProviders(keys) || [];
+      const hasCloudKey = configuredProviders.length > 0;
       if (res.intent === 'unknown' && !hasCloudKey) {
         // Nessuna chiave cloud configurata: la domanda resta comunque un
         // segnale di apprendimento locale, sempre disponibile.
@@ -23205,24 +23228,21 @@ const initApp = () => {
       }
       if (res.intent === 'unknown' && hasCloudKey) {
         showQaThinking(res.answer);
-        // Riconoscimento DINAMICO dell'asset (richiesta esplicita: il regex
-        // sopra è statico, qualunque altra formulazione — "come sta andando
-        // quella cripto famosa" — deve funzionare comunque). Usa la STESSA
-        // AI esterna già configurata solo per capire DI COSA parla la
-        // domanda; il grafico/prezzo restano sempre dati reali presi dopo,
-        // mai inventati da questa chiamata. Se non trova un asset, prosegue
-        // normalmente sulla chat generica.
+        // Per richieste vaghe sui mercati usa l'assistente configurato solo
+        // per trovare il nome dell'asset. Le altre domande saltano questa
+        // chiamata: il grafico/prezzo deriva sempre da una fonte reale.
+        if (needsDynamicAssetExtraction(question)) {
+          try {
+            const firstProvider = configuredProviders[0];
+            const dynamicAsset = await cloudTools.extractAssetName(question, { apiKey: keys[firstProvider], provider: firstProvider });
+            if (dynamicAsset) {
+              const handled = await tryAnswerWithRealNews(dynamicAsset);
+              if (handled) return;
+            }
+          } catch (_) { /* se l'estrazione fallisce, prosegue sulla chat generica */ }
+        }
         try {
-          const { extractAssetName } = await import('./ai/chat-fallback.js');
-          const firstProvider = ['gemini', 'groq', 'deepseek', 'openai', 'anthropic'].find(p => keys[p]);
-          const dynamicAsset = await extractAssetName(question, { apiKey: keys[firstProvider], provider: firstProvider });
-          if (dynamicAsset) {
-            const handled = await tryAnswerWithRealNews(dynamicAsset);
-            if (handled) return;
-          }
-        } catch (_) { /* onesto: se l'estrazione fallisce, prosegue sulla chat generica */ }
-        try {
-          const { askCloudFallbackChain, buildFinancialContextSummary } = await import('./ai/chat-fallback.js');
+          const { askCloudFallbackChain, buildFinancialContextSummary } = cloudTools;
           // Aggregated financial data still requires an explicit, separate choice.
           let contextSummary = null;
           if (VaultDAO.state.chatContextOptIn === true) {
@@ -24464,15 +24484,15 @@ async function initMomentumRealAI() {
       watchlist.forEach(w => tracked.set(w.symbol, w.kind));
       const missing = [...tracked.keys()].filter(s => !Number.isFinite(live[s]));
       if (missing.length) {
-        const { fetchLiveCryptoPrice, fetchLiveStockPrice } = await import('./alpha/live-price.js');
+        const { fetchLiveCryptoPrice, fetchConfiguredStockPrice } = await import('./alpha/live-price.js');
         for (const symbol of missing.slice(0, 5)) {
           const kind = tracked.get(symbol);
           try {
             if (kind === 'crypto') {
               const { price } = await fetchLiveCryptoPrice(symbol.toLowerCase());
               live[symbol] = price;
-            } else if (VaultDAO.state.liveDataKeys?.alphavantage) {
-              const { price } = await fetchLiveStockPrice(symbol, { apiKey: VaultDAO.state.liveDataKeys.alphavantage });
+            } else if (VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
+              const { price } = await fetchConfiguredStockPrice(symbol, { keys: VaultDAO.state.liveDataKeys });
               live[symbol] = price;
             }
           } catch (_) {}
@@ -24485,7 +24505,7 @@ async function initMomentumRealAI() {
         VaultDAO.state.priceAlerts = updated;
         VaultDAO.save();
         fired.forEach(a => {
-          const msg = `${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatMoney(a.threshold)} (ora ${formatMoney(a.triggeredPrice)}).`;
+          const msg = `${a.symbol} ha ${a.direction === 'above' ? 'superato' : 'toccato sotto'} ${formatTrackedQuote(a.threshold, a.kind)} (ora ${formatTrackedQuote(a.triggeredPrice, a.kind)}).`;
           showToast(msg, 'info');
           notifyUser('Momentum · avviso di prezzo', msg, 'prezzi');
         });

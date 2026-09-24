@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { fetchLiveCryptoPrice, fetchLiveStockPrice, STOCK_PROVIDER_IDS } = await import('./live-price.js');
+const { fetchLiveCryptoPrice, fetchLiveStockPrice, fetchConfiguredStockPrice, STOCK_PROVIDER_IDS } = await import('./live-price.js');
 
 function mockFetch(status, body) {
   return async () => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -61,6 +61,35 @@ test('fetchLiveStockPrice: Twelve Data, risposta reale-shape → prezzo estratto
   const fetchImpl = async () => ({ ok: true, status: 200, json: async () => ({ price: '333.070007' }) });
   const r = await fetchLiveStockPrice('AAPL', { provider: 'twelvedata', apiKey: 'demo', fetchImpl });
   assert.ok(Math.abs(r.price - 333.07) < 0.001);
+});
+
+test('quotazione: data ricevuta distinta dalla data del mercato e Alpha Vantage gratuito etichettato fine giornata', async () => {
+  const r = await fetchLiveStockPrice('IBM', { apiKey: 'k', fetchImpl: mockFetch(200, { 'Global Quote': { '05. price': '209.28', '07. latest trading day': '2026-09-23' } }) });
+  assert.equal(r.marketAsOf, '2026-09-23');
+  assert.equal(r.freshness, 'end-of-day');
+  assert.ok(r.asOf);
+});
+
+test('quotazione: Alpha Vantage esaurita passa a Twelve Data già configurata', async () => {
+  const calls = [];
+  const fetchImpl = async url => {
+    calls.push(url);
+    return mockFetch(200, url.includes('alphavantage') ? { Note: 'limit' } : { price: '202.55' })();
+  };
+  const r = await fetchConfiguredStockPrice('AAPL', { keys: { alphavantage: 'av', twelvedata: 'td' }, fetchImpl });
+  assert.equal(r.price, 202.55);
+  assert.equal(r.source, 'Twelve Data');
+  assert.equal(calls.length, 2);
+});
+
+test('quotazione: sola chiave Twelve Data funziona; FMP da sola non promette prezzo aggiornato', async () => {
+  const fetchImpl = mockFetch(200, { price: '10.50' });
+  assert.equal((await fetchConfiguredStockPrice('AAPL', { keys: { twelvedata: 'td' }, fetchImpl })).price, 10.5);
+  await assert.rejects(() => fetchConfiguredStockPrice('AAPL', { keys: { fmp: 'fmp' }, fetchImpl }), /Alpha Vantage o Twelve Data/);
+});
+
+test('quotazione: due fonti fallite non producono un prezzo finto', async () => {
+  await assert.rejects(() => fetchConfiguredStockPrice('AAPL', { keys: { alphavantage: 'av', twelvedata: 'td' }, fetchImpl: mockFetch(200, {}) }), /Nessuna fonte/);
 });
 
 test('fetchLiveStockPrice: limite giornaliero raggiunto (Alpha Vantage risponde 200 con "Note") è onesto, non un prezzo a caso', async () => {

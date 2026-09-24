@@ -5741,15 +5741,22 @@
                    cui inviarla. -->
               <div class="card p-6 flex flex-col justify-between order-9 advanced-card" id="live-prices-card">
                 <div>
-                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Prezzi live (opzionale)</span></h3>
-                  <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Le cripto funzionano già. Se ti servono prezzi aggiornati di azioni o ETF, collega una fonte esterna.</p>
+                  <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Dati per investire</span></h3>
+                  <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Puoi analizzare i tuoi investimenti senza configurare nulla. Per cercare altri titoli e vedere quotazioni recenti, collega una fonte esterna solo se ti serve.</p>
+                  <div class="vault-investment-path" aria-label="Dati per investire">
+                    <div><span class="vault-investment-mark" aria-hidden="true">01</span><div><strong data-i18n-key="vaultInvestReady">Già pronto</strong><p data-i18n-key="vaultInvestReadyBody">Portafoglio, scenari e storico già presente. Le cripto possono aggiornarsi senza chiave.</p></div></div>
+                    <div><span class="vault-investment-mark" aria-hidden="true">02</span><div><strong data-i18n-key="vaultInvestConnect">Se vuoi quotazioni recenti</strong><p data-i18n-key="vaultInvestConnectBody">Scegli una fonte per azioni ed ETF. Le quote possono essere di fine giornata e hanno i limiti del fornitore.</p></div></div>
+                  </div>
+                  <button type="button" onclick="window.openApiKeyGuide('alphavantage')" class="btn-action btn-primary vault-investment-cta" data-i18n-key="vaultInvestConnectAction">Collega una fonte</button>
+                  <button type="button" onclick="window.openWorkspacePanel('asset-search-card', 'alphaAssetSearchTitle')" class="vault-investment-explore" data-i18n-key="vaultInvestExploreAction">Esplora titoli e cripto senza configurare nulla</button>
+                  <p id="live-price-status" class="text-[11px] text-[var(--on-surface-secondary)] mt-2" aria-live="polite"></p>
+                  <details class="vault-focus-details vault-market-manage"><summary data-i18n-key="vaultMarketManage">Gestisci le fonti di mercato</summary>
                   <div class="space-y-2 mt-3">
                     <div class="flex gap-2">
                       <input type="password" id="alphavantage-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Alpha Vantage..." data-i18n-placeholder="vaultKeyPlaceholderAV" name="alphavantage-key-input" aria-label="La tua chiave Alpha Vantage..." data-i18n-aria="vaultKeyPlaceholderAV" />
                       <button onclick="window.saveLiveDataKey('alphavantage')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>
                     </div>
                     <button onclick="window.openApiKeyGuide('alphavantage')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
-                    <p id="live-price-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
                   <details class="vault-focus-details vault-key-fallbacks">
                     <summary data-i18n-key="vaultOtherMarketSources">Altre fonti, solo se ti servono</summary>
@@ -5797,6 +5804,7 @@
                     <button onclick="window.openApiKeyGuide('newsapi')" class="text-[10px] text-[var(--primary)] underline text-left" data-i18n-key="vaultKeyGuideLink">Non sai come? Guida passo-passo →</button>
                     <p id="newsapi-status" class="text-[10px] text-[var(--on-surface-secondary)]"></p>
                   </div>
+                  </details>
                   </details>
                 </div>
               </div>

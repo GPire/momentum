@@ -654,6 +654,14 @@ RELEASES.push({
     { colore: 'green', icona: '<path d="M4 6h16M4 12h12M4 18h8"/><circle cx="19" cy="18" r="2"/>', titolo: 'Più chiaro dal primo avvio', testo: 'La schermata di attesa segue la lingua scelta, i movimenti si leggono meglio e Vault mostra le opzioni tecniche quando le apri.', titoloKey: 'vaultClarityTitle', testoKey: 'vaultClarityBody' },
   ],
 });
+RELEASES.push({
+  versione: '2026-09-24d',
+  voci: [{ colore: 'gold', icona: '<circle cx="11" cy="11" r="7"/><path d="m16 16 5 5M8 11h6"/>', titolo: 'Una domanda, meno passaggi', testo: 'Per le domande generiche Momentum evita una ricerca di titoli non necessaria. Le chiavi degli assistenti disponibili ora vengono riconosciute tutte.', titoloKey: 'qaFewerCallsTitle', testoKey: 'qaFewerCallsBody' }],
+});
+RELEASES.push({
+  versione: '2026-09-24e',
+  voci: [{ colore: 'primary', icona: '<path d="M3 17l6-6 4 3 8-9"/><path d="M3 21h18"/>', titolo: 'Investimenti senza passaggi inutili', testo: 'Il Vault distingue ciò che funziona subito dalle fonti facoltative. Nella ricerca titoli usa anche Twelve Data e FMP se li hai collegati; per le quotazioni prova Twelve Data quando Alpha Vantage non risponde.', titoloKey: 'marketKeysFixTitle', testoKey: 'marketKeysFixBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

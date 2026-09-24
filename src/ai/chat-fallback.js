@@ -204,6 +204,10 @@ async function askAnthropic(question, { apiKey, fetchImpl, model = 'claude-3-5-h
 }
 
 export const CLOUD_CHAT_PROVIDERS = { gemini: askGemini, groq: askGroq, deepseek: askDeepseek, mistral: askMistral, openrouter: askOpenRouter, cerebras: askCerebras, qwen: askQwen, moonshot: askMoonshot, glm: askGlm, openai: askOpenAI, anthropic: askAnthropic, xai: askXai };
+export const CLOUD_CHAT_ORDER = ['groq', 'gemini', 'openrouter', 'mistral', 'qwen', 'moonshot', 'glm', 'cerebras', 'deepseek', 'xai', 'openai', 'anthropic'];
+export function configuredChatProviders(keys = {}, order = CLOUD_CHAT_ORDER) {
+  return order.filter(provider => CLOUD_CHAT_PROVIDERS[provider] && typeof keys?.[provider] === 'string' && keys[provider].trim());
+}
 const PROVIDER_LABELS = { gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral', openrouter: 'OpenRouter', cerebras: 'Cerebras', qwen: 'Qwen', moonshot: 'Moonshot AI', glm: 'GLM (Zhipu)', openai: 'OpenAI', anthropic: 'Anthropic', xai: 'xAI' };
 
 // Riconoscimento DINAMICO dell'asset (richiesta esplicita dell'utente: un
@@ -240,7 +244,7 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 
 // Fallback A CATENA (richiesto esplicitamente): prova ogni provider per cui
 // l'utente ha configurato una chiave, IN ORDINE, e si ferma al primo che
-// risponde. `keys` = { gemini?, groq?, deepseek?, openai?, anthropic? }. Se
+// risponde. `keys` può contenere uno qualunque dei provider supportati. Se
 // tutti falliscono, rilancia l'ULTIMO errore reale (mai un errore generico
 // che nasconde cosa è successo davvero). `order` di default: prima i
 // GRATUITI confermati (Gemini, Groq), poi quello da verificare (DeepSeek),
@@ -260,8 +264,8 @@ export async function askCloudFallback(question, { apiKey, fetchImpl = fetch, pr
 //   spostato vicino ai servizi a pagamento, non è più "gratis senza carta".
 // - DeepSeek: a consumo, nessun livello gratuito confermato.
 // - xAI/OpenAI/Anthropic: sempre a pagamento.
-export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = ['groq', 'gemini', 'openrouter', 'mistral', 'qwen', 'moonshot', 'glm', 'cerebras', 'deepseek', 'xai', 'openai', 'anthropic'], contextSummary = null } = {}) {
-  const attempts = order.filter((p) => keys[p]);
+export async function askCloudFallbackChain(question, { keys = {}, fetchImpl = fetch, order = CLOUD_CHAT_ORDER, contextSummary = null } = {}) {
+  const attempts = configuredChatProviders(keys, order);
   if (!attempts.length) throw new Error('Nessuna chiave di chat generica configurata.');
   let lastError = null;
   for (const provider of attempts) {

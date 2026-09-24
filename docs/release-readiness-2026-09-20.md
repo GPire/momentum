@@ -1,5 +1,37 @@
 # Momentum — stato reale e lavoro restante
 
+## Vault investimenti e chiavi personali — 24 settembre 2026
+
+Il Vault ora separa le analisi disponibili con i dati già presenti nel
+dispositivo dalle quotazioni esterne facoltative. La guida resta accessibile
+in un tocco, mentre i campi delle varie chiavi sono raccolti nei dettagli.
+La ricerca titoli dell'interfaccia usa la cascata già implementata Alpha
+Vantage → Twelve Data → FMP; prima passava solo Alpha Vantage. Il prezzo
+azionario prova Alpha Vantage e poi Twelve Data se entrambe le chiavi sono
+state fornite. FMP non è presentato come fonte di prezzi in tempo reale.
+L'ora di ricezione della risposta non viene più chiamata ora del mercato e
+il prezzo azionario non è formattato automaticamente in euro nella scheda,
+nella lista dei titoli seguiti o negli avvisi. Si può esplorare la ricerca
+senza alcuna chiave: titoli noti dalla tabella locale, cripto da CoinGecko.
+Le stringhe visibili aggiunte sono tradotte nelle sette lingue supportate.
+
+Prove automatiche mirate: `live-price.test.js` 17/17,
+`asset-search.test.js` 36/36, `whats-new.test.js` 10/10; suite completa
+408/408 file. Build portabile: 459 moduli. Anteprima browser isolata:
+Vault → preferenza investimenti →
+guida Alpha Vantage → ricerca Apple senza chiave → scheda AAPL senza prezzo
+inventato. Le chiavi personali
+non sono state collaudate con account reali: salvarle non certifica accesso,
+copertura, licenza commerciale o freschezza della fonte. I prezzi nel resto
+del portafoglio e gli avvisi preesistenti richiedono ancora un audit completo
+della valuta del listino prima di considerarli affidabili in ogni mercato.
+Nessuna chiave esistente viene rimossa o migrata da questo cambiamento.
+
+L'assistente generico ora riconosce tutti e dodici i provider già offerti
+nel Vault; una domanda generica evita l'estrazione esterna di un nome titolo
+che prima aggiungeva una richiesta e attesa. Rimangono da misurare su utenti
+consenzienti i tempi di risposta e gli errori dei provider reali.
+
 ## Percorso d'ingresso e velocità web — 24 settembre 2026
 
 È stata aggiunta una pagina statica italiana dedicata a dividere una spesa,

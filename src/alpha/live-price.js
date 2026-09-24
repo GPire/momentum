@@ -1,5 +1,5 @@
 // ============================================================
-// PREZZO LIVE — solo cripto, verificato CORS-compatibile (v1)
+// Prezzi di mercato: la data di ricezione non è la data della quotazione.
 // ============================================================
 // Onestà tecnica (regola #1 del progetto, "100% on-device"): quella regola
 // dice che i TUOI DATI PERSONALI (spese, transazioni, saldo) non escono MAI
@@ -8,16 +8,10 @@
 // dell'utente, entra solo un prezzo pubblico, e SOLO quando l'utente tocca
 // esplicitamente "Aggiorna" (mai in background, mai automatico).
 //
-// Verificato con una chiamata REALE prima di scrivere questo modulo (non
-// assunto): Yahoo Finance e Stooq bloccano le richieste dirette dal browser
-// (nessun header CORS) — servirebbe un server-proxy, che reintrodurrebbe
-// esattamente la dipendenza da server che il progetto rifiuta. CoinGecko
-// invece espone un'API pubblica CORS-abilitata, chiamabile direttamente dal
-// dispositivo dell'utente senza alcun intermediario Momentum.
-// LIMITE ONESTO: questo copre SOLO le cripto (dove CoinGecko risponde). Per
-// azioni/indici (S&P 500, SPY...) non esiste oggi una fonte gratuita
-// chiamabile direttamente dal browser — restano sullo scatto statico datato
-// (src/alpha/measured-assumptions.js), mai spacciato per un dato live.
+// CoinGecko fornisce prezzi cripto senza chiave. Per le azioni l'utente può
+// interrogare direttamente Alpha Vantage o Twelve Data con le proprie chiavi;
+// disponibilità, copertura, ritardo e licenza dipendono dal piano del provider.
+// Non chiamare "live" una risposta solo perché è stata ricevuta ora.
 'use strict';
 
 const COINGECKO_IDS = {
@@ -54,15 +48,10 @@ export async function fetchLiveCryptoPrice(coin = 'bitcoin', { vsCurrency = 'eur
   return { price, asOf: new Date().toISOString(), source: 'CoinGecko (pubblico, nessun dato personale inviato)' };
 }
 
-// ── AZIONI/INDICI LIVE — verificato con chiamata reale, non assunto ─────────
-// A differenza di Yahoo Finance/Stooq (bloccano il browser, nessun header
-// CORS — servirebbe un proxy, cioè un server Momentum: esattamente ciò che il
-// progetto rifiuta), Alpha Vantage e Twelve Data rispondono DIRETTAMENTE dal
-// dispositivo con una chiave gratuita che l'UTENTE ottiene da sé (pochi
-// secondi, nessuna carta, nessun account Momentum). La chiave vive SOLO nel
-// vault locale dell'utente — mai inviata a un server Momentum, perché non ne
-// esiste uno. Due provider supportati (non uno solo): se uno cambia o
-// deprecata l'endpoint gratuito, l'altro resta un piano B onesto.
+// ── AZIONI/INDICI — fonti facoltative con chiave personale ──────────────────
+// La chiave rimane nello stato locale di Momentum e viene inviata al provider
+// scelto nella richiesta API. La seconda fonte è un fallback, non una garanzia
+// di disponibilità o di quotazione in tempo reale.
 const STOCK_PROVIDERS = {
   alphavantage: {
     label: 'Alpha Vantage',
@@ -72,7 +61,7 @@ const STOCK_PROVIDERS = {
       const price = q && parseFloat(q['05. price']);
       return Number.isFinite(price) ? price : null;
     },
-    rateLimitHint: 'gratis: 25 richieste al giorno',
+    rateLimitHint: 'controlla la quota sul sito del provider',
   },
   twelvedata: {
     label: 'Twelve Data',
@@ -81,19 +70,16 @@ const STOCK_PROVIDERS = {
       const price = json?.price !== undefined ? parseFloat(json.price) : null;
       return Number.isFinite(price) ? price : null;
     },
-    rateLimitHint: 'gratis: ~800 richieste al giorno (8/minuto)',
+    rateLimitHint: 'controlla la quota sul sito del provider',
   },
 };
 
 export const STOCK_PROVIDER_IDS = Object.keys(STOCK_PROVIDERS);
 
-// Prezzo live di un'azione/indice/ETF (es. "SPY", "AAPL"). Richiede una chiave
-// gratuita fornita dall'UTENTE (mai una chiave condivisa Momentum: quella
-// legherebbe tutti gli utenti a un unico limite di richieste e a un servizio
-// terzo gestito da noi, il contrario di "on-device"). Senza chiave: tace
-// esplicitamente, non prova a indovinare un provider.
+// Prezzo disponibile di un'azione/indice/ETF (es. "SPY", "AAPL"). Senza
+// chiave personale non prova a indovinare una quotazione.
 export async function fetchLiveStockPrice(symbol, { provider = 'alphavantage', apiKey, fetchImpl = fetchWithTimeout } = {}) {
-  if (!apiKey) throw new Error('Serve una chiave API personale (gratuita) per i prezzi live di azioni/indici.');
+  if (!apiKey) throw new Error('Serve una chiave API personale per le quotazioni di azioni/indici.');
   const p = STOCK_PROVIDERS[provider];
   if (!p) throw new Error(`Provider "${provider}" non supportato.`);
   let res;
@@ -104,13 +90,36 @@ export async function fetchLiveStockPrice(symbol, { provider = 'alphavantage', a
   }
   if (!res.ok) throw new Error(`${p.label} ha risposto ${res.status}: resto sul dato storico.`);
   const json = await res.json();
-  if (json?.Note || json?.Information) {
+  if (json?.Note || json?.Information || json?.status === 'error' || json?.code) {
     // Alpha Vantage restituisce 200 anche quando il limite giornaliero è
     // esaurito, con un messaggio in 'Note'/'Information' invece del prezzo:
     // onesto segnalarlo come tale, non come "prezzo non trovato" generico.
-    throw new Error(`${p.label}: limite richieste raggiunto (${p.rateLimitHint}). Riprova più tardi.`);
+    throw new Error(`${p.label}: chiave, copertura o limite richieste da verificare (${p.rateLimitHint}). Riprova più tardi.`);
   }
   const price = p.extract(json);
-  if (price === null) throw new Error(`Prezzo non trovato per "${symbol}" su ${p.label}: resto sul dato storico.`);
-  return { price, asOf: new Date().toISOString(), source: `${p.label} (chiave personale dell'utente, nessun server Momentum coinvolto)` };
+  if (price === null || price <= 0) throw new Error(`Prezzo non trovato per "${symbol}" su ${p.label}: resto sul dato storico.`);
+  return {
+    price,
+    asOf: new Date().toISOString(), // istante della risposta, NON istante del mercato
+    marketAsOf: provider === 'alphavantage' ? (json?.['Global Quote']?.['07. latest trading day'] || null) : null,
+    source: p.label,
+    freshness: provider === 'alphavantage' ? 'end-of-day' : 'latest-available',
+  };
+}
+
+// Una chiave salvata non garantisce una risposta: prova la seconda fonte già
+// configurata, senza inventare un prezzo se entrambe falliscono. FMP è solo
+// ricerca/storico qui; il piano gratuito non è un backup quotazioni intraday.
+export async function fetchConfiguredStockPrice(symbol, { keys = {}, fetchImpl = fetchWithTimeout } = {}) {
+  const available = STOCK_PROVIDER_IDS.filter(provider => keys[provider]);
+  if (!available.length) throw new Error('Collega Alpha Vantage o Twelve Data per vedere una quotazione aggiornata.');
+  let lastError;
+  for (const provider of available) {
+    try {
+      return await fetchLiveStockPrice(symbol, { provider, apiKey: keys[provider], fetchImpl });
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw new Error(`Nessuna fonte di prezzo disponibile: ${lastError?.message || 'riprova più tardi.'}`);
 }

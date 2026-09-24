@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { detectNewsIntent, looksLikeBareAssetQuery } from './news-intent.js';
+import { detectNewsIntent, looksLikeBareAssetQuery, needsDynamicAssetExtraction } from './news-intent.js';
 
 test('detectNewsIntent: "dammi le notizie di Nvidia di oggi" -> Nvidia', () => {
   const r = detectNewsIntent("dammi le notizie di Nvidia di oggi");
@@ -169,4 +169,17 @@ test('looksLikeBareAssetQuery: già gestito da detectNewsIntent -> non serve, ma
   // che la funzione non esploda, la precedenza reale è garantita in main.js
   // dal controllo `!newsIntent` prima di chiamare questa funzione.
   assert.equal(looksLikeBareAssetQuery('quanto vale bitcoin?'), false);
+});
+
+test('estrazione esterna dell’asset solo per domande che parlano di mercati', () => {
+  for (const question of [
+    'come sta andando quella cripto famosa?', 'How is Apple doing?',
+    '¿Cómo van las acciones?', 'Comment va le marché?',
+    'Wie läuft die Börse?', 'Como vai o mercado?', 'Hoe gaat het met de markt?',
+  ]) assert.equal(needsDynamicAssetExtraction(question), true, question);
+  for (const question of [
+    'che tempo fa?', 'come funziona una rata?', 'what is the weather?',
+    '¿Cómo preparo una factura?', 'Wie richte ich mein Budget ein?',
+    'Como partilho uma despesa?', 'Hoe maak ik een back-up?', '',
+  ]) assert.equal(needsDynamicAssetExtraction(question), false, question);
 });

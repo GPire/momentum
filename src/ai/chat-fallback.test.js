@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { askCloudFallback, askCloudFallbackChain, buildFinancialContextSummary, extractAssetName } from './chat-fallback.js';
+import { askCloudFallback, askCloudFallbackChain, buildFinancialContextSummary, configuredChatProviders, extractAssetName } from './chat-fallback.js';
 
 test('askCloudFallback: senza domanda -> errore onesto', async () => {
   await assert.rejects(() => askCloudFallback('', { apiKey: 'k' }), /domanda/i);
@@ -69,6 +69,20 @@ test('askCloudFallback: risposta senza testo -> errore, mai un vuoto camuffato',
 
 test('askCloudFallbackChain: nessuna chiave configurata -> errore onesto', async () => {
   await assert.rejects(() => askCloudFallbackChain('ciao', { keys: {} }), /Nessuna chiave/i);
+});
+
+test('una chiave Qwen da sola è riconosciuta e usata, senza attivare altri provider', async () => {
+  const keys = { qwen: 'solo-qwen', gemini: '  ', unsupported: 'ignored' };
+  assert.deepEqual(configuredChatProviders(keys), ['qwen']);
+  const calls = [];
+  const fetchImpl = async (url) => {
+    calls.push(url);
+    return { ok: true, json: async () => ({ choices: [{ message: { content: 'Risposta Qwen' } }] }) };
+  };
+  const result = await askCloudFallbackChain('spiegami un concetto', { keys, fetchImpl });
+  assert.equal(result.provider, 'qwen');
+  assert.equal(result.answer, 'Risposta Qwen');
+  assert.equal(calls.length, 1);
 });
 
 test('askCloudFallbackChain: prova nell\'ordine, si ferma al primo che risponde', async () => {

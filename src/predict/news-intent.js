@@ -82,3 +82,17 @@ export function looksLikeBareAssetQuery(question) {
   if (!/^[a-zA-ZÀ-ÿ0-9&.'-]+(\s+[a-zA-ZÀ-ÿ0-9&.'-]+){0,2}$/.test(stripped)) return false;
   return !words.some((w) => STOPWORDS_NOME_SECCO.has(w.toLowerCase()));
 }
+
+// L'estrazione con un assistente esterno costa una richiesta e invia il testo
+// scritto dall'utente. Chiamarla per ogni domanda sconosciuta (anche meteo,
+// aiuto e vita quotidiana) non trova asset e raddoppia attesa e traffico.
+// Questo filtro si usa solo DOPO gli intent locali, le notizie esplicite e i
+// nomi di asset secchi: le domande sul mercato restano risolvibili, le altre
+// passano direttamente all'unica chat facoltativa configurata dall'utente.
+export function needsDynamicAssetExtraction(question) {
+  const q = String(question || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (!q.trim()) return false;
+  if (/\b(?:crypt\w*|cript\w*|bitcoin|btc|ethereum|etf\w*|stock\w*|share\w*|azion\w*|accion\w*|aktie\w*|aandelen|acoes|ticker\w*|asset\w*|borsa|boerse|mercat\w*|market\w*|markt|sect(?:or|eur)\w*|settor\w*|sektor\w*|trading|quotazion\w*|prezz\w*|price\w*)\b/.test(q)) return true;
+  return /\b(?:come va|come sta andando|como va|como vai|comment va|wie lauft|hoe gaat)\s+\S/.test(q)
+    || /\bhow(?:'s| is)\s+.{2,80}\s+(?:doing|performing|trading)\b/.test(q);
+}

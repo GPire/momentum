@@ -1120,6 +1120,18 @@ div:has(> .whatif-choices) { flex-wrap:wrap; }
 
 /* Technical choices stay available, with one understandable decision at a time. */
 .vault-focus-details { margin-top:1rem; border:1px solid var(--outline); border-radius:18px; background:color-mix(in srgb,var(--primary) 5%,var(--surface-elevated)); overflow:hidden; }
+.vault-investment-path { display:grid; gap:.65rem; margin-top:1rem; }
+.vault-investment-path > div { display:flex; align-items:flex-start; gap:.85rem; min-width:0; padding:1rem; border:1px solid var(--outline); border-radius:18px; background:radial-gradient(circle at 12% 4%,color-mix(in srgb,var(--primary) 12%,transparent),transparent 55%),var(--surface-elevated); }
+.vault-investment-path > div:last-child { background:radial-gradient(circle at 90% 2%,color-mix(in srgb,var(--gold) 11%,transparent),transparent 60%),var(--surface-elevated); }
+.vault-investment-path strong { display:block; color:var(--on-surface); font-size:.87rem; line-height:1.4; }
+.vault-investment-path p { margin-top:.25rem; color:var(--on-surface-secondary); font-size:.76rem; line-height:1.55; }
+.vault-investment-mark { display:grid; place-items:center; width:2rem; height:2rem; flex:none; border-radius:50%; border:1px solid var(--outline); color:var(--primary); font-size:.72rem; font-weight:800; }
+.vault-investment-cta { width:100%; min-height:48px; margin-top:1rem; justify-content:center; }
+.vault-investment-explore { display:block; width:100%; min-height:44px; margin-top:.35rem; padding:.5rem 1rem; color:var(--primary); font-size:.78rem; font-weight:700; text-align:center; border-radius:14px; transition:background .2s ease,transform .2s ease; }
+.vault-investment-explore:hover,.vault-investment-explore:focus-visible { background:color-mix(in srgb,var(--primary) 12%,transparent); }
+.vault-investment-explore:active { transform:scale(.985); }
+.vault-market-manage > div { padding:.1rem .85rem .8rem; }
+@media(min-width:720px) { .vault-investment-path { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .vault-focus-details > summary { display:flex; align-items:center; justify-content:space-between; gap:1rem; min-height:48px; padding:.8rem 1rem; color:var(--on-surface); font-size:.86rem; font-weight:650; cursor:pointer; list-style:none; }
 .vault-focus-details > summary::-webkit-details-marker { display:none; }
 .vault-focus-details > summary::after { content:""; width:.5rem; height:.5rem; flex:none; border-right:2px solid var(--primary); border-bottom:2px solid var(--primary); transform:rotate(45deg); }
