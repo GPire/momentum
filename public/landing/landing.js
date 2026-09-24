@@ -54,7 +54,7 @@
   let reducedMotion = motionChoice === "off" || (motionChoice === "auto" && motionMedia.matches);
   function applyMotionChoice() {
     document.documentElement.classList.toggle("motion-override",motionChoice === "on");
-    document.documentElement.classList.toggle("motion-paused",motionChoice === "off");
+    document.documentElement.classList.toggle("motion-paused",reducedMotion);
   }
   applyMotionChoice();
   const orb = createLandingOrb(document.getElementById("landing-orb-canvas"));
@@ -166,6 +166,7 @@
       wayCards.forEach((card,index) => card.classList.toggle("is-active",index === nearest));
       [...waysScenes.children].forEach((scene,index) => scene.classList.toggle("is-active",index === nearest));
       const waysProgress = Math.max(0,Math.min(1,(innerHeight * .66 - waysBounds.top) / (waysBounds.height + innerHeight * .15)));
+      waysStory.style.setProperty("--ways-progress",(reducedMotion ? (nearest + 1) / wayCards.length : waysProgress).toFixed(3));
       waysStory.style.setProperty("--ways-turn",(reducedMotion ? 0 : waysProgress * 154).toFixed(1) + "deg");
       waysStory.style.setProperty("--ways-front-turn",(reducedMotion ? 0 : waysProgress * -94).toFixed(1) + "deg");
       waysStory.style.setProperty("--ways-core-turn",(reducedMotion ? 0 : waysProgress * 16).toFixed(1) + "deg");
@@ -188,7 +189,7 @@
     }
     const trustBounds = trustStory.getBoundingClientRect();
     if (trustBounds.bottom >= 0 && trustBounds.top <= innerHeight) {
-      const targetY = innerHeight * .5;
+      const targetY = innerHeight * (innerWidth <= 960 && innerHeight > 560 ? .67 : .5);
       let nearest = 0;
       let distance = Infinity;
       for (const step of trustSteps) {
@@ -199,6 +200,7 @@
       trustStory.dataset.activeStep = String(nearest);
       trustSteps.forEach((step,index) => step.classList.toggle("is-active",index === nearest));
       const progress = Math.max(0,Math.min(1,(innerHeight * .75 - trustBounds.top) / (trustBounds.height + innerHeight * .2)));
+      trustStory.style.setProperty("--trust-progress",(reducedMotion ? (nearest + 1) / trustSteps.length : progress).toFixed(3));
       trustStory.style.setProperty("--trust-turn",(reducedMotion ? 0 : progress * 105).toFixed(1) + "deg");
       trustStory.style.setProperty("--trust-front-turn",(reducedMotion ? 0 : progress * -62).toFixed(1) + "deg");
       trustStory.style.setProperty("--trust-core-turn",(reducedMotion ? 0 : progress * 12).toFixed(1) + "deg");
@@ -399,6 +401,7 @@
   });
   const syncMotionPreference = () => {
     reducedMotion = motionChoice === "off" || (motionChoice === "auto" && motionMedia.matches);
+    applyMotionChoice();
     orb.setMotion(!reducedMotion);
     queueStoryUpdate();
     updateMotionControl();

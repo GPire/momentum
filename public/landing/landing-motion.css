@@ -350,6 +350,7 @@
 .trust-symbol-device { stroke: #e1fcff; }
 .trust-visual-progress { position: absolute; right: 1.5rem; bottom: 1.4rem; left: 1.5rem; z-index: 6; display: flex; gap: .5rem; }
 .trust-visual-progress span { height: 2px; flex: 1; border-radius: 2px; background: rgba(220,213,255,.21); transition: background .35s, box-shadow .35s; }
+.trust-visual-progress::after { content: ""; position: absolute; top: .45rem; right: 0; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg,#c9baff,#8ce4ea,#dfc7ff); box-shadow: 0 0 .7rem rgba(165,210,247,.5); transform: scaleX(var(--trust-progress,0)); transform-origin: left; }
 .trust-story[data-active-step="0"] .trust-visual-progress span:nth-child(1), .trust-story[data-active-step="1"] .trust-visual-progress span:nth-child(-n+2), .trust-story[data-active-step="2"] .trust-visual-progress span { background: #c9c1ff; box-shadow: 0 0 .6rem rgba(194,178,255,.65); }
 .trust-fact { border-radius: 1.5rem; transition: background .45s ease, border-color .45s ease; }
 .trust-fact.is-active { background: linear-gradient(125deg, rgba(137,118,232,.1), rgba(88,179,214,.04) 70%, transparent); border-color: rgba(186,177,255,.45); }
@@ -440,14 +441,15 @@
 .enhanced .hero-visual.is-visible .orbit-scene { animation: scene-enter .85s ease-out both; }
 .enhanced .hero-visual.is-visible .preview-shell { animation: card-enter .7s ease-out .23s both; }
 .enhanced .section-intro.is-visible > :is(.eyebrow, h2, p:last-child),
-.enhanced .trust-copy.is-visible > :is(.eyebrow, h2, p:last-child),
+.enhanced .trust-copy.is-visible > :is(.eyebrow, h2, p:not(.eyebrow), .trust-privacy-link),
 .enhanced .fiscal-copy.is-visible > :is(.eyebrow, h2, p) { animation: section-arrive .76s cubic-bezier(.22,1,.36,1) both; }
 .enhanced .section-intro.is-visible > h2,
 .enhanced .trust-copy.is-visible > h2,
 .enhanced .fiscal-copy.is-visible > h2 { animation-delay: .1s; }
 .enhanced .section-intro.is-visible > p:last-child,
-.enhanced .trust-copy.is-visible > p:last-child,
+.enhanced .trust-copy.is-visible > p:not(.eyebrow),
 .enhanced .fiscal-copy.is-visible > p:not(.eyebrow) { animation-delay: .19s; }
+.enhanced .trust-copy.is-visible > .trust-privacy-link { animation-delay: .28s; }
 .enhanced .step.is-visible .step-art,
 .enhanced .way.is-visible .way-icon { animation: icon-arrive .72s cubic-bezier(.22,1,.36,1) both; }
 .enhanced .way.is-visible .way-icon { animation-delay: .15s; }
@@ -1052,6 +1054,7 @@ html.motion-paused :is(.preview-tabs button[aria-selected="true"]::after,.trust-
 @keyframes ways-signal-float { 50% { transform: translateY(.35rem) rotate(3deg) rotateY(7deg); } }
 .ways-stage-progress { position: absolute; z-index: 5; right: 1.4rem; bottom: 1.3rem; left: 1.4rem; display: flex; gap: .45rem; }
 .ways-stage-progress span { height: 2px; flex: 1; border-radius: 3px; background: rgba(227,223,255,.24); transition: background .3s, box-shadow .3s; }
+.ways-stage-progress::after { content: ""; position: absolute; top: .45rem; right: 0; left: 0; height: 2px; border-radius: 2px; background: linear-gradient(90deg,#c7b7ff,#8fe1ec,#f4c888); box-shadow: 0 0 .7rem rgba(176,198,248,.55); transform: scaleX(var(--ways-progress,0)); transform-origin: left; }
 .ways-story[data-active-way="0"] .ways-stage-progress span:nth-child(-n+1),.ways-story[data-active-way="1"] .ways-stage-progress span:nth-child(-n+2),.ways-story[data-active-way="2"] .ways-stage-progress span:nth-child(-n+3),.ways-story[data-active-way="3"] .ways-stage-progress span:nth-child(-n+4),.ways-story[data-active-way="4"] .ways-stage-progress span:nth-child(-n+5),.ways-story[data-active-way="5"] .ways-stage-progress span { background: #d6d0ff; box-shadow: 0 0 .6rem rgba(194,183,255,.65); }
 .ways-story .ways-grid { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; min-width: 0; }
 .ways-story .way { justify-content: center; min-height: clamp(22rem, 54vh, 32rem); margin: 0; padding: clamp(1.4rem, 3vw, 2.4rem); border: 0; border-top: 1px solid rgba(193,187,245,.18); border-radius: 1.5rem; background: transparent; box-shadow: none; opacity: .64; transition: opacity .45s, background .5s, transform .6s cubic-bezier(.22,1,.36,1); }
@@ -1160,4 +1163,44 @@ body { padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right,
   .ways-story .way { min-height: 0; padding-block: 1.5rem; }
   .ways-story .ways-grid .way-icon { display: grid; width: 2.75rem; height: 2.75rem; margin-bottom: .85rem; }
   .ways-story .ways-grid .way-icon svg { width: 1.6rem; height: 1.6rem; }
+}
+
+/* On narrow layouts, the chapter stays beside its explanation, not repeated
+   inside the illustration that follows the scroll. */
+@media (max-width: 960px) {
+  .ways-stage-label, .trust-visual-titles { display: none; }
+}
+@media (max-width: 960px) and (min-height: 561px) {
+  .trust-story { display: flex; flex-direction: column; gap: 0; }
+  .trust-visual { position: sticky; top: calc(5rem + env(safe-area-inset-top, 0px)); z-index: 3; align-self: stretch; margin-bottom: 1rem; }
+}
+@media (max-width: 700px) and (min-height: 561px) {
+  .trust-visual { top: calc(4.25rem + env(safe-area-inset-top, 0px)); }
+}
+@media (min-width: 701px) and (max-width: 960px) {
+  .ways-stage, .trust-visual { min-height: 15rem; }
+  .ways-stage-core { width: min(34%, 12rem); }
+  .ways-story .way { min-height: 14rem; }
+  .trust-fact { min-height: 15rem; }
+}
+@media (max-width: 700px) and (orientation: portrait) {
+  .ways-stage { min-height: clamp(10rem, 34vw, 12rem); }
+  .ways-stage-core { width: 35%; }
+  .ways-stage-scene .way-signal { right: 6%; bottom: 19%; width: 43%; height: 47%; }
+  .ways-story .way { min-height: 11rem; padding: 1.35rem .95rem; }
+  .ways-story .way-number { display: none; }
+  .ways-story .way p { max-width: 34ch; margin: 0; line-height: 1.55; }
+  .trust-visual { min-height: 13rem; }
+  .trust-fact { min-height: 12rem; }
+  .fiscal-step, .intelligence-step, .proof-step { min-height: clamp(15rem, 32vh, 17rem); }
+  .enhanced .intelligence-step { opacity: .78; }
+}
+@media (max-width: 360px) and (max-height: 650px) and (orientation: portrait) {
+  .ways-story .way { min-height: 0; }
+  .trust-visual { position: relative; top: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:not(.motion-override) .trust-scene { transition: none; }
+  html:not(.motion-override) .trust-copy.is-visible > :is(.eyebrow,h2,p:not(.eyebrow),.trust-privacy-link) { animation: none; }
 }
