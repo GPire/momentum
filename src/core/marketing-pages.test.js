@@ -110,9 +110,14 @@ test('focused split page is crawlable, accurate and enters the real split task',
   assert.ok(html.includes('href="/?lang=it&amp;intent=split"'));
   assert.ok(html.includes('72 €'));
   assert.ok(html.includes('48 €'));
+  assert.ok(html.includes('60 €'));
+  assert.ok(html.includes('contestato · fuori dal saldo'));
+  assert.ok(html.includes('Con uno storico sufficiente'));
   assert.ok(html.includes('split.css?v=rev'));
+  assert.ok(html.includes('split.js?v=rev'));
   assert.ok(!html.includes('{{BRAND}}'));
-  assert.ok(!html.includes('<script'));
+  assert.ok(!html.includes('/assets/'));
+  assert.ok(!html.includes('/src/main.js'));
   const renamed = renderSplitLanding(splitTemplate,{...brand,name:'Orbit',origin:'https://orbit.example'},'rev');
   assert.ok(renamed.includes('https://orbit.example/landing/dividere-spese/'));
   assert.ok(renamed.includes('>Orbit<span class="point">'));

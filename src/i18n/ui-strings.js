@@ -13477,6 +13477,13 @@ Object.assign(S.fr,{vaultUpgradeTitle:'Mises à jour de l’archive plus sûres'
 Object.assign(S.es,{vaultUpgradeTitle:'Actualizaciones del archivo más seguras',vaultUpgradeBody:'Momentum compara las copias del archivo y recupera movimientos perdidos sin restaurar los eliminados. Si falta espacio, te avisa y ofrece una copia cifrada.'});
 Object.assign(S.nl,{vaultUpgradeTitle:'Veiligere archiefupdates',vaultUpgradeBody:'Momentum vergelijkt archiefkopieën en herstelt ontbrekende transacties zonder verwijderde terug te zetten. Bij volle opslag krijg je een waarschuwing en optie voor een versleutelde back-up.'});
 Object.assign(S.pt,{vaultUpgradeTitle:'Atualizações do arquivo mais seguras',vaultUpgradeBody:'O Momentum compara as cópias do arquivo e recupera movimentos em falta sem repor os eliminados. Se o espaço acabar, avisa-te e oferece uma cópia encriptada.'});
+Object.assign(S.it,{splitEntryTitle:'Dividi una spesa al primo tocco',splitEntryBody:'Dal sito puoi aprire direttamente la divisione di una spesa, anche al primo accesso e senza compilare il profilo finanziario.'});
+Object.assign(S.en,{splitEntryTitle:'Split a bill in one tap',splitEntryBody:'From the website, open the bill splitter directly, even on your first visit, without filling in a financial profile.'});
+Object.assign(S.de,{splitEntryTitle:'Eine Ausgabe mit einem Tipp teilen',splitEntryBody:'Öffne die Kostenteilung direkt von der Website, auch beim ersten Besuch und ohne Finanzprofil.'});
+Object.assign(S.fr,{splitEntryTitle:'Partager une dépense en un geste',splitEntryBody:'Depuis le site, ouvrez directement le partage de dépense, même lors de votre première visite et sans profil financier.'});
+Object.assign(S.es,{splitEntryTitle:'Divide un gasto con un toque',splitEntryBody:'Desde la web puedes abrir directamente la división de gastos, incluso en tu primera visita y sin crear un perfil financiero.'});
+Object.assign(S.nl,{splitEntryTitle:'Verdeel een uitgave met één tik',splitEntryBody:'Open de kostenverdeling rechtstreeks vanaf de website, ook bij je eerste bezoek en zonder financieel profiel.'});
+Object.assign(S.pt,{splitEntryTitle:'Divide uma despesa com um toque',splitEntryBody:'A partir do site, abre diretamente a divisão de despesas, mesmo na primeira visita e sem preencher um perfil financeiro.'});
 // t(key, lang, ...args): stringa o funzione(args) -> stringa. Fallback a
 // EN se la chiave manca nella lingua richiesta, poi a IT — mai una chiave
 // grezza mostrata all'utente.

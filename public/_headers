@@ -37,10 +37,14 @@ https://momentum-finance.pages.dev/landing/landing-orb.js
   Cache-Control: public, max-age=604800
 https://momentum-finance.pages.dev/landing/split.css
   Cache-Control: public, max-age=604800
+https://momentum-finance.pages.dev/landing/split.js
+  Cache-Control: public, max-age=604800
 https://momentum-finance.pages.dev/assets/*
   ! Cache-Control
   ! Netlify-CDN-Cache-Control
-https://momentum-finance.pages.dev/assets/*
+https://momentum-finance.pages.dev/assets/*.js
+  Cache-Control: public, max-age=31536000, immutable
+https://momentum-finance.pages.dev/assets/*.css
   Cache-Control: public, max-age=31536000, immutable
 https://momentum-finance.pages.dev/fonts.css
   ! Cache-Control

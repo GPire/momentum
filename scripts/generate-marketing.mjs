@@ -99,9 +99,9 @@ export function renderLanding(template, code, brand, revision) {
     `  <meta name="twitter:card" content="summary_large_image">\n  <meta property="og:locale" content="${localeTags[code]}">\n${alternate}\n  <link rel="alternate" hreflang="x-default" href="${esc(brand.origin + '/landing/')}">\n  <script type="application/ld+json">${JSON.stringify(schema).replaceAll('<','\\u003c')}</script>`);
 }
 
-export function renderSplitLanding(template, brand, revision) {
+export function renderSplitLanding(template, brand, revision, scriptRevision = revision) {
   assertBrand(brand);
-  return template.replaceAll('Momentum',esc(brand.name)).replaceAll('{{BRAND}}',esc(brand.name)).replaceAll('{{ORIGIN}}',brand.origin).replaceAll('{{REVISION}}',revision);
+  return template.replaceAll('Momentum',esc(brand.name)).replaceAll('{{BRAND}}',esc(brand.name)).replaceAll('{{ORIGIN}}',brand.origin).replaceAll('{{REVISION}}',revision).replaceAll('{{SCRIPT_REVISION}}',scriptRevision);
 }
 
 export function renderSitemap(brand, date) {
@@ -134,9 +134,10 @@ export function generateMarketing() {
   }
   const splitTemplate = readFileSync(join(root,'scripts/templates/split-landing.html'),'utf8');
   const splitRevision = createHash('sha256').update(readFileSync(join(root,'public/landing/split.css'))).digest('hex').slice(0,12);
+  const splitScriptRevision = createHash('sha256').update(readFileSync(join(root,'public/landing/split.js'))).digest('hex').slice(0,12);
   const splitTarget = join(root,'public/landing/dividere-spese');
   mkdirSync(splitTarget,{recursive:true});
-  writeFileSync(join(splitTarget,'index.html'),renderSplitLanding(splitTemplate,brand,splitRevision));
+  writeFileSync(join(splitTarget,'index.html'),renderSplitLanding(splitTemplate,brand,splitRevision,splitScriptRevision));
   writeFileSync(join(root,'public/sitemap.xml'),renderSitemap(brand,new Date().toISOString().slice(0,10)));
   writeFileSync(join(root,'public/robots.txt'),`User-agent: *\nAllow: /\n\nSitemap: ${brand.origin}/sitemap.xml\n`);
   const manifestTemplate = readFileSync(join(root,'scripts/templates/manifest.json'),'utf8');

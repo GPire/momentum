@@ -635,6 +635,10 @@ RELEASES.push({
   versione: '2026-09-23b',
   voci: [{ colore: 'green', icona: '<path d="M5 12l4 4L19 6"/><path d="M4 20h16"/>', titolo: 'Archivio più sicuro negli aggiornamenti', testo: 'Momentum confronta le copie del tuo archivio e recupera i movimenti mancanti senza far riapparire quelli cancellati. Se lo spazio è esaurito, ti avvisa e propone una copia cifrata.', titoloKey: 'vaultUpgradeTitle', testoKey: 'vaultUpgradeBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-24',
+  voci: [{ colore: 'purple', icona: '<circle cx="6" cy="12" r="2"/><circle cx="18" cy="12" r="2"/><path d="M8 12h8M12 8v8"/>', titolo: 'Dividi una spesa al primo tocco', testo: 'Dal sito puoi aprire direttamente la divisione di una spesa, anche al primo accesso e senza compilare il profilo finanziario.', titoloKey: 'splitEntryTitle', testoKey: 'splitEntryBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

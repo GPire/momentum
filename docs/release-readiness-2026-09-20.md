@@ -24,6 +24,33 @@ ferme. Le intestazioni pubbliche dopo il deploy devono essere lette e
 confrontate con quelle attese prima di attribuire un beneficio reale alla
 cache.
 
+La landing e la pagina split sono indipendenti dal bundle dell'app: caricano
+solo risorse statiche dedicate; il chunk da 3,33 MB arriva dopo il passaggio
+volontario all'app. La prima pubblicazione della pagina split è stata
+verificata online (HTTP 200); il CSS della landing ha il TTL atteso e gli HTML
+non ereditano `no-store`. Una regola sovrapposta per `/assets/*` ha invece
+prodotto online `no-store, public, immutable`, che equivale a non usare la
+cache del browser: la regola è stata separata per JS/CSS e richiede una nuova
+verifica pubblica dopo il deploy. La pagina split ora racconta con un esempio
+interattivo verificabile come una contestazione modifica il saldo (48 € ↔
+60 €), espone gli altri comportamenti effettivi del motore e anima lo scroll
+con solo ~2 KB di JavaScript dedicato, senza scaricare Three.js o l'app.
+Il contenuto resta leggibile senza script e con movimento ridotto; i test
+browser hanno verificato il cambio di saldo e layout a 320 e 1440 px.
+Sul server locale unificato `127.0.0.1:4179` il CTA è stato cliccato nel
+browser da un primo avvio pulito: dopo il caricamento si è aperta la modale
+"Dividi una spesa" senza passare dall'onboarding o chiedere un budget. Il
+vecchio server `4178` serviva soltanto `public` e non poteva risolvere la
+route dell'app: non è un difetto della pagina pubblicata, ma non va più usato
+per collaudare l'intero percorso. Test mirati rieseguiti singolarmente con
+Node 24: 60/60; build portabile 454 moduli riuscita. Il runner parallelo
+continua a restituire `spawn EPERM`, quindi il collaudo non è una suite
+completa. Le animazioni sono disattivate sul browser di prova che dichiara
+`prefers-reduced-motion: reduce`; resta da verificare l'effetto con movimento
+normale su un dispositivo reale. La pagina split è per ora solo in italiano.
+Il bundle dell'app resta 3,33 MB minificati (1,13 MB gzip) e richiede un
+lavoro separato di suddivisione e una misura sul primo risultato mobile.
+
 Verifiche locali: 59 test mirati superati (marketing, intento, telemetria
 client e worker), sintassi del modulo app verificata e build portabile di
 produzione riuscita su 454 moduli. La pagina dedicata è stata letta nel

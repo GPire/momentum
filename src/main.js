@@ -171,9 +171,14 @@ const pingFeature = (key) => { sendFeatureEvent(TELEMETRY_ENDPOINT, key).catch((
 const openRequestedSplit = () => {
   const cleanUrl = splitIntentUrl(location.href);
   if (!cleanUrl || new URLSearchParams(location.search).has('shared') || new URLSearchParams(location.search).has('company') || extractJoinPayload()) return false;
-  history.replaceState(null, '', cleanUrl);
-  pingFeature('split_landing_entered');
-  setTimeout(() => window.openSplitExpense(), 280);
+  setTimeout(() => {
+    try {
+      window.openSplitExpense();
+      // Keep the request through a service-worker reload or a failed open.
+      history.replaceState(null, '', cleanUrl);
+      pingFeature('split_landing_entered');
+    } catch (error) { console.warn('split entry:', error); }
+  }, 280);
   return true;
 };
 const pingPresence = () => {
@@ -18419,8 +18424,10 @@ function seedProfileStateMinor() {
 // sensati (bilanciato/medio) e marca `activatedLite` → più tardi il Reveal
 // propone di personalizzare con 2 domande. isFirstLaunch=false + save marca
 // "onboarded" (omega_core_db), così ai riavvii successivi entra diretto.
-function activateLite() {
-  seedProfileState('bilanciato', 'medio');
+function activateLite({ invests = true, entry = 'invite' } = {}) {
+  seedProfileState('bilanciato', 'medio', null, invests);
+  VaultDAO.state.onboardingProfile.entry = entry;
+  VaultDAO.state.onboardingProfile.profileIncomplete = true;
   VaultDAO.state.activatedLite = true;
   VaultDAO.save();
 }
@@ -23525,6 +23532,17 @@ const initApp = () => {
       const canvas = document.getElementById('genesis-canvas');
       if (canvas) { try { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } catch (_) {} }
     });
+  } else if (requestedSplitAtBoot) {
+    // La pagina pubblica promette di dividere una spesa, non di compilare un
+    // profilo finanziario. Usa l'attivazione lampo già collaudata per gli inviti:
+    // niente budget o interessi d'investimento inventati, poi apre la divisione.
+    activateLite({ invests: false, entry: 'split' });
+    const gen = $('#genesis-container'); if (gen) gen.remove();
+    $('#app-core').classList.remove('hidden');
+    $('#app-core').style.opacity = '1';
+    updateStreak();
+    bootUI();
+    openRequestedSplit();
   }
   // Il cielo stellato del primo avvio è ora in CSS PURO (index.html: .starfield),
   // quindi non serve disegnarlo da JS: è sempre presente, gira su qualsiasi
