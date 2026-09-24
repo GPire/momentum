@@ -8,8 +8,8 @@
 //   1. predictCoSplitters  — con CHI dividi di solito QUESTO tipo di spesa,
 //      in QUESTO giorno (non "i più frequenti" e basta, ma contestuale);
 //   2. predictShares       — COME si divide con quelle persone (equa? 60/40?);
-//   3. netAcrossGroups     — la posizione netta con ciascuno sommando TUTTI i
-//      gruppi (il vero limite di Splitwise, che netta solo dentro un gruppo);
+//   3. netAcrossGroups     — posizione netta dei soli gruppi a due con identità
+//      collegate, valuta coerente e registro verificato;
 //   4. parseSplitLine      — una riga sola: "60 cena io marco luca" → diviso
 //      (semplice anche per un bambino, comprensibile a chi non l'ha mai usato).
 //
@@ -157,38 +157,66 @@ export function predictShares(pastGroups = [], people = [], { minGroups = 2, tol
   return { shares: byOriginal, confident: matches.length >= minGroups, samples: matches.length };
 }
 
-// Compensazione fra gruppi solo se entrambe le persone hanno la stessa
-// identità rivendicata nei due gruppi. In gruppi con tre o più persone il
-// debito è collettivo: attribuirlo a una coppia sarebbe una scelta, non un
-// calcolo. Nomi uguali, valute diverse e spese contestate non sono prove.
-export function netAcrossGroups(pastGroups = [], { deviceId, currency = 'EUR' } = {}) {
-  if (!deviceId) return [];
+// Read-only netting of two-person groups with the same claimed device identities.
+// A name, an unclaimed slot or an incomplete ledger is never proof that two
+// debts belong to the same people. No repayment is recorded by this model.
+function verifiedPairBalances(pastGroups = [], { deviceId, currency = 'EUR' } = {}) {
+  if (!deviceId) return new Map();
   const byPerson = new Map();
   for (const group of pastGroups || []) {
-    if (group?.members?.length !== 2 || !confirmedSplitLiability([group], { deviceId, currency }).complete) continue;
+    if (group?.members?.length !== 2 || group.hiddenLocal || (+group.closed > 0 && +group.closed >= (+group.reopened || 0))) continue;
+    const claims = group.members.filter(member => member.claimedBy === deviceId);
+    if (claims.length !== 1) continue;
     const selfId = myMemberId(group, deviceId);
     const other = group.members.find(member => member.id !== selfId);
     if (!other?.claimedBy || other.claimedBy === deviceId) continue;
+    const record = byPerson.get(other.claimedBy) || { name: norm(other.name), cents: 0, payments: 0, positive: false, negative: false, groups: new Set(), invalid: false };
+    if (!group.id || record.groups.has(group.id)) {
+      record.invalid = true;
+      byPerson.set(other.claimedBy, record);
+      continue;
+    }
+    if (!confirmedSplitLiability([group], { deviceId, currency }).complete) {
+      record.invalid = true;
+      byPerson.set(other.claimedBy, record);
+      continue;
+    }
     const cents = Math.round((computeBalances(group)[selfId] || 0) * 100);
-    if (!Number.isSafeInteger(cents) || cents === 0) continue;
-    const record = byPerson.get(other.claimedBy) || { name: norm(other.name), cents: 0, groups: new Set() };
+    if (!Number.isSafeInteger(cents) || !Number.isSafeInteger(record.cents + cents)) {
+      record.invalid = true;
+      byPerson.set(other.claimedBy, record);
+      continue;
+    }
     record.cents += cents;
+    if (cents !== 0) record.payments++;
+    if (cents > 0) record.positive = true;
+    if (cents < 0) record.negative = true;
     record.groups.add(group.id);
     byPerson.set(other.claimedBy, record);
   }
-  return [...byPerson].flatMap(([identity, record]) => record.cents ? [{
+  return byPerson;
+}
+
+export function netAcrossGroups(pastGroups = [], options = {}) {
+  return [...verifiedPairBalances(pastGroups, options)].flatMap(([identity, record]) => !record.invalid && record.cents ? [{
     identity, name: record.name, net: record.cents / 100, groups: record.groups.size,
   }] : []).sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
 }
 
-// ── 5. INTELLIGENZA SUL SETTLEMENT: quando conviene DAVVERO saldare ──────────
-// Il "chi dà quanto a chi" di Splitwise è muto: ti dice l'importo minimo e stop.
-// Qui è PREDITTIVO e proprietario: misura con che CADENZA dividi con ciascuno
-// (dai gruppi passati) e usa la frequenza per prevedere il netting futuro.
-// Insight che nessun concorrente dà: se il debito è piccolo E dividete spesso,
-// NON vale la pena chiedere 3€ a chi rivedi fra 5 giorni — si compenserà da solo
-// alla prossima divisione. Riduce l'attrito sociale ("non essere l'amico che
-// insegue 3€"). Tutto misurato (mediana degli intervalli); tace senza storico.
+// Only a demonstrable reduction appears in the UI. A zero net means that the
+// two recorded positions cancel; the UI still asks users to check repayments
+// already made elsewhere before acting on the suggestion.
+export function verifiedPairNetting(pastGroups = [], options = {}) {
+  return [...verifiedPairBalances(pastGroups, options)].flatMap(([identity, record]) => {
+    const after = record.cents === 0 ? 0 : 1;
+    if (record.invalid || record.groups.size < 2 || !record.positive || !record.negative || record.payments <= after) return [];
+    return [{ identity, name: record.name, net: record.cents / 100,
+      groups: record.groups.size, before: record.payments, after, saved: record.payments - after }];
+  }).sort((a, b) => b.saved - a.saved || Math.abs(b.net) - Math.abs(a.net));
+}
+
+// Historical frequency is descriptive only. It is not evidence that an actual
+// debt will disappear in a future split, nor proof of a person's identity.
 // Ritorna una mappa nome→{cadence(giorni), recencyDays, count}.
 export function settlementIntelligence(pastGroups = [], { meNames = ['io', 'me'], date = new Date() } = {}) {
   const me = new Set(meNames.map(lower));
@@ -221,16 +249,11 @@ export function settlementIntelligence(pastGroups = [], { meNames = ['io', 'me']
   return out;
 }
 
-// Consiglio per un singolo rimborso, dalla mappa di settlementIntelligence.
-// tone 'wait' = piccolo e dividete spesso → si compensa da solo (con "ogni Ng");
-// tone 'now' = conviene saldare adesso (grande, o rara frequenza). Onesto: senza
-// dati sulla cadenza non promette nulla → 'now' neutro.
+// Cadence cannot prove that a future expense will compensate an actual debt.
+// Keep the historical signal descriptive; never advise delaying repayment on
+// its own or turn a forecast into a balance.
 export function settleAdvice(intel, counterparty, amount, { smallAbs = 10 } = {}) {
   const info = intel && intel.get ? intel.get(counterparty) : null;
-  const small = amount <= smallAbs;
-  if (info && info.cadence != null && info.cadence <= 30 && small) {
-    return { tone: 'wait', cadence: info.cadence, label: `Piccola: si compenserà alla prossima (dividete ~ogni ${info.cadence}g)` };
-  }
   return { tone: 'now', cadence: info ? info.cadence : null, label: null };
 }
 

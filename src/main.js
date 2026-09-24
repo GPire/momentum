@@ -302,7 +302,7 @@ import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, simplifyAcrossGroups, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
 import { hideLocally, visibleGroups } from './split/group-membership.js';
 import { fetchHistoricalRate } from './split/exchange-rate.js';
 import { itemSplitShares } from './split/item-split.js';
@@ -321,7 +321,7 @@ import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, st
 import { bankFeesSummary } from './predict/bank-fees.js';
 import { aggiornaPosizioneConAcquisto } from './import/security-purchase-detector.js';
 import { detectRecurring, predictExpenseShape, flagAnomaly, forecastGroupBalances } from './split/split-intelligence.js';
-import { predictCoSplitters, predictShares, parseSplitLine, learnFromSplit, settlementIntelligence, settleAdvice } from './split/split-predictor.js';
+import { predictCoSplitters, predictShares, parseSplitLine, learnFromSplit, verifiedPairNetting } from './split/split-predictor.js';
 import { resolveSalary, detectSalary, nextPayday, daysToNextPayday, suggestSalaryCompetenceMonth } from './predict/income-model.js';
 import { commitmentForecast, remainingInstallments, payoffDate, enrichCommitmentsWithLearning, cycleAllowance, isActive } from './predict/fixed-commitments.js';
 import { cashForecast } from './predict/cash-forecast.js';
@@ -4509,6 +4509,7 @@ const renderDashboard = () => {
   // dopo il punto in cui viene chiamata nel ciclo qui sopra.
   function rigaTx(t) {
     const c = getCatById(t.category);
+    const txAccent = /^#[0-9a-f]{6}$/i.test(String(c.color)) ? c.color : '#8b5cf6';
     const isInc = t.type === 'entrata';
     const isInv = t.type === 'invest';
     const descLabel = (t.description && String(t.description).trim()) || catName(c, __uiLang);
@@ -4520,14 +4521,14 @@ const renderDashboard = () => {
     // inserito una spesa la vede arrivare invece di cercarla.
     const appenaAggiunta = window.__txAppenaAggiunta && String(t.id) === String(window.__txAppenaAggiunta);
     return `
-      <div class="tx-card group${appenaAggiunta ? ' tx-appena-aggiunta' : ''}" data-id="${escTx(t.id)}">
+      <div class="tx-card group tx-kind-${isInc ? 'income' : isInv ? 'investment' : 'expense'}${appenaAggiunta ? ' tx-appena-aggiunta' : ''}" data-id="${escTx(t.id)}" style="--tx-accent:${txAccent}">
         <div class="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <!-- Prima era un &lt;div&gt; muto: l'unica azione sulla riga era il
                cestino. Ora l'icona e' un bottone che apre il cambio categoria —
                senza, dopo un import imperfetto l'unica scelta era eliminare, e
                l'apprendimento dalle correzioni (orchestrator.learn) restava
                alimentato solo dal form di aggiunta manuale. -->
-          <button onclick="window.openCategoryPicker(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(catName(c, __uiLang)))}" title="${tCh('catCambiaCategoria', __uiLang)}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${c.color}">${c.icon}</button>
+          <button onclick="window.openCategoryPicker(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('catCambiaCategoriaAria', __uiLang, escTx(catName(c, __uiLang)))}" title="${tCh('catCambiaCategoria', __uiLang)}" class="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-[1rem] flex items-center justify-center text-white shrink-0 cat-icon-glow" style="--icon-c:${txAccent}">${c.icon}</button>
           <div class="min-w-0 pr-2 flex-1">
              <!-- La descrizione e' quello che si LEGGE per riconoscere il
                   movimento; l'importo e' il dato. Prima erano entrambi al
@@ -4551,7 +4552,7 @@ const renderDashboard = () => {
                  rossi urlati. Ora: icona cestino DISCRETA (azione distruttiva a
                  bassa prominenza, principio "non rendere facile lo sbaglio") ma
                  SEMPRE accessibile su ogni dispositivo, area tocco adeguata. -->
-            <button onclick="deleteTx(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('txEliminaAria', __uiLang)}" title="${tCh('txElimina', __uiLang)}" class="text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
+            <button onclick="deleteTx(${escTx(JSON.stringify(k))}, ${escTx(JSON.stringify(t.id))})" aria-label="${tCh('txEliminaAria', __uiLang)}" title="${tCh('txElimina', __uiLang)}" class="tx-delete-action text-[var(--on-surface-secondary)] opacity-40 hover:opacity-100 hover:text-[var(--red)] focus:opacity-100 active:text-[var(--red)] transition p-2 -m-1">
               <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
             </button>
           </div>
@@ -4584,7 +4585,7 @@ window.deleteTx = (k, id) => {
       VaultDAO.deleteTransaction(k, id);
       renderDashboard();
       renderAnalysis();
-      showToast("Transazione rimossa.", "info");
+      showToast(tCh('txRemovedToast', __uiLang), "info");
     };
     const card = document.querySelector(`.tx-card[data-id="${id}"]`);
     const reduced = motionIsReduced();
@@ -7986,10 +7987,6 @@ window.openSplitExpense = (prefill = {}) => {
       const counts = settlementCounts(g);
       const transferNames = displayNames(g.members);
       const transfers = settlementView(g).transfers.map(transfer => ({ ...transfer, fromName: transferNames[transfer.from], toName: transferNames[transfer.to] }));
-      // PREDITTIVO (proprietario): con che cadenza dividi con ciascuno → per i
-      // rimborsi PICCOLI con chi rivedi spesso, consiglio di NON inseguirli:
-      // si compensano alla prossima divisione. Nessun concorrente lo fa.
-      const intel = settlementIntelligence(past, { date: new Date() });
       // Per ciò che DEVO io: uso il modello entrate (stipendio rilevato/impostato)
       // + il disponibile del mese → dico se posso saldare ORA senza restare a
       // secco, o se conviene dopo il prossimo accredito. Solo Momentum lo sa.
@@ -8005,12 +8002,10 @@ window.openSplitExpense = (prefill = {}) => {
           : tr.from === 'Io' ? tSplit('iOwe', __uiLang, `<b>${eur(tr.amount)}</b>`, `<b>${esc(tr.toName)}</b>`)
             : tSplit('owes', __uiLang, `<b>${esc(tr.fromName)}</b>`, eur(tr.amount), `<b>${esc(tr.toName)}</b>`);
         // Consiglio solo per i rimborsi che coinvolgono ME (la mia prospettiva).
-        const counter = tr.to === 'Io' ? tr.fromName : tr.from === 'Io' ? tr.toName : null;
-        const adv = counter && !hasDuplicateNames ? settleAdvice(intel, counter, tr.amount) : { tone: 'now' };
         const iOwe = tr.from === 'Io';
-        // Timing sul MIO debito quando non è il caso "aspetta si compensa".
+        // A future shared expense is not proof that a real debt will cancel.
         let timing = null;
-        if (iOwe && adv.tone !== 'wait' && available != null) {
+        if (iOwe && available != null) {
           const st = suggestSettleTiming({ amountDue: tr.amount, currentAvailable: available, nextIncome: (payLabel && salary) ? { date: payLabel } : null });
           if (st.when === 'ora') timing = { txt: tSplit('nowHint', __uiLang), tone: 'ok' };
           else if (payLabel) timing = { txt: tSplit('laterHint', __uiLang, payLabel), tone: 'wait' };
@@ -8019,8 +8014,7 @@ window.openSplitExpense = (prefill = {}) => {
         const act = tr.to === 'Io' ? `<button data-ask="${tr.amount}" data-who="${esc(tr.fromName)}" class="shrink-0 text-[11px] font-bold text-emerald-400 underline">${tSplit('ask', __uiLang)}</button>`
             : tr.from === 'Io' ? `<button data-tellamt="${tr.amount}" data-tellwho="${esc(tr.toName)}" class="shrink-0 text-[11px] font-bold text-[var(--gold)] underline">${tSplit('notify', __uiLang)}</button>` : '';
         let hint = '';
-        if (adv.tone === 'wait') hint = `<div class="text-[10px] text-[var(--primary)] -mt-0.5 mb-1">${tSplit('waitHint', __uiLang)}</div>`;
-        else if (timing) hint = `<div class="text-[10px] -mt-0.5 mb-1 ${timing.tone === 'ok' ? 'text-emerald-400' : 'text-amber-400'}">${esc(timing.txt)}${salary ? ` · <button data-editsalary class="underline">${tSplit('editIncome', __uiLang)}</button>` : ''}</div>`;
+        if (timing) hint = `<div class="text-[10px] -mt-0.5 mb-1 ${timing.tone === 'ok' ? 'text-emerald-400' : 'text-amber-400'}">${esc(timing.txt)}${salary ? ` · <button data-editsalary class="underline">${tSplit('editIncome', __uiLang)}</button>` : ''}</div>`;
         const row = `<div class="split-settlement-row"><div>${line}</div>${act}${hint ? `<small>${hint}</small>` : ''}</div>`;
         if (tr.to !== 'Io' && tr.from !== 'Io') { otherRows.push(row); return ''; }
         return row;
@@ -8865,28 +8859,33 @@ const API_KEY_GUIDES = {
 window.openApiKeyGuide = (provider) => {
   const g = API_KEY_GUIDES[provider];
   if (!g) return;
+  const providerNames = { alphavantage: 'Alpha Vantage', twelvedata: 'Twelve Data', fmp: 'Financial Modeling Prep', finnhub: 'Finnhub', newsapi: 'NewsAPI', gemini: 'Gemini', groq: 'Groq', deepseek: 'DeepSeek', mistral: 'Mistral', openrouter: 'OpenRouter', cerebras: 'Cerebras', qwen: 'Qwen', moonshot: 'Moonshot AI', glm: 'GLM', xai: 'xAI', openai: 'OpenAI', anthropic: 'Anthropic' };
   window.openModal(`
-    <h3 class="text-lg font-bold mb-1">${g.title}</h3>
-    <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Nessuna carta di credito. Circa un minuto.</p>
-    <ol class="flex flex-col gap-2.5 mb-4">
-      ${g.steps.map((s, i) => `<li class="flex items-start gap-2.5 text-sm"><span class="shrink-0 w-5 h-5 rounded-full bg-indigo-600/20 text-indigo-300 text-[11px] font-bold flex items-center justify-center mt-0.5">${i + 1}</span><span>${s}</span></li>`).join('')}
+    <h3 class="text-lg font-bold mb-1">${tCh('vaultKeySetupTitle', __uiLang)} · ${providerNames[provider] || provider}</h3>
+    <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('vaultKeySetupIntro', __uiLang)}</p>
+    <ol class="vault-key-steps">
+      ${['vaultKeyStepOne','vaultKeyStepTwo','vaultKeyStepThree'].map((key, i) => `<li><span aria-hidden="true">${i + 1}</span><p>${tCh(key, __uiLang)}</p></li>`).join('')}
     </ol>
-    <a href="${g.url}" target="_blank" rel="noopener" class="btn-action w-full justify-center mb-3">Apri il sito →</a>
-    <div class="flex gap-2">
-      <input type="password" id="guide-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Incolla qui la chiave copiata..." name="guide-key-input" aria-label="Incolla qui la chiave copiata..." />
-      <button onclick="window.saveGuideKey('${provider}')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap">Salva</button>
+    <a href="${g.url}" target="_blank" rel="noopener" class="btn-action w-full justify-center mb-3">${tCh('vaultKeyOpenOfficial', __uiLang)}</a>
+    <div class="vault-key-entry">
+      <label for="guide-key-input">${tCh('vaultKeyPasteLabel', __uiLang)}</label>
+      <div><input type="password" id="guide-key-input" class="modal-input !mb-0" autocomplete="off" autocapitalize="off" spellcheck="false" name="guide-key-input" />
+      <button type="button" onclick="window.saveGuideKey('${provider}')" class="btn-action btn-primary">${tCh('vaultSave', __uiLang)}</button></div>
     </div>
+    ${__uiLang === 'it' ? `<details class="vault-focus-details"><summary>${tCh('vaultKeyProviderDetails', __uiLang)}</summary><ul class="vault-provider-notes">${g.steps.map(s => `<li>${s}</li>`).join('')}</ul></details>` : ''}
   `);
 };
 window.saveGuideKey = (provider) => {
   const input = document.getElementById('guide-key-input');
   const value = (input?.value || '').trim();
-  if (!value) { showToast('Incolla prima la chiave copiata dal sito.', 'error'); return; }
+  if (!value) { showToast(tCh('vaultKeyMissing', __uiLang), 'error'); input?.focus(); return; }
   VaultDAO.state.liveDataKeys = { ...(VaultDAO.state.liveDataKeys || {}), [provider]: value };
   VaultDAO.save();
-  showToast('Chiave salvata. Fatto!', 'success');
+  showToast(tCh('vaultKeySaved', __uiLang), 'success');
   try { window.idleFetchPrices && window.idleFetchPrices(); } catch (_) {}
   try { window.renderChatProviderStatus && window.renderChatProviderStatus(); } catch (_) {}
+  const statusId = { alphavantage: 'live-price-status', twelvedata: 'twelvedata-status', fmp: 'fmp-status', finnhub: 'finnhub-status', newsapi: 'newsapi-status' }[provider];
+  if (statusId) renderKeyStatusDot(statusId, provider);
   window.closeModal();
 };
 
@@ -8925,7 +8924,8 @@ function initTelemetryToggle() {
 // momento (stesso openApiKeyGuide, che già sovrascrive senza problemi).
 function maskKey(key) {
   const k = String(key || '');
-  return k.length > 8 ? `${k.slice(0, 4)}…${k.slice(-4)}` : '••••';
+  const masked = k.length > 8 ? `${k.slice(0, 4)}…${k.slice(-4)}` : '••••';
+  return masked.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 function renderChatProviderStatus() {
   const box = document.getElementById('chat-provider-status');
@@ -8945,17 +8945,22 @@ function renderChatProviderStatus() {
     { id: 'anthropic', label: 'Anthropic' },
   ];
   const keys = VaultDAO.state.liveDataKeys || {};
-  box.innerHTML = PROVIDERS.map(p => {
+  const moreWasOpen = !!box.querySelector('details')?.open;
+  const configured = PROVIDERS.filter(p => !!keys[p.id]);
+  const featured = configured.length ? configured : PROVIDERS.slice(0, 1);
+  const others = PROVIDERS.filter(p => !featured.includes(p));
+  const renderProvider = p => {
     const active = !!keys[p.id];
     return `
-      <div class="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
+      <div class="vault-provider-row">
         <span class="flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-600'}"></span>
-          ${p.label}${active ? ` <span class="text-slate-500 font-mono">${maskKey(keys[p.id])}</span>` : ''}
+          <span class="w-1.5 h-1.5 rounded-full ${active ? '' : 'bg-slate-600'}" ${active ? 'style="background:var(--primary)"' : ''}></span>
+          ${p.label}${active ? ` <span class="vault-key-stored">${tCh('vaultKeyStored', __uiLang)}</span> <span class="text-slate-500 font-mono">${maskKey(keys[p.id])}</span>` : ''}
         </span>
-        <button onclick="window.openApiKeyGuide('${p.id}')" class="text-[10px] underline ${active ? 'text-[var(--on-surface-secondary)]' : 'text-[var(--primary)]'}">${active ? tCh('providerChangeBtn', __uiLang) : tCh('providerActivateBtn', __uiLang)} →</button>
+        <button type="button" onclick="window.openApiKeyGuide('${p.id}')" class="vault-provider-action">${active ? tCh('providerChangeBtn', __uiLang) : tCh('providerActivateBtn', __uiLang)}</button>
       </div>`;
-  }).join('');
+  };
+  box.innerHTML = `${featured.map(renderProvider).join('')}${others.length ? `<details class="vault-focus-details" ${moreWasOpen ? 'open' : ''}><summary>${tCh('vaultMoreChatProviders', __uiLang)}</summary><div class="vault-provider-options">${others.map(renderProvider).join('')}</div></details>` : ''}`;
 }
 window.renderChatProviderStatus = renderChatProviderStatus;
 
@@ -10584,6 +10589,17 @@ window.openSplitGroup = (openId = null) => {
     // Mai i gruppi chiusi o nascosti localmente (group-membership.js): sono
     // le due lapidi già progettate per questa lista, prima mai applicate qui.
     const gs = visibleGroups(groups());
+    const netting = [...new Set(gs.map(group => group.baseCurrency || 'EUR'))]
+      .flatMap(currency => verifiedPairNetting(gs.filter(group => (group.baseCurrency || 'EUR') === currency), {
+        deviceId: VaultDAO.state.deviceId, currency,
+      }).map(row => ({ ...row, currency })));
+    const nettingRow = row => {
+      const amount = esc(formatSplitMoney(Math.abs(row.net), { baseCurrency: row.currency }, __uiLocale));
+      const balance = tSplit(row.net > 0 ? 'crossGroupReceive' : row.net < 0 ? 'crossGroupPay' : 'crossGroupEven', __uiLang, esc(row.name), amount);
+      return `<div class="split-cross-row"><strong>${balance}</strong><small>${esc(row.currency)} · ${tSplit('crossGroupSaving', __uiLang, row.groups, row.after, row.before)}</small></div>`;
+    };
+    const nettingRows = netting.slice(0, 3).map(nettingRow).join('');
+    const nettingMore = netting.length > 3 ? `<details class="split-cross-more"><summary>${tSplit('crossGroupMore',__uiLang,netting.length - 3)}</summary><div>${netting.slice(3).map(nettingRow).join('')}</div></details>` : '';
     const rows = gs.map(g => {
       const total = (g.expenses || []).reduce((s, e) => s + e.amount, 0);
       // Badge messaggi non visti (unreadCount, group-chat.js) — scoperta
@@ -10610,6 +10626,7 @@ window.openSplitGroup = (openId = null) => {
       <div class="split-group-workspace flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div><h3 class="text-base font-black">${tSplit('groupTitle',__uiLang)}</h3><p class="card-sub !mb-0">${tSplit('groupIntro',__uiLang)}</p><p id="split-mesh-status" class="text-[10px] text-[var(--on-surface-secondary)] mt-1 inline-flex items-center gap-1.5"></p></div>
         <div class="flex flex-col gap-2 split-rows-in${liveSync ? ' split-sync-pulse' : ''}">${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tSplit('noGroups',__uiLang)}</p>`}</div>
+        ${nettingRows ? `<aside class="split-cross-card" role="note"><span class="split-cross-orbit" aria-hidden="true"></span><h4>${tSplit('crossGroupTitle',__uiLang)}</h4>${nettingRows}${nettingMore}<p>${tSplit('crossGroupLimit',__uiLang)}</p></aside>` : ''}
         <button id="sg-new" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>${tSplit('newGroup',__uiLang)}</button>
         <button id="sg-payout" class="split-payout-entry"><span>${tCh('vaultHowToBePaid', __uiLang)}</span><small>${tCh(resolvePayout(VaultDAO.state) ? 'payoutReady' : 'payoutOptional', __uiLang)}</small></button>
         <button id="sg-receive" class="w-full py-2.5 font-bold rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-[12px] text-[var(--on-surface-secondary)]">${tSplit('receive',__uiLang)}</button>
@@ -18576,6 +18593,10 @@ const endGenesis = () => {
     
     const ota = $('#ota-overlay');
     const logBox = $('#ota-log-container');
+    const otaTitle = ota?.querySelector('[data-i18n-key="bootPrivacyTitle"]');
+    const otaHintText = ota?.querySelector('[data-i18n-key="bootPrivacyHint"]');
+    if (otaTitle) otaTitle.textContent = tCh('bootPrivacyTitle', __uiLang);
+    if (otaHintText) otaHintText.textContent = tCh('bootPrivacyHint', __uiLang);
     if (ota) ota.classList.add('active');
     
     // La promessa di privacy vive QUI, non nella hero: al primo avvio la hero
@@ -19088,11 +19109,11 @@ function renderNeuroSymExplainCard() {
   const layersEl = document.getElementById('neurosym-explain-layers');
   if (!layersEl) return;
   const info = NeuroSym.explain(window.momentumDeviceProfile || null, __uiLang);
-  layersEl.innerHTML = info.layers.map(l => `
-    <div>
-      <p class="text-xs font-bold">${l.name}</p>
-      <p class="text-[11px] text-[var(--on-surface-secondary)] leading-snug">${l.components}</p>
-      <p class="text-[11px] text-[var(--primary)] mt-0.5">${l.mode}</p>
+  layersEl.innerHTML = info.layers.map((l, index) => `
+    <div class="vault-model-layer">
+      <p class="vault-model-name">${escapeHtml(tCh(`vaultModelName${index + 1}`, __uiLang))}</p>
+      <p class="vault-model-mode">${escapeHtml(tCh(`vaultModelUse${index + 1}`, __uiLang))}</p>
+      <details class="vault-layer-specs"><summary>${tCh('vaultTechnicalDetails', __uiLang)}</summary><p>${escapeHtml(l.name)} · ${escapeHtml(l.components)}</p><p>${escapeHtml(l.mode)}</p></details>
     </div>`).join('');
   const honestyEl = document.getElementById('neurosym-explain-honesty');
   if (honestyEl) honestyEl.textContent = info.honesty;
@@ -23667,7 +23688,7 @@ const initApp = () => {
 
   // Traduzione onboarding (data-i18n-key, 2026-08-28): no-op sicuro se il
   // genesis è già stato rimosso dal DOM sopra (utente già onboarded).
-  try { applyUiTranslations(); } catch (_) {}
+  try { applyUiTranslations(); document.title = tCh('appPageTitle', __uiLang); } catch (_) {}
 
   // "Provaci tu": si arma solo se il primo avvio è davvero a schermo. Nei rami
   // sopra il genesis viene rimosso dal DOM, e armare listener su una scena che

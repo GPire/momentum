@@ -32,6 +32,7 @@
 .add-hint-card button:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 #add-hint-bubble{top:auto!important;bottom:calc(100% + 16px);width:min(296px,calc(100vw - 32px))!important;margin-left:0!important;transform:translateX(-50%);pointer-events:auto!important}
 #add-hint-bubble-tablet{width:min(296px,calc(100vw - 32px))!important;pointer-events:auto!important}
+body:has(#modal-container:not(.hidden)) :is(#add-hint-bubble,#add-hint-bubble-tablet){display:none!important}
 .add-hint-arrow{background:var(--surface-solid);bottom:-5px}
 #add-hint-bubble.add-hint-in,#add-hint-bubble-tablet.add-hint-in{animation:none}
 @media(prefers-reduced-motion:no-preference){.add-hint-in .add-hint-card{animation:ready-arrival .35s cubic-bezier(.22,1,.36,1) both}.add-hint-in .add-hint-symbol{animation:add-hint-pulse 1.4s cubic-bezier(.22,1,.36,1) 2}@keyframes add-hint-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.12)}}}

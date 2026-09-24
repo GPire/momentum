@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  keyTokens, predictCoSplitters, predictShares, netAcrossGroups, parseSplitLine, learnFromSplit,
+  keyTokens, predictCoSplitters, predictShares, netAcrossGroups, verifiedPairNetting, parseSplitLine, learnFromSplit,
   settlementIntelligence, settleAdvice,
 } from './split-predictor.js';
-import { createGroup, claimMember, addSharedExpense, simplifyAcrossGroups } from './split-engine.js';
+import { createGroup, claimMember, addSharedExpense } from './split-engine.js';
+import { contestExpense } from './group-chat.js';
 
 // Helper: costruisce un gruppo salvato con una spesa.
 function grp(name, members, { payer, amount, date, shares } = {}) {
@@ -126,22 +127,66 @@ test('learnFromSplit è un no-op onesto senza orchestratore', () => {
   assert.equal(r.mine, 10);
 });
 
-test('simplifyAcrossGroups: meno pagamenti reali che saldando gruppo per gruppo', () => {
+test('verifiedPairNetting: due saldi collegati si compensano al centesimo, senza cambiare i gruppi', () => {
   // Due gruppi Io-Marco che nella vita reale si compensano quasi del tutto.
   const past = [
     grp('Casa', ['Io', 'Marco'], { payer: 'Io', amount: 100 }),    // Marco mi deve 50
     grp('Viaggio', ['Io', 'Marco'], { payer: 'Marco', amount: 90 }), // io devo 45
   ];
-  const res = simplifyAcrossGroups(past);
-  // Per gruppo: 1 + 1 = 2 pagamenti. Cross-gruppo: 1 solo (Marco→Io 5).
-  assert.equal(res.perGroup, 2);
-  assert.equal(res.transfers.length, 1);
+  const linked = past.map(g => claimMember(claimMember(g, 'm0', 'device-io'), 'm1', 'device-marco'));
+  const original = JSON.stringify(linked);
+  const [res] = verifiedPairNetting(linked, { deviceId: 'device-io' });
+  assert.equal(res.before, 2);
+  assert.equal(res.after, 1);
   assert.equal(res.saved, 1);
-  assert.ok(Math.abs(res.transfers[0].amount - 5) < 0.01);
+  assert.equal(res.net, 5);
+  assert.equal(JSON.stringify(linked), original);
 });
 
-test('simplifyAcrossGroups è vuoto senza gruppi (onesto)', () => {
-  assert.deepEqual(simplifyAcrossGroups([]), { transfers: [], perGroup: 0, saved: 0 });
+test('verifiedPairNetting si astiene senza identità e con gruppi non verificabili', () => {
+  const first = grp('Casa', ['Io', 'Marco'], { payer: 'Io', amount: 100 });
+  const second = grp('Viaggio', ['Io', 'Marco'], { payer: 'Marco', amount: 90 });
+  assert.deepEqual(verifiedPairNetting([first, second], { deviceId: 'device-io' }), []);
+  const linked = [first, second].map(g => claimMember(claimMember(g, 'm0', 'device-io'), 'm1', 'device-marco'));
+  const disputed = contestExpense(linked[1], { autore: 'Marco', expenseId: linked[1].expenses[0].id });
+  assert.deepEqual(verifiedPairNetting([linked[0], disputed], { deviceId: 'device-io' }), []);
+  const broken = { ...linked[1], expenses: [{ ...linked[1].expenses[0], owed: { m0: 1, m1: 1 } }] };
+  assert.deepEqual(verifiedPairNetting([linked[0], broken], { deviceId: 'device-io' }), []);
+  assert.deepEqual(verifiedPairNetting([linked[0], linked[0]], { deviceId: 'device-io' }), []);
+  assert.deepEqual(verifiedPairNetting([]), []);
+});
+
+test('verifiedPairNetting non fonde omonimi o valute diverse', () => {
+  const first = claimMember(claimMember(grp('A', ['Io', 'Marco'], { payer: 'Io', amount: 100 }), 'm0', 'device-io'), 'm1', 'marco-a');
+  const second = claimMember(claimMember(grp('B', ['Io', 'Marco'], { payer: 'Marco', amount: 90 }), 'm0', 'device-io'), 'm1', 'marco-b');
+  assert.deepEqual(verifiedPairNetting([first, second], { deviceId: 'device-io' }), []);
+  assert.deepEqual(verifiedPairNetting([first, { ...second, members: second.members.map(m => m.id === 'm1' ? { ...m, claimedBy: 'marco-a' } : m), baseCurrency: 'CHF' }], { deviceId: 'device-io' }), []);
+});
+
+test('verifiedPairNetting non spaccia due crediti nella stessa direzione per compensazione', () => {
+  const linked = [
+    grp('A', ['Io', 'Marco'], { payer: 'Io', amount: 30 }),
+    grp('B', ['Io', 'Marco'], { payer: 'Io', amount: 20 }),
+  ].map(g => claimMember(claimMember(g, 'm0', 'device-io'), 'm1', 'device-marco'));
+  assert.deepEqual(verifiedPairNetting(linked, { deviceId: 'device-io' }), []);
+});
+
+test('verifiedPairNetting: dieci persone, omonimi e nove saldi indipendenti', () => {
+  const groups = [];
+  for (let i = 1; i <= 9; i++) {
+    for (const [payer, amount] of [['Io', 20 + i * 2], ['Marco', 10 + i * 2]]) {
+      const group = grp(`Gruppo ${i}`, ['Io', 'Marco'], { payer, amount });
+      groups.push(claimMember(claimMember(group, 'm0', 'device-io'), 'm1', `device-${i}`));
+    }
+  }
+  const results = verifiedPairNetting(groups, { deviceId: 'device-io' });
+  assert.equal(results.length, 9);
+  assert.equal(new Set(results.map(row => row.identity)).size, 9);
+  assert.ok(results.every(row => row.net === 5 && row.before === 2 && row.after === 1));
+  const broken = { ...groups[0], expenses: [{ ...groups[0].expenses[0], owed: { m0: 0 } }] };
+  const after = verifiedPairNetting([broken, ...groups.slice(1)], { deviceId: 'device-io' });
+  assert.equal(after.length, 8);
+  assert.ok(after.every(row => row.identity !== 'device-1'));
 });
 
 test('settlementIntelligence misura la cadenza (ogni ~7 giorni con Marco)', () => {
@@ -156,15 +201,15 @@ test('settlementIntelligence misura la cadenza (ogni ~7 giorni con Marco)', () =
   assert.equal(info.count, 3);
 });
 
-test('settleAdvice: debito piccolo + dividete spesso → aspetta (si compensa)', () => {
+test('settleAdvice: la frequenza non promette di compensare un debito reale', () => {
   const past = [
     grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-01' }),
     grp('Cena', ['Io', 'Marco'], { payer: 'Io', amount: 20, date: '2026-07-08' }),
   ];
   const intel = settlementIntelligence(past, { date: new Date('2026-07-09') });
   const adv = settleAdvice(intel, 'Marco', 3);
-  assert.equal(adv.tone, 'wait');
-  assert.match(adv.label, /si compenserà/);
+  assert.equal(adv.tone, 'now');
+  assert.equal(adv.label, null);
 });
 
 test('settleAdvice: debito grande → salda adesso anche se dividete spesso', () => {

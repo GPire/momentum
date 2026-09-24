@@ -148,6 +148,16 @@ html[data-motion=reduced] .split-workspace * { animation: none !important; trans
 .split-group-workspace #sg-back svg { width: 20px; height: 20px; }
 .split-group-workspace #sg-name { padding: 10px; background: transparent; border: 1px solid var(--outline); }
 .split-group-workspace .split-group-result { background: radial-gradient(ellipse at 5% 0, color-mix(in srgb,var(--primary) 12%,transparent),transparent 80%),var(--surface-elevated); border-color: color-mix(in srgb,var(--primary) 30%,var(--outline)); }
+.split-cross-card { position: relative; overflow: hidden; display: grid; gap: 10px; padding: clamp(15px,4vw,22px); border: 1px solid color-mix(in srgb,var(--primary) 38%,var(--outline)); border-radius: 22px; background: radial-gradient(circle at 92% 8%,color-mix(in srgb,var(--primary) 16%,transparent),transparent 48%),var(--surface-elevated); animation: split-panel-in .35s ease-out both; }
+.split-cross-card h4 { position: relative; margin: 0; font-size: 16px; }
+.split-cross-card p { position: relative; margin: 2px 0 0; color: var(--on-surface-secondary); font-size: 11px; line-height: 1.5; }
+.split-cross-orbit { position: absolute; right: -24px; top: -44px; width: 112px; aspect-ratio: 1; border: 1px solid color-mix(in srgb,var(--primary) 32%,transparent); border-radius: 50%; transform: rotate(-28deg) scaleY(.55); pointer-events: none; }
+.split-cross-row { position: relative; display: grid; gap: 3px; padding: 11px 13px; border: 1px solid var(--outline); border-radius: 14px; background: color-mix(in srgb,var(--surface) 40%,transparent); min-width: 0; }
+.split-cross-row strong { font-size: 14px; line-height: 1.35; overflow-wrap: anywhere; }
+.split-cross-row small { color: var(--on-surface-secondary); font-size: 11px; line-height: 1.4; }
+.split-cross-more summary { cursor: pointer; color: var(--primary); font-size: 12px; font-weight: 700; padding: 8px 2px; min-height: 36px; }
+.split-cross-more > div { display: grid; gap: 8px; padding-top: 5px; }
+.split-cross-more[open] > div { animation: split-panel-in .24s ease-out; }
 .split-group-form[hidden] { display: none; }
 .split-group-form:not([hidden]) { animation: split-panel-in .24s ease-out; }
 .split-group-workspace :is(#sg-newmember,#sg-add-member) { flex: 1; }

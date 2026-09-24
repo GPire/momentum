@@ -646,6 +646,14 @@ RELEASES.push({
     { colore: 'gold', icona: '<path d="M4 20V4h9l2 3h5v13H4Z"/><path d="M8 12h8M8 16h5"/>', titolo: 'Un percorso chiaro per le trasferte', testo: 'Scegli se tenere uno storico personale, preparare un resoconto aziendale, esportare verso un gestionale o controllare rimborsi e carta.', titoloKey: 'tripRoutesTitle', testoKey: 'tripRoutesBody' },
   ],
 });
+RELEASES.push({
+  versione: '2026-09-24c',
+  voci: [
+    { colore: 'purple', icona: '<circle cx="5" cy="12" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 12h10M12 8v8"/>', titolo: 'Conti collegati, persone distinte', testo: 'In Insieme puoi vedere quando i saldi fra due gruppi si compensano. Momentum usa solo persone collegate, stessa valuta e conti verificati; non considera più una spesa futura come rimborso certo.', titoloKey: 'splitNettingTitle', testoKey: 'splitNettingBody' },
+    { colore: 'primary', icona: '<path d="M4 4h16v16H4z"/><path d="m8 12 3 3 5-6"/>', titolo: 'Risultato sempre visibile', testo: 'Il suggerimento iniziale sul pulsante + non copre più il risultato della divisione.', titoloKey: 'splitResultVisibleTitle', testoKey: 'splitResultVisibleBody' },
+    { colore: 'green', icona: '<path d="M4 6h16M4 12h12M4 18h8"/><circle cx="19" cy="18" r="2"/>', titolo: 'Più chiaro dal primo avvio', testo: 'La schermata di attesa segue la lingua scelta, i movimenti si leggono meglio e Vault mostra le opzioni tecniche quando le apri.', titoloKey: 'vaultClarityTitle', testoKey: 'vaultClarityBody' },
+  ],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

@@ -52,3 +52,14 @@ test('a missing device identity cannot silently claim an unclaimed participant',
   const g = addSharedExpense(group('Missing identity'), { payer: 'm1', amount: 20 });
   assert.equal(confirmedSplitLiability([g]).complete, false);
 });
+
+test('repeated group or expense IDs suspend a cash liability instead of counting twice', () => {
+  const g = addSharedExpense(group('Duplicate'), { payer: 'm1', amount: 20 });
+  const repeatedGroup = confirmedSplitLiability([g, g], { deviceId: 'my-device' });
+  assert.equal(repeatedGroup.complete, false);
+  assert.deepEqual(repeatedGroup.excluded.map(row => row.reason), ['duplicate']);
+  const repeatedExpense = { ...g, expenses: [g.expenses[0], { ...g.expenses[0] }] };
+  const result = confirmedSplitLiability([repeatedExpense], { deviceId: 'my-device' });
+  assert.equal(result.complete, false);
+  assert.deepEqual(result.excluded.map(row => row.reason), ['ledger']);
+});

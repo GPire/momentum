@@ -12,8 +12,14 @@ const centsOf = value => {
 export function confirmedSplitLiability(groups = [], { deviceId, currency = 'EUR' } = {}) {
   let owedCents = 0;
   const excluded = [];
+  const seenGroups = new Set();
   for (const group of groups) {
     if (!group?.expenses?.length) continue;
+    if (!group.id || seenGroups.has(group.id)) {
+      excluded.push({ groupId: group.id, reason: 'duplicate' });
+      continue;
+    }
+    seenGroups.add(group.id);
     if (group.expenses.length !== groupForSettlement(group).expenses.length) {
       excluded.push({ groupId: group.id, reason: 'disputed' });
       continue;
@@ -29,7 +35,9 @@ export function confirmedSplitLiability(groups = [], { deviceId, currency = 'EUR
       excluded.push({ groupId: group.id, reason: 'identity' });
       continue;
     }
-    const valid = group.expenses.every(expense => {
+    const expenseIds = new Set(group.expenses.map(expense => expense.id));
+    const valid = expenseIds.size === group.expenses.length && group.expenses.every(expense => {
+      if (typeof expense.id !== 'string' || !expense.id) return false;
       const amountCents = centsOf(expense.amount);
       const shares = Object.entries(expense.owed || {});
       return amountCents > 0 && ids.has(expense.payer) && shares.length > 0

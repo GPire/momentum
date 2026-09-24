@@ -387,56 +387,6 @@ export function settlementCounts(group) {
   return { raw: pairs.size, simplified, saved: Math.max(0, pairs.size - simplified) };
 }
 
-// ── SEMPLIFICATORE CROSS-GRUPPO (più potente di Splitwise) ───────────────────
-// Splitwise semplifica i debiti DENTRO un gruppo. Ma con le stesse persone sei
-// in più gruppi (casa, viaggi, cene): se devi a Marco in "casa" e Marco ti deve
-// in "viaggio", nella vita reale i due si COMPENSANO. Qui si costruisce il grafo
-// netto GLOBALE per NOME attraverso tutti i gruppi e lo si chiude col settlement
-// minimo esatto (bitmask) → meno bonifici REALI di quanti Splitwise possa mai
-// produrre, perché non attraversa mai i gruppi. In più, a parità di numero
-// minimo di pagamenti, PREFERISCE i canali che esistono davvero (IBAN noti / chi
-// si è già pagato in passato): il piano è ESEGUIBILE, non solo minimo a tavolino.
-// Ritorna { transfers:[{from,to,amount}], perGroup, saved } dove perGroup è la
-// somma dei pagamenti se si saldasse gruppo per gruppo (il metodo Splitwise).
-export function simplifyAcrossGroups(groups = [], { knownChannels = new Set() } = {}) {
-  const list = (groups || []).filter(g => g && Array.isArray(g.members) && Array.isArray(g.expenses));
-  if (!list.length) return { transfers: [], perGroup: 0, saved: 0 };
-
-  // Saldo netto GLOBALE per nome (persona), sommando ogni gruppo.
-  const netByName = new Map();
-  let perGroup = 0;
-  for (const g of list) {
-    const idToName = Object.fromEntries(g.members.map(m => [m.id, String(m.name || m).trim()]));
-    const bal = computeBalances(g);
-    for (const [id, v] of Object.entries(bal)) {
-      const nm = idToName[id]; if (!nm) continue;
-      netByName.set(nm, round2((netByName.get(nm) || 0) + v));
-    }
-    perGroup += minimalSettlement(bal).length; // quanti pagamenti farebbe Splitwise (per gruppo)
-  }
-  const globalBal = {};
-  for (const [nm, v] of netByName) if (Math.abs(v) > EPS) globalBal[nm] = v;
-
-  // Settlement minimo esatto sul grafo globale, con tie-break sui canali reali.
-  const transfers = minimalSettlementPreferring(globalBal, knownChannels);
-  return { transfers, perGroup, saved: Math.max(0, perGroup - transfers.length) };
-}
-
-// Come minimalSettlement, ma quando restano più abbinamenti debitore→creditore a
-// pari merito, sceglie prima quelli su un canale "reale" (in knownChannels, set
-// di stringhe "from>to"). Non aumenta MAI il numero di bonifici: la preferenza
-// agisce solo a parità, rendendo il piano più probabile da eseguire davvero.
-function minimalSettlementPreferring(balances, knownChannels = new Set()) {
-  const base = minimalSettlement(balances);
-  if (!knownChannels || !knownChannels.size) return base;
-  // Riordina i pagamenti mettendo davanti quelli su canale noto (stessa cardinalità).
-  return base.slice().sort((a, b) => {
-    const ka = knownChannels.has(`${a.from}>${a.to}`) ? 0 : 1;
-    const kb = knownChannels.has(`${b.from}>${b.to}`) ? 0 : 1;
-    return ka - kb;
-  });
-}
-
 // Vista "chi deve cosa a chi" pronta per la UI, con i nomi risolti.
 export function settlementView(group) {
   const byId = Object.fromEntries(group.members.map(m => [m.id, m.name]));

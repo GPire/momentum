@@ -692,6 +692,48 @@ di Vault/sync, connettori aziendali, verifiche fiscali e pagamenti dichiarati
 nelle sezioni precedenti: questa revisione non abilita un rilascio globale o
 una promessa di superiorità verso i concorrenti.
 
+**Revisione Split del 24 settembre:** rimosso un motore non collegato alla UI
+che sommava debiti di gruppi diversi per nome: due omonimi potevano essere
+confusi. La nuova vista nell'elenco dei gruppi mostra una compensazione solo
+per coppie con slot rivendicati dagli stessi dispositivi, valuta uguale,
+registro valido, nessuna contestazione e saldi opposti. Se un gruppo della
+stessa coppia è ambiguo o incompleto, la proposta si astiene. La vista è
+solo un calcolo sui saldi registrati: non crea rimborsi, non sa se una persona
+ha già pagato fuori dall'app e invita a controllarlo. La bozza Split non
+consiglia più di rimandare un rimborso perché una futura spesa *potrebbe*
+compensarlo: la cadenza storica non è una garanzia. Il comportamento è
+tradotto nelle sette lingue; i dati Vault esistenti restano invariati.
+
+**Prove della revisione:** i test mirati coprono centesimi, dieci persone
+con omonimi, gruppi contestati, valute diverse, duplicati e registri rotti.
+La suite seriale ha superato 408/408 file; la build portabile ha trasformato
+459 moduli. Nel browser locale una divisione da 10,01 € ha assegnato 5,01 €
+e 5,00 € senza perdere il centesimo. La prima guida del pulsante + non copre
+più il risultato della modale.
+
+**Chiarezza del primo avvio, dei movimenti e del Vault — 24 settembre:**
+la schermata subito dopo l'onboarding applica titolo e invito nella lingua
+effettiva della sessione prima di mostrarsi. Le singole transazioni hanno
+gerarchia più leggibile, accento della categoria e aree di tocco di almeno
+44 px per categoria, pianificazione ed eliminazione. Il Vault mostra prima
+gli effetti comprensibili dei motori; nomi e specifiche sono apribili a
+richiesta. Le fonti di mercato aggiuntive e gli assistenti alternativi sono
+progressivi; la procedura per una chiave è in tre passi tradotti nelle sette
+lingue. Salvare una chiave non viene più presentato come verifica della
+connessione. La chat esterna resta opzionale, con invio del riepilogo
+finanziario disattivato di default. Nessun archivio utente è stato migrato
+o riscritto da queste modifiche di interfaccia.
+
+Nel browser locale l'inglese ha mostrato titolo e messaggio di privacy in
+inglese. A 390 px la guida alla chiave non aveva scorrimento orizzontale;
+la riga di movimento misurava 346 px e tutti i suoi pulsanti almeno 44 px
+di altezza. La verifica è su viewport simulata, non su iPhone fisico.
+Rimangono da provare l'onboarding completo in ciascuna lingua su telefoni
+reali, la validità delle chiavi presso i fornitori scelti dall'utente e il
+caricamento della nuova build pubblica dopo un push. Il bundle principale
+resta circa 3,38 MB minificati / 1,15 MB gzip: il riordino del Vault non ha
+risolto il tempo al primo avvio su rete mobile.
+
 Il lavoro è registrato nel branch locale
 `codex/split-calculation-safety-and-journeys`; non è su `main` né nella
 distribuzione pubblica. Il push del branch di anteprima è stato tentato il

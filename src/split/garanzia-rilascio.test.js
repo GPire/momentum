@@ -27,8 +27,9 @@ const {
   createGroup, addSharedExpense, computeBalances, minimalSettlement, settlementView,
   settlementVerificationLog, claimMember, myMemberId, mergeGroups, mergeIntoGroups,
   editExpense, encodeGroupShare, decodeGroupShare, encodeGroupInvite, extractSharePayload,
-  displayNames, unclaimedMembers, renameGroup, simplifyAcrossGroups, settlementCounts,
+  displayNames, unclaimedMembers, renameGroup, settlementCounts,
 } = await import('./split-engine.js');
+const { verifiedPairNetting } = await import('./split-predictor.js');
 
 const {
   addMessage, contestExpense, resolveExpense, isDisputed, disputedExpenseIds, groupForSettlement,
@@ -329,10 +330,9 @@ test('GARANZIA inviti: due persone con lo STESSO nome restano distinguibili ovun
 // 4. FRA GRUPPI DIVERSI — la stessa persona in più gruppi
 // ────────────────────────────────────────────────────────────
 
-test('GARANZIA: la semplificazione fra gruppi non inventa né cancella debiti', () => {
+test('GARANZIA: nessuna compensazione automatica tra gruppi con molte persone', () => {
   const gruppi = scenarioCompleto();
-  const netto = simplifyAcrossGroups(gruppi);
-  assert.ok(netto, 'la semplificazione deve produrre un risultato');
+  const netto = verifiedPairNetting(gruppi, { deviceId: DEVICE.Anna });
   // Qualunque cosa proponga, il totale dei crediti deve pareggiare i debiti.
   const perPersona = new Map();
   for (const g of gruppi) {
@@ -345,8 +345,7 @@ test('GARANZIA: la semplificazione fra gruppi non inventa né cancella debiti', 
   // `+0` normalizza lo zero negativo di JavaScript (-0 === 0 numericamente,
   // ma assert.equal li distingue): qui conta il valore, non il segno di zero.
   assert.equal(r2(somma([...perPersona.values()])) + 0, 0, 'sommando i saldi di tutti i gruppi il totale deve restare zero');
-  assert.ok(Array.isArray(netto.transfers), 'la semplificazione deve produrre un elenco di bonifici');
-  assert.ok(netto.transfers.every(t => t.amount > 0), 'nessun bonifico da zero o negativo');
+  assert.deepEqual(netto, [], 'un grafo di debiti collettivi non può diventare un piano bilaterale senza consenso');
 });
 
 test('GARANZIA: rinominare un gruppo si propaga, senza toccare spese né saldi', () => {
