@@ -105,6 +105,20 @@
   const firstSteps = [...firstStory.querySelectorAll("[data-first-step]")];
   const waysStory = document.querySelector("[data-ways-story]");
   const wayCards = [...waysStory.querySelectorAll(".way")];
+  const waysScenes = waysStory.querySelector(".ways-stage-scenes");
+  for (const card of wayCards) {
+    const scene = document.createElement("div");
+    scene.className = "ways-stage-scene " + [...card.classList].find(name => name.startsWith("way-"));
+    const label = document.createElement("span");
+    label.className = "ways-stage-label";
+    label.dataset.i18n = card.querySelector("h3").dataset.i18n;
+    label.textContent = card.querySelector("h3").textContent;
+    textNodes.push(label);
+    const number = card.querySelector(".way-number").cloneNode(true);
+    number.className = "ways-stage-number";
+    scene.append(card.querySelector(".way-icon").cloneNode(true),card.querySelector(".way-signal").cloneNode(true),label,number);
+    waysScenes.append(scene);
+  }
   const siteHeader = document.querySelector(".site-header");
   const navTargets = [...menu.querySelectorAll('a[href^="#"]')].map(link => ({link,section:document.querySelector(link.getAttribute("href"))}));
   let scrollFrame = 0;
@@ -140,7 +154,7 @@
     }
     const waysBounds = waysStory.getBoundingClientRect();
     if (waysBounds.bottom >= 0 && waysBounds.top <= innerHeight) {
-      const targetY = innerHeight * .54;
+      const targetY = innerHeight * .5;
       let nearest = 0;
       let distance = Infinity;
       for (const [index,card] of wayCards.entries()) {
@@ -148,10 +162,13 @@
         const candidate = Math.abs(cardBounds.top + cardBounds.height / 2 - targetY);
         if (candidate < distance) { distance = candidate; nearest = index; }
       }
-      const mobile = innerWidth <= 480;
-      waysStory.dataset.activeRow = String(Math.floor(nearest / (mobile ? 1 : innerWidth <= 1050 ? 2 : 3)));
       waysStory.dataset.activeWay = String(nearest);
-      wayCards.forEach((card,index) => card.classList.toggle("is-active",mobile ? index === nearest : Math.floor(index / (innerWidth <= 1050 ? 2 : 3)) === Math.floor(nearest / (innerWidth <= 1050 ? 2 : 3))));
+      wayCards.forEach((card,index) => card.classList.toggle("is-active",index === nearest));
+      [...waysScenes.children].forEach((scene,index) => scene.classList.toggle("is-active",index === nearest));
+      const waysProgress = Math.max(0,Math.min(1,(innerHeight * .66 - waysBounds.top) / (waysBounds.height + innerHeight * .15)));
+      waysStory.style.setProperty("--ways-turn",(reducedMotion ? 0 : waysProgress * 154).toFixed(1) + "deg");
+      waysStory.style.setProperty("--ways-front-turn",(reducedMotion ? 0 : waysProgress * -94).toFixed(1) + "deg");
+      waysStory.style.setProperty("--ways-core-turn",(reducedMotion ? 0 : waysProgress * 16).toFixed(1) + "deg");
     }
     const bounds = intelligenceStory.getBoundingClientRect();
     if (bounds.bottom >= 0 && bounds.top <= innerHeight) {
@@ -171,7 +188,7 @@
     }
     const trustBounds = trustStory.getBoundingClientRect();
     if (trustBounds.bottom >= 0 && trustBounds.top <= innerHeight) {
-      const targetY = innerHeight * (innerWidth <= 700 ? .63 : .5);
+      const targetY = innerHeight * .5;
       let nearest = 0;
       let distance = Infinity;
       for (const step of trustSteps) {
@@ -221,6 +238,8 @@
   const queueStoryUpdate = () => { if (!scrollFrame) scrollFrame = requestAnimationFrame(updateScrollStory); };
   window.addEventListener("scroll",queueStoryUpdate,{passive:true});
   window.addEventListener("resize",queueStoryUpdate,{passive:true});
+  window.addEventListener("hashchange",queueStoryUpdate);
+  window.addEventListener("pageshow",queueStoryUpdate);
   queueStoryUpdate();
   function updateMotionControl() {
     motionControl.hidden = false;

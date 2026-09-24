@@ -21,7 +21,9 @@ test('each landing locale has its own readable page, canonical URL and working a
     if (code !== 'it') assert.ok(!html.includes('data-i18n="heroLineOne">I tuoi soldi.'));
     assert.ok(html.includes(`id="partita-iva"`));
     assert.ok(html.includes('data-first-story data-active-step="0"'));
-    assert.ok(html.includes('data-ways-story data-active-row="0"'));
+    assert.ok(html.includes('data-ways-story data-active-way="0"'));
+    assert.ok(html.includes('class="ways-stage" aria-hidden="true"'));
+    assert.equal((html.match(/class="way way-/g) || []).length,6);
     assert.ok(html.includes('data-fiscal-story data-active-step="0"'));
     for (const step of ['0','1','2','3']) assert.ok(html.includes(`data-fiscal-step="${step}"`));
     assert.ok(html.includes('data-i18n="fiscalDetailTwo"'));
