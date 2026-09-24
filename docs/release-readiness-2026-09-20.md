@@ -30,8 +30,10 @@ volontario all'app. La prima pubblicazione della pagina split è stata
 verificata online (HTTP 200); il CSS della landing ha il TTL atteso e gli HTML
 non ereditano `no-store`. Una regola sovrapposta per `/assets/*` ha invece
 prodotto online `no-store, public, immutable`, che equivale a non usare la
-cache del browser: la regola è stata separata per JS/CSS e richiede una nuova
-verifica pubblica dopo il deploy. La pagina split ora racconta con un esempio
+cache del browser. La regola è stata separata per JS/CSS: dopo il deploy del
+24 settembre la pagina pubblica, il suo script e il CSS rispondono HTTP 200;
+script e CSS hanno `public, max-age=604800` e il chunk JS dell'app ha
+`public, max-age=31536000, immutable`, senza `no-store` sovrapposto. La pagina split ora racconta con un esempio
 interattivo verificabile come una contestazione modifica il saldo (48 € ↔
 60 €), espone gli altri comportamenti effettivi del motore e anima lo scroll
 con solo ~2 KB di JavaScript dedicato, senza scaricare Three.js o l'app.
