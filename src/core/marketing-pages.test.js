@@ -15,6 +15,10 @@ test('each landing locale has its own readable page, canonical URL and working a
     assert.match(html,new RegExp(`<html lang="${code}">`));
     assert.ok(html.includes(`rel="canonical" href="${brand.origin + path}"`));
     assert.ok(html.includes(`href="/?lang=${code}"`));
+    assert.ok(html.includes(`property="og:image" content="${brand.origin}/landing/orbit-social.png"`));
+    assert.ok(html.includes('name="twitter:card" content="summary_large_image"'));
+    assert.ok(html.includes('property="og:image:alt" content="'));
+    if (code !== 'it') assert.ok(!html.includes('property="og:image:alt" content="Un pianeta'));
     assert.ok(html.includes(`id="current-language">${code.toUpperCase()}<`));
     assert.equal((html.match(/hreflang="/g) || []).length,8);
     assert.ok(!html.includes('{{ASSET_REV}}'));
@@ -68,6 +72,14 @@ test('each landing locale has its own readable page, canonical URL and working a
   assert.match(renderLanding(template,'de',brand,'rev'),/Dein Geld\./);
 });
 
+test('shared landing image exists and metadata matches its dimensions', () => {
+  const image = readFileSync(new URL('../../public/landing/orbit-social.png',import.meta.url));
+  assert.equal(image.subarray(1,4).toString(),'PNG');
+  const html = renderLanding(template,'it',brand,'rev');
+  assert.ok(html.includes(`property="og:image:width" content="${image.readUInt32BE(16)}"`));
+  assert.ok(html.includes(`property="og:image:height" content="${image.readUInt32BE(20)}"`));
+});
+
 test('landing modules use JavaScript assets served with a module-compatible MIME type', () => {
   const entry = readFileSync(new URL('../../public/landing/landing.js',import.meta.url),'utf8');
   for (const filename of ['landing-copy.js','landing-orb.js']) {
@@ -82,6 +94,7 @@ test('changing display identity updates marketing text and SEO without changing 
   assert.ok(html.includes('<title>Orbit — Your money, finally clear</title>'));
   assert.ok(html.includes('>orbit<span class="brand-point">'));
   assert.ok(html.includes('https://orbit.example/landing/en/'));
+  assert.ok(html.includes('https://orbit.example/landing/orbit-social.png'));
   assert.ok(html.includes('"name":"Orbit"'));
   assert.ok(!html.includes('Momentum brings'));
   const sitemap = renderSitemap(changed,'2026-09-23');

@@ -10,6 +10,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const localeCodes = ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt'];
 const defaultOrigin = 'https://momentum-finance.pages.dev';
 const localeTags = { it:'it_IT', en:'en_US', de:'de_DE', fr:'fr_FR', es:'es_ES', nl:'nl_NL', pt:'pt_PT' };
+const socialImageAlt = {
+  it:'Un pianeta viola luminoso con orbite sottili in un cielo stellato scuro.',
+  en:'A luminous violet planet with thin rings against a dark starry sky.',
+  de:'Ein leuchtender violetter Planet mit feinen Ringen vor dunklem Sternenhimmel.',
+  fr:'Une planète violette lumineuse aux anneaux fins dans un ciel étoilé sombre.',
+  es:'Un planeta violeta luminoso con anillos finos sobre un cielo estrellado oscuro.',
+  nl:'Een lichtgevende paarse planeet met dunne ringen tegen een donkere sterrenhemel.',
+  pt:'Um planeta violeta luminoso com anéis finos num céu estrelado escuro.'
+};
 const esc = value => String(value).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const pathFor = code => `/landing/${code === 'it' ? '' : code + '/'}`;
 
@@ -66,6 +75,7 @@ export function renderLanding(template, code, brand, revision) {
   }
 
   html = html.replace(/(<meta property="og:url" content=")[^"]*(")/,(_m,a,b) => a + esc(canonical) + b)
+    .replace(/(<meta property="og:image:alt" content=")[^"]*(")/,(_m,a,b) => a + esc(socialImageAlt[code]) + b)
     .replace(/(<link rel="canonical" href=")[^"]*(")/,(_m,a,b) => a + esc(canonical) + b)
     .replaceAll('/?lang=it',`/?lang=${code}`)
     .replaceAll('href="/privacy.html"',`href="/privacy.html?lang=${code}"`)
@@ -84,8 +94,8 @@ export function renderLanding(template, code, brand, revision) {
     operatingSystem:'Any', isAccessibleForFree:true, featureList,
     description:dictionary?.pageDescription || `${brand.name} mette in ordine spese, scadenze e obiettivi.`
   };
-  return html.replace('  <meta name="twitter:card" content="summary">',
-    `  <meta name="twitter:card" content="summary">\n  <meta property="og:locale" content="${localeTags[code]}">\n${alternate}\n  <link rel="alternate" hreflang="x-default" href="${esc(brand.origin + '/landing/')}">\n  <script type="application/ld+json">${JSON.stringify(schema).replaceAll('<','\\u003c')}</script>`);
+  return html.replace('  <meta name="twitter:card" content="summary_large_image">',
+    `  <meta name="twitter:card" content="summary_large_image">\n  <meta property="og:locale" content="${localeTags[code]}">\n${alternate}\n  <link rel="alternate" hreflang="x-default" href="${esc(brand.origin + '/landing/')}">\n  <script type="application/ld+json">${JSON.stringify(schema).replaceAll('<','\\u003c')}</script>`);
 }
 
 export function renderSitemap(brand, date) {
