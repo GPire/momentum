@@ -39,7 +39,7 @@ sezione.
 | Perimetro | Stato | Decisione |
 | --- | --- | --- |
 | Web/PWA personale | Pubblicata e funzionante sul dominio di produzione | Candidata a beta pubblica controllata |
-| Landing marketing `/landing/` | Prima versione `0fadd27` verificata sul dominio Pages il 23 settembre 2026; nuova revisione visiva, build, Chrome e layout locali 320–1030 px verificati, incluso movimento ridotto e opt-in | Verificare il deploy della revisione, dispositivi fisici e uso reale prima di attribuirle un effetto sulla conversione |
+| Landing marketing `/landing/` | Prima versione `0fadd27` verificata sul dominio Pages il 23 settembre 2026. Revisione locale del 24 settembre: HTML in sette lingue, orb WebGL con fallback, scene guidate per AI, Split, trasferte, Partita IVA e fiducia; sei miniature delle funzioni attivate dallo scroll; 405/405 file di test, build portabile (453 moduli), browser desktop e viewport simulati 320/390/768 px | Collaudare touch, Safari iOS e movimento su dispositivi fisici, poi verificare il deploy e misurare l'uso reale prima di attribuirle un effetto sulla conversione |
 | Android e iOS con Capacitor | Scaffold e configurazione presenti | Non pronti per gli store: mancano firma, build native e prove fisiche |
 | Trasferte personali | Acquisizione, allegati, controlli, stampa, export e riconciliazione locale presenti | Utilizzabile; non equivale a un servizio aziendale condiviso |
 | Servizio aziende e HR/Finance | Gateway pubblico e logica applicativa presenti | Non operativo finché identità, D1, storage e primo tenant non sono configurati |

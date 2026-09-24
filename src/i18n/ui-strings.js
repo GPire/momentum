@@ -20,6 +20,7 @@
 'use strict';
 
 import { detectDeviceLanguage } from './detect.js';
+import { BRAND_NAME } from '../core/brand.js';
 
 export const UI_LANG_DEFAULT = 'en';
 export const UI_LANGS = ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt'];
@@ -13482,5 +13483,5 @@ Object.assign(S.pt,{vaultUpgradeTitle:'Atualizações do arquivo mais seguras',v
 export function t(key, lang = UI_LANG_DEFAULT, ...args) {
   const dict = S[lang] || S[UI_LANG_DEFAULT];
   const v = dict[key] ?? S.en[key] ?? S.it[key] ?? key;
-  return typeof v === 'function' ? v(...args) : v;
+  return typeof v === 'function' ? v(...args) : typeof v === 'string' ? v.replaceAll('Momentum', BRAND_NAME) : v;
 }

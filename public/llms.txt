@@ -1,0 +1,24 @@
+# Momentum
+
+> App web di finanza personale. Pagina pubblica: https://momentum-finance.pages.dev/landing/
+
+## Cosa offre
+- Spese, scadenze e obiettivi in un unico percorso. Budget e importazione sono facoltativi.
+- Voce dove supportata dal dispositivo; importo e categoria sono proposte da controllare prima del salvataggio. I suggerimenti si adattano alle correzioni confermate dall'utente e il modello può dichiarare incertezza. https://momentum-finance.pages.dev/landing/#intelligenza
+- Split gratuito senza account per iniziare: quote e valute; una spesa contestata esce dai saldi finché la contestazione non è risolta. https://momentum-finance.pages.dev/landing/#in-pratica
+- Trasferte: ricevute collegate alle spese, resoconto e file da preparare per l'azienda. Preparare un export non significa che il gestionale l'abbia ricevuto.
+- Partita IVA per Italia, Svizzera e Spagna: fatture, incassi anche parziali, stime e guide ai passaggi ufficiali. Invio e conservazione ufficiali non avvengono automaticamente nell'app. https://momentum-finance.pages.dev/landing/#partita-iva
+- Dati e confronti sugli investimenti con fonti e limiti dichiarati; non è consulenza finanziaria.
+- I movimenti personali partono dal dispositivo; la condivisione fra dispositivi è scelta dall'utente. https://momentum-finance.pages.dev/landing/#controllo
+
+## Pagine nelle sette lingue
+- it: https://momentum-finance.pages.dev/landing/
+- en: https://momentum-finance.pages.dev/landing/en/
+- de: https://momentum-finance.pages.dev/landing/de/
+- fr: https://momentum-finance.pages.dev/landing/fr/
+- es: https://momentum-finance.pages.dev/landing/es/
+- nl: https://momentum-finance.pages.dev/landing/nl/
+- pt: https://momentum-finance.pages.dev/landing/pt/
+
+## Limiti attuali
+Il servizio aziendale cloud e i connettori autenticati richiedono ancora configurazione e collaudo reali. Non presentare i dati di esempio come dati dell'utente.

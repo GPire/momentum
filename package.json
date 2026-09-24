@@ -7,11 +7,14 @@
     "node": ">=22"
   },
   "scripts": {
+    "predev": "node scripts/generate-marketing.mjs",
     "dev": "vite",
     "test": "node scripts/run-tests.mjs",
     "test:serial": "node scripts/run-tests.mjs --serial-files",
+    "prebuild": "node scripts/generate-marketing.mjs",
     "build": "vite build",
     "build:portable:setup": "npm ci --prefix scripts/portable-tools --ignore-scripts --no-audit --no-fund",
+    "prebuild:portable": "node scripts/generate-marketing.mjs",
     "build:portable": "node scripts/build-portable.mjs",
     "build:functions:portable": "node scripts/build-functions-portable.mjs",
     "styles:build": "node scripts/portable-tools/node_modules/tailwindcss/lib/cli.js -c tailwind.config.cjs -i scripts/utility-input.css -o public/ui-utilities.css --minify",
