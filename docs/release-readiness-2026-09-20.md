@@ -281,8 +281,10 @@ esplicitamente che nessuna notizia è stata verificata. Restano da collaudare su
 dispositivi fisici l'uso e la velocità del pannello, e con account reali le
 quote/licenze delle fonti facoltative. Lo snapshot SEC non è un flusso in
 tempo reale e la sua copertura è limitata alle società presenti nell'archivio.
-Il workflow mensile propone una PR con pannello e indice allineati; il dato
-pubblicato si aggiorna soltanto dopo revisione e distribuzione.
+Il workflow mensile attualmente propone una PR per il pannello SEC. L'allineamento
+automatico del nuovo indice nella stessa PR richiede ancora la modifica al
+workflow, rimasta locale perché GitHub richiede il permesso `workflow` nel token.
+Il dato pubblicato si aggiorna soltanto dopo revisione e distribuzione.
 
 ## Vault investimenti e chiavi personali — 24 settembre 2026
 
