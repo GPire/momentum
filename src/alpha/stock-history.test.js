@@ -109,6 +109,23 @@ test('fetchStockMonthlySeriesCascade: passa al secondo provider se il primo non 
   assert.equal(r.series.length, 1);
 });
 
+test('lo storico più antico prevale sulla prima fonte solo se arriva anche vicino all’ultimo dato', async () => {
+  const fetchImpl = async url => ({ ok: true, json: async () => String(url).includes('alphavantage')
+    ? { 'Monthly Time Series': { '2025-01-31': { '4. close': '20' }, '2026-09-01': { '4. close': '25' } } }
+    : { values: [{ datetime: '1990-01-31', close: '2' }, { datetime: '2026-08-31', close: '24' }] } });
+  const result = await fetchStockMonthlySeriesCascade('AAPL', { keys: { alphavantage: 'a', twelvedata: 't' }, fetchImpl });
+  assert.equal(result.provider, 'twelvedata');
+  assert.equal(result.series[0].date, '1990-01-31');
+});
+
+test('una fonte lunga ma ferma da anni non sostituisce lo storico aggiornato', async () => {
+  const fetchImpl = async url => ({ ok: true, json: async () => String(url).includes('alphavantage')
+    ? { 'Monthly Time Series': { '2025-01-31': { '4. close': '20' }, '2026-09-01': { '4. close': '25' } } }
+    : { values: [{ datetime: '1990-01-31', close: '2' }, { datetime: '2024-08-31', close: '24' }] } });
+  const result = await fetchStockMonthlySeriesCascade('AAPL', { keys: { alphavantage: 'a', twelvedata: 't' }, fetchImpl });
+  assert.equal(result.provider, 'alphavantage');
+});
+
 test('fetchStockMonthlySeriesCascade: nessuna chiave -> serie vuota, provider null', async () => {
   const r = await fetchStockMonthlySeriesCascade('NVDA', { keys: {}, fetchImpl: async () => ({}) });
   assert.deepEqual(r, { series: [], provider: null });

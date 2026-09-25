@@ -111,7 +111,16 @@ test('fetchCryptoKlinesSeries: chiama Binance senza chiave e mappa il close (ind
   assert.equal(r.length, 1);
   assert.equal(r[0].price, 105);
   assert.ok(calledUrl.includes('BTCEUR'));
+  assert.ok(calledUrl.includes('limit=1000'));
   assert.ok(!calledUrl.includes('apikey') && !calledUrl.includes('api_key')); // nessuna chiave richiesta
+});
+
+test('la candela mensile chiusa ha data di fine mese; quella aperta ha la data di osservazione', async () => {
+  const rows = ['2026-08-01', '2026-09-01'].map((date, i) => [Date.parse(`${date}T00:00:00Z`), '1', '1', '1', String(100 + i), '1']);
+  const result = await fetchCryptoKlinesSeries('BTC', {
+    fetchImpl: async () => ({ ok: true, json: async () => rows }), referenceDate: new Date('2026-09-25T10:00:00Z'),
+  });
+  assert.deepEqual(result.map(({ date }) => date), ['2026-08-31', '2026-09-25']);
 });
 
 test('fetchCryptoKlinesSeries: simbolo non quotato su Binance -> array vuoto', async () => {
@@ -139,6 +148,60 @@ test('fetchCryptoHistoryCascade: usa Binance se disponibile (fonte primaria, sen
   const r = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl });
   assert.equal(r.source, 'binance');
   assert.equal(r.series.length, 2);
+});
+
+test('usa la coppia USDT solo quando copre più anni e rende esplicita la valuta', async () => {
+  const rows = dates => dates.map((date, index) => [Date.parse(`${date}T00:00:00Z`), '1', '1', '1', String(100 + index), '1']);
+  const fetchImpl = async url => ({ ok: true, json: async () => String(url).includes('BTCUSDT')
+    ? rows(['2017-09-01', '2022-01-01', '2026-09-01'])
+    : rows(['2020-01-01', '2026-09-01']) });
+  const result = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl });
+  assert.equal(result.source, 'binance');
+  assert.equal(result.currency, 'USDT');
+  assert.equal(result.pair, 'BTCUSDT');
+  assert.equal(result.series[0].date, '2017-09-30');
+});
+
+test('Bitcoin usa la storia Bitstamp dal 2011 quando arriva anche ai dati recenti', async () => {
+  const rows = dates => dates.map((date, index) => [Date.parse(`${date}T00:00:00Z`), '1', '1', '1', String(100 + index), '1']);
+  const fetchImpl = async url => ({ ok: true, json: async () => String(url).includes('bitstamp')
+    ? { data: { ohlc: [
+      { timestamp: String(Date.parse('2011-08-18T00:00:00Z') / 1000), close: '10', volume: '1' },
+      { timestamp: String(Date.parse('2026-09-01T00:00:00Z') / 1000), close: '100', volume: '1' },
+    ] } }
+    : rows(['2017-09-01', '2026-09-01']) });
+  const result = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl, referenceDate: new Date('2026-09-25'), licensedSources: ['bitstamp'] });
+  assert.equal(result.source, 'bitstamp');
+  assert.equal(result.currency, 'USD');
+  assert.equal(result.series[0].date, '2011-08-18');
+});
+
+test('la versione pubblica non richiede dati Bitstamp senza accordo commerciale', async () => {
+  const urls = [];
+  const fetchImpl = async url => {
+    urls.push(String(url));
+    return { ok: true, json: async () => [
+      [Date.parse('2017-09-01T00:00:00Z'), '1', '1', '1', '100', '1'],
+      [Date.parse('2026-09-01T00:00:00Z'), '1', '1', '1', '200', '1'],
+    ] };
+  };
+  const result = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl, referenceDate: new Date('2026-09-25') });
+  assert.equal(result.source, 'binance');
+  assert.ok(urls.every(url => !url.includes('bitstamp.net')));
+});
+
+test('una fonte lunga ma ferma da anni non prevale su prezzi recenti', async () => {
+  const rows = dates => dates.map(date => [Date.parse(`${date}T00:00:00Z`), '1', '1', '1', '100', '1']);
+  const fetchImpl = async url => ({ ok: true, json: async () => {
+    if (String(url).includes('bitstamp')) return { data: { ohlc: [
+      { timestamp: String(Date.parse('2011-08-18T00:00:00Z') / 1000), close: '10', volume: '1' },
+      { timestamp: String(Date.parse('2019-01-01T00:00:00Z') / 1000), close: '20', volume: '1' },
+    ] } };
+    return rows(['2025-09-01', '2026-09-01']);
+  } });
+  const result = await fetchCryptoHistoryCascade('bitcoin', 'BTC', { fetchImpl, referenceDate: new Date('2026-09-25'), licensedSources: ['bitstamp'] });
+  assert.equal(result.source, 'binance');
+  assert.equal(result.series[0].date, '2025-09-30');
 });
 
 test('fetchCryptoHistoryCascade: ripiega su CoinGecko se il simbolo non è su Binance', async () => {

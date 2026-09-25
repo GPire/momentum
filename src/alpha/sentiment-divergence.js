@@ -20,8 +20,32 @@
 // direzione precisa sta indovinando, esattamente come per reazioneAllaFed.
 'use strict';
 
+import { aggregateNewsSentiment } from '../ai/reasoning-fusion.js';
+
 const SOGLIA_SENTIMENT = 0.15; // stessa soglia "somewhat-*" di src/alpha/news.js
 const SOGLIA_PREZZO = 0.01;    // sotto l'1% è rumore, non un movimento da leggere
+
+export function prepareSentimentPriceEvidence(items, priceSeries, { now = Date.now() } = {}) {
+  if (!Array.isArray(priceSeries) || priceSeries.length < 2) return null;
+  const [prev, last] = priceSeries.slice(-2);
+  const prevAt = Date.parse(prev.date), lastAt = Date.parse(last.date);
+  if (!Number.isFinite(prevAt) || !Number.isFinite(lastAt) || prevAt >= lastAt ||
+      lastAt > now + 5 * 60_000 || now - lastAt > 7 * 86_400_000 ||
+      !Number.isFinite(prev.price) || !(prev.price > 0) ||
+      !Number.isFinite(last.price) || !(last.price > 0)) return null;
+  // Date-only prices represent a trading day. Intraday prices have an exact
+  // timestamp. An indexed-but-unpublished GDELT timestamp cannot establish
+  // that the article preceded a price move.
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(last.date) ? lastAt + 86_400_000 : lastAt + 1;
+  const inWindow = items.filter((item) => {
+    const publishedAt = Date.parse(item.publishedAt || '');
+    return Number.isFinite(publishedAt) && publishedAt >= prevAt && publishedAt < end;
+  });
+  const sentiment = aggregateNewsSentiment(inWindow, { now });
+  if (!sentiment) return null;
+  return { sentiment, variazionePrezzo: (last.price - prev.price) / prev.price,
+    finestraGiorni: Math.max(1, Math.ceil((lastAt - prevAt) / 86_400_000)) };
+}
 
 export function divergenzaSentimentPrezzo({ sentiment, variazionePrezzo, finestraGiorni } = {}) {
   if (!sentiment || !Number.isFinite(sentiment.score)) {

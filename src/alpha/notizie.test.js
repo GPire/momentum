@@ -82,6 +82,31 @@ test('una fonte prolifica non può occupare tutta la lista', async () => {
   for (const v of r.voci) assert.ok(v.nomeFonte && v.licenza);
 });
 
+test('una vista breve conserva spazio sia per Fed sia per BCE', async () => {
+  const finto = async (url) => ({
+    ok: true,
+    text: async () => `<rss>${Array.from({ length: 6 }, (_, i) => `<item><title>${url.includes('ecb.europa.eu') ? 'BCE' : 'Fed'} comunicato ${i}</title><pubDate>Fri, 25 Sep 2026 10:00:00 GMT</pubDate><link>${url}</link></item>`).join('')}</rss>`,
+  });
+  const r = await prendiNotizie({ fonti: FONTI_NOTIZIE.filter(f => ['fed', 'bce'].includes(f.chiave)), quante: 5, fetchImpl: finto });
+  assert.equal(r.voci.length, 5);
+  assert.equal(r.voci.filter(v => v.fonte === 'fed').length, 3);
+  assert.equal(r.voci.filter(v => v.fonte === 'bce').length, 2);
+});
+
+test('nel browser il relay Momentum precede la fonte esterna e resta dichiarato', async () => {
+  const chiamate = [];
+  const finto = async url => {
+    chiamate.push(url);
+    return { ok: true, text: async () => JSON.stringify({ status: 'ok', items: [
+      { title: 'FOMC statement', pubDate: '2026-09-16T18:00:00Z', link: 'https://www.federalreserve.gov/post' },
+    ] }) };
+  };
+  const r = await prendiNotizie({ fonti: [FONTI_NOTIZIE[0]], fetchImpl: finto, preferSameOrigin: true });
+  assert.deepEqual(chiamate, ['/api/market-policy-news?source=fed']);
+  assert.equal(r.voci[0].viaRelay, true);
+  assert.match(r.voci[0].relayNota, /Momentum/);
+});
+
 test('lo stesso comunicato in due feed compare una volta sola', async () => {
   const stesso = '<rss><item><title>Federal Reserve issues FOMC statement</title><pubDate>Tue, 4 Aug 2026 20:30:00 GMT</pubDate></item></rss>';
   const finto = async () => ({ ok: true, text: async () => stesso });

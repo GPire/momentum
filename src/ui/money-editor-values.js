@@ -8,6 +8,13 @@ export function parseSalaryDraft(dayText, amountText) {
   return { day, amount: Math.round(amount * 100) / 100 };
 }
 
+export function parseEmergencyFundAmount(value) {
+  const raw = String(value ?? '').trim();
+  const amount = /^\d+(?:[.,]\d{1,2})?$/.test(raw) ? Number(raw.replace(',', '.')) : NaN;
+  if (!Number.isFinite(amount) || amount < 0 || amount > Number.MAX_SAFE_INTEGER / 100) return { error: 'amount' };
+  return { amount: Math.round(amount * 100) / 100 };
+}
+
 export function parseReminderDraft({ title, date, amount = '' }) {
   const name = String(title ?? '').trim();
   const day = String(date ?? '');

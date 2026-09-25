@@ -4,6 +4,9 @@
 // dichiara che non è disponibile invece di stimare.
 'use strict';
 
+import { conTimeout } from '../core/con-timeout.js';
+import { cleanPriceSeries } from './market-series-quality.js';
+
 function formatDateDDMMYYYY(d) {
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -54,14 +57,20 @@ export async function fetchCryptoPriceSeries(coinId, { yearsBack = 1, vsCurrency
   if (!res.ok) return [];
   const json = await res.json();
   const prices = Array.isArray(json?.prices) ? json.prices : [];
-  return prices.map(([ts, price]) => ({ date: new Date(ts).toISOString().slice(0, 10), price })).filter(p => Number.isFinite(p.price));
+  const lastByDay = new Map();
+  for (const [ts, price] of prices) {
+    if (!Number.isFinite(ts) || !Number.isFinite(price)) continue;
+    const stamp = new Date(ts);
+    if (!Number.isFinite(stamp.getTime())) continue;
+    const date = stamp.toISOString().slice(0, 10);
+    lastByDay.set(date, { date, price });
+  }
+  return cleanPriceSeries([...lastByDay.values()]);
 }
 
-// Confronto REALE a più anni (1,2,3,5...) — CoinGecko limita la SERIE
-// continua a 365 giorni (piano gratuito), ma il singolo punto nel tempo
-// (/history?date=) non ha questo limite: qui si chiamano più punti reali,
-// non una linea continua fabbricata. Ogni punto può mancare (fonte senza
-// dato per quella data) senza bloccare gli altri.
+// Confronto puntuale: gli accessi storici di CoinGecko dipendono dal piano e
+// possono essere rifiutati anche su /history. Mostriamo soltanto i punti
+// restituiti davvero; non li uniamo in una linea continua fabbricata.
 export async function fetchCryptoMultiYearComparison(coinId, { yearsList = [1, 2, 3, 5], vsCurrency = 'eur', fetchImpl = fetch, referenceDate = new Date() } = {}) {
   const results = await Promise.all(yearsList.map(y => fetchCryptoPriceYearsAgo(coinId, { yearsAgo: y, vsCurrency, fetchImpl, referenceDate }).then(p => ({ yearsAgo: y, point: p }))));
   return results.filter(r => r.point);
@@ -85,30 +94,66 @@ export async function fetchCryptoMultiYearComparison(coinId, { yearsList = [1, 2
 // risaliva fino a fetchCryptoHistoryCascade e IMPEDIVA il piano B
 // (CoinGecko) di scattare — l'esatto contrario del motivo per cui la
 // cascata esiste.
-export async function fetchCryptoKlinesSeries(symbol, { vsCurrency = 'EUR', fetchImpl = fetch, limit = 60 } = {}) {
-  if (!symbol) return [];
+export async function fetchCryptoKlinesSeries(symbol, { vsCurrency = 'EUR', fetchImpl = fetch, limit = 1000, referenceDate = new Date() } = {}) {
+  if (!symbol || !/^[A-Z0-9]{2,15}$/i.test(symbol)) return [];
   const pair = `${symbol.toUpperCase()}${vsCurrency.toUpperCase()}`;
-  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1M&limit=${limit}`;
+  const url = `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1M&limit=${Math.min(1000, Math.max(1, limit))}`;
   let res;
   try {
-    res = await fetchImpl(url);
+    res = await conTimeout(fetchImpl(url), 8_000, 'Binance storico non risponde');
   } catch (_) {
     return [];
   }
   if (!res.ok) return [];
   const rows = await res.json().catch(() => null);
   if (!Array.isArray(rows)) return [];
-  return rows.map(r => ({ date: new Date(r[0]).toISOString().slice(0, 10), price: parseFloat(r[4]) })).filter(p => Number.isFinite(p.price));
+  const observedAt = Number.isFinite(referenceDate?.getTime?.()) ? referenceDate : new Date();
+  const observedDate = observedAt.toISOString().slice(0, 10);
+  return cleanPriceSeries(rows.flatMap(row => {
+    if (!Array.isArray(row) || !Number.isFinite(row[0])) return [];
+    const open = new Date(row[0]);
+    if (!Number.isFinite(open.getTime()) || open > observedAt) return [];
+    // Monthly kline timestamps denote the first day, but the close belongs
+    // to the last day. The still-open month's close is provisional as of the
+    // request date, never a fictitious month-end observation.
+    const nextMonth = Date.UTC(open.getUTCFullYear(), open.getUTCMonth() + 1, 1);
+    const monthEnd = new Date(nextMonth - 86_400_000).toISOString().slice(0, 10);
+    return [{ date: monthEnd > observedDate ? observedDate : monthEnd, price: Number(row[4]) }];
+  }));
 }
 
-// A CASCATA: Binance (senza chiave) prima, CoinGecko (senza chiave, ma
-// limitato a 365gg) come piano B se il simbolo non è su Binance — mai
-// dipendere da una fonte sola, richiesto esplicitamente dall'utente.
-export async function fetchCryptoHistoryCascade(coinId, symbol, { fetchImpl = fetch, yearsBack = 1 } = {}) {
-  const klines = await fetchCryptoKlinesSeries(symbol, { fetchImpl });
-  if (klines.length > 1) return { series: klines, source: 'binance' };
-  const series = await fetchCryptoPriceSeries(coinId, { yearsBack, fetchImpl });
-  return { series, source: series.length ? 'coingecko' : null };
+// Select one continuous source by coverage AND recency. USD, USDT and EUR
+// candles are never silently spliced or converted. An exchange pair can start
+// years after the coin existed; the UI shows the actual first observation.
+// Bitstamp requires a separate commercial data agreement. Its adapter is
+// available for a licensed deployment but is never called by the public app.
+export async function fetchCryptoHistoryCascade(coinId, symbol, { fetchImpl = fetch, yearsBack = 1, referenceDate = new Date(), licensedSources = [] } = {}) {
+  const [eur, usdt, bitstamp] = await Promise.all([
+    fetchCryptoKlinesSeries(symbol, { fetchImpl, referenceDate }),
+    fetchCryptoKlinesSeries(symbol, { vsCurrency: 'USDT', fetchImpl, referenceDate }),
+    licensedSources.includes('bitstamp')
+      ? import('./bitstamp-history.js').then(({ fetchBitstampHistory }) => fetchBitstampHistory(coinId, { fetchImpl }))
+      : Promise.resolve({ series: [], pair: null }),
+  ]);
+  const candidates = [
+    { series: eur, source: 'binance', currency: 'EUR', pair: `${symbol?.toUpperCase()}EUR` },
+    { series: usdt, source: 'binance', currency: 'USDT', pair: `${symbol?.toUpperCase()}USDT` },
+    { series: bitstamp.series, source: 'bitstamp', currency: 'USD', pair: bitstamp.pair },
+  ].filter(item => item.series.length > 1);
+  const latest = Math.max(...candidates.map(item => Date.parse(`${item.series.at(-1).date}T00:00:00Z`)));
+  const recent = candidates.filter(item => Date.parse(`${item.series.at(-1).date}T00:00:00Z`) >= latest - 65 * 86_400_000);
+  recent.sort((a, b) => a.series[0].date.localeCompare(b.series[0].date) ||
+    ['EUR', 'USD', 'USDT'].indexOf(a.currency) - ['EUR', 'USD', 'USDT'].indexOf(b.currency));
+  const exchange = recent[0] || null;
+  const currentCutoff = referenceDate.getTime() - 65 * 86_400_000;
+  if (exchange?.series.length >= 12 && Date.parse(`${exchange.series.at(-1).date}T00:00:00Z`) >= currentCutoff) return exchange;
+  const series = await fetchCryptoPriceSeries(coinId, { yearsBack, fetchImpl, referenceDate });
+  const publicSeries = series.length ? { series, source: 'coingecko', currency: 'EUR', pair: null } : null;
+  if (!exchange) return publicSeries || { series: [], source: null, currency: null, pair: null };
+  if (publicSeries && (Date.parse(`${series.at(-1).date}T00:00:00Z`) >
+      Date.parse(`${exchange.series.at(-1).date}T00:00:00Z`) + 65 * 86_400_000 ||
+      (series[0].date < exchange.series[0].date && series.at(-1).date >= exchange.series.at(-1).date))) return publicSeries;
+  return exchange;
 }
 
 // Massimo/minimo REALE per anno solare nella serie — i "momenti salienti"

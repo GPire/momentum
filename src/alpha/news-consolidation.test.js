@@ -35,8 +35,9 @@ test('consolidateNewsItems scarta voci senza titolo e rispetta il limite', () =>
 
 test('le nuove etichette notizie e modifica categoria coprono tutte le lingue', () => {
   for (const lang of ['it', 'en', 'de', 'fr', 'es', 'nl', 'pt']) {
-    for (const key of ['transactionCategoryQuestion', 'categoryMoved', 'categoryMovedLearned', 'newsTitle', 'newsOtherSources', 'newsOnDevice', 'newsSentimentSummary', 'newsSentimentDeviceNote', 'newsSentiment_bullish', 'newsSentiment_somewhat_bullish', 'newsSentiment_neutral', 'newsSentiment_somewhat_bearish', 'newsSentiment_bearish']) {
-      assert.notEqual(tIntegration(key, lang, 'X', '0.20', 2), key, `${lang}: ${key}`);
+    for (const key of ['transactionCategoryQuestion', 'categoryMoved', 'categoryMovedLearned', 'newsTitle', 'newsOtherSources', 'newsOnDevice', 'newsSentimentSummary', 'newsSentimentDeviceNote', 'newsSentimentRelayNote', 'newsSentiment_bullish', 'newsSentiment_somewhat_bullish', 'newsSentiment_neutral', 'newsSentiment_somewhat_bearish', 'newsSentiment_bearish']) {
+      assert.notEqual(tIntegration(key, lang, 'X', '0.20', 2, 1), key, `${lang}: ${key}`);
     }
+    assert.doesNotMatch(tIntegration('newsSentimentSummary', lang, 'X', '0.20', 2, 1), /\{[0-3]\}/);
   }
 });

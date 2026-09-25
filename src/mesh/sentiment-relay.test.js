@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  packSentimentForRelay, initSentimentRelayStore, receiveSentimentRelayed, bestKnownSentiment, pruneSentimentRelay,
+  packSentimentForRelay, initSentimentRelayStore, receiveSentimentRelayed, bestKnownSentiment, bestCorroboratedSentiment, pruneSentimentRelay,
   REPUTAZIONE_MINIMA_FIDATA, ETA_MASSIMA_RELAY_MS,
 } from './sentiment-relay.js';
 import { appendUpdate } from './update-ledger.js';
@@ -117,6 +117,19 @@ test('bestKnownSentiment: null onesto quando non si sa nulla; il testo si normal
   assert.equal(bestKnownSentiment(s, 'mai visto'), null);
   receiveSentimentRelayed(s, { v: 1, testo: 'apple reports earnings', score: 0.3, label: 'somewhat-bullish', asOf: oraISO }, 'peerA', { now: NOW });
   assert.ok(bestKnownSentiment(s, '  Apple Reports Earnings  '));
+});
+
+test('il segnale di mercato non usa un solo peer, flag legacy, date vecchie o etichette incoerenti', () => {
+  const store = initSentimentRelayStore();
+  const title = 'company reports earnings';
+  const msg = { v: 1, testo: title, score: 0.4, label: 'bullish', asOf: oraISO };
+  receiveSentimentRelayed(store, msg, 'peerA', { now: NOW });
+  assert.equal(bestCorroboratedSentiment(store, title, { now: NOW }), null);
+  receiveSentimentRelayed(store, msg, 'peerB', { now: NOW });
+  assert.equal(bestCorroboratedSentiment(store, title, { now: NOW }).score, 0.4);
+  assert.equal(bestCorroboratedSentiment(store, title, { now: NOW + 15 * 86_400_000 }), null);
+  store[title].label = 'bearish';
+  assert.equal(bestCorroboratedSentiment(store, title, { now: NOW }), null);
 });
 
 test('pruneSentimentRelay: rimuove solo le voci scadute, tiene le altre', () => {

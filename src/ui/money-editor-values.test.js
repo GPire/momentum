@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseSalaryDraft } from './money-editor-values.js';
+import { parseSalaryDraft, parseEmergencyFundAmount } from './money-editor-values.js';
 import { t, UI_LANGS } from '../i18n/ui-strings.js';
 
 test('salary accepts decimal comma or point, with no forced amount', () => {
@@ -11,6 +11,11 @@ test('salary accepts decimal comma or point, with no forced amount', () => {
 test('salary rejects malformed days and partial numeric amounts', () => {
   for (const day of ['','0','32','2.5','2e1','abc27']) assert.equal(parseSalaryDraft(day,'1500').error,'day');
   for (const amount of ['0','-12','12oops','Infinity','1e3','1.234,56','1.234']) assert.equal(parseSalaryDraft('27',amount).error,'amount');
+});
+test('emergency reserve accepts zero and cents, but rejects partial or ambiguous amounts', () => {
+  assert.deepEqual(parseEmergencyFundAmount('0'), { amount: 0 });
+  assert.deepEqual(parseEmergencyFundAmount('1250,40'), { amount: 1250.4 });
+  for (const raw of ['', '-2', '12abc', '1.234,56', '2e3', 'Infinity']) assert.equal(parseEmergencyFundAmount(raw).error, 'amount');
 });
 test('every money editor text exists in all seven languages', () => {
   for (const lang of UI_LANGS) for (const key of ['moneyBudgetTitle','moneyBudgetHint','moneyUseSuggestion','moneyBudgetSaved','moneySalaryTitle','moneySalaryHint','moneySalaryAuto','moneyDay','moneyNet','moneyReset','moneyLocalHint','moneySalaryInvalid','moneySalarySaved','moneySalaryReset','moneySalaryLabel']) {

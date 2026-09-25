@@ -28,6 +28,28 @@ non costituisce autenticazione crittografica della provenienza.
 
 ## Apprendimento e integrazione residua
 
+Ogni dato sugli investimenti deve avere un uso dichiarato nel modello, non
+diventare indistintamente un esempio di addestramento. Nel percorso attivo:
+
+- identità dell'asset, obiettivo dell'ETF e descrizioni attribuite servono a
+  identificare e spiegare lo strumento; la ricerca Wikidata/Wikipedia non
+  aggiorna pesi né etichette di rendimento;
+- bilanci SEC e documenti ufficiali sono fatti con periodo e data di deposito;
+  possono motivare analisi verificabili, ma richiedono allineamento temporale
+  prima di entrare in un dataset di previsione;
+- soltanto le serie di prezzo ammesse da `trainingEligible` alimentano il
+  percorso numerico corrente; un proxy tokenizzato di un'azione e una
+  quotazione esterna visualizzata non diventano prezzi ufficiali del titolo;
+- le notizie mostrano fonte e data. Un testo o un sentiment non è un esito di
+  mercato: per stimarne l'utilità occorrono eventi successivi osservati,
+  separazione cronologica train/test e confronto con un riferimento semplice.
+
+Questa separazione evita dati del futuro nei test, duplicazioni di fonti e
+autoaddestramento sulle risposte generate da Momentum. Il passo ancora aperto
+è registrare previsioni versionate, poi confrontarle con esiti futuri reali
+fuori campione. Senza questo ciclo non si può dichiarare un modello
+d'investimento addestrato o calibrato su ogni nuovo asset.
+
 Questa modifica protegge gli input del percorso attivo; non addestra nuovi
 pesi neurali e non trasforma una misura storica di rischio in un esito osservato.
 Il nuovo adattatore multiasset resta pronto nell'API di analisi e nel benchmark;

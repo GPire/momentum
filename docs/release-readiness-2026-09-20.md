@@ -1,5 +1,289 @@
 # Momentum — stato reale e lavoro restante
 
+## Copertura temporale dei grafici asset — 25 settembre 2026
+
+La ricerca mostra ora l'intera serie **effettivamente ottenuta dalla fonte**,
+non un numero prefissato di mesi: i pulsanti uno/cinque anni selezionano per
+data, l'asse orizzontale usa le date reali e le interruzioni restano vuote.
+La scheda espone prima e ultima osservazione, fonte, valuta, eventuali buchi
+e data finale non recente. I prezzi piccoli delle cripto non diventano `0,00`
+per arrotondamento. Per azioni ed ETF con chiavi configurate viene scelta la
+serie più lunga fra quelle ancora recenti; le chiusure non rettificate per
+split e dividendi sono marcate come tali, mai presentate come rendimento totale.
+Binance EUR e USDT restano serie separate e la valuta non viene convertita
+silenziosamente. Le chiusure mensili Binance sono datate a fine mese, non
+al primo giorno; la candela ancora aperta porta la data della richiesta ed è
+marcata come provvisoria. Un token che segue un'azione resta distinto dal titolo.
+Per azioni/ETF il grafico TradingView della quotazione può essere aperto anche
+quando esiste una serie interna: è una visualizzazione esterna con controlli
+temporali, non un dato che alimenta calcoli o modelli, e può avere a sua volta
+una copertura limitata. È caricato solo quando l'utente chiede l'anteprima.
+Nel browser incorporato di collaudo l'iframe TradingView è rimasto bianco,
+benché aperto; il collegamento diretto resta visibile sopra l'anteprima e
+funziona come uscita. La resa del widget non è certificata su tutti i browser.
+
+**Vincolo di licenza scoperto durante il collaudo:** l'API Bitstamp ha fornito
+in browser candele BTC dal 2011, ma la [documentazione ufficiale](https://www.bitstamp.net/api/)
+richiede un Data License Agreement per l'uso commerciale dei dati. L'adattatore
+e i test sono pronti, ma la versione pubblica **non lo interroga** senza tale
+accordo. Perciò la vista BTC pubblica può iniziare solo dal primo dato
+Binance disponibile (nel collaudo dal 2017), che non è la nascita di Bitcoin.
+La copertura “dal debutto a oggi” per ogni cripto/azione/ETF non è raggiunta:
+servono fonti con profondità, identità, continuità e diritti commerciali
+verificati per ciascun mercato. Le chiavi personali Alpha Vantage, Twelve
+Data e FMP non dimostrano da sole un diritto di redistribuzione commerciale.
+Nessun dato mancante viene fabbricato o unito fra mercati diversi per colmare
+questa lacuna. Prima di vendere dati di mercato o usare tali serie per
+addestramento occorre una revisione delle licenze fonte per fonte.
+
+**Prove eseguite:** test di calcolo su date, lacune, prezzi minimi, scelta
+fonte e blocco dell'endpoint Bitstamp per la versione pubblica; suite completa
+408/408 file dopo la correzione della candela mensile e build portabile su
+472 moduli; ricerche locali Bitcoin, Ethereum, Solana, Apple e SPY
+nel browser e cambio periodo. Resta aperto il
+collaudo su telefoni fisici e la misura sistematica della copertura di titoli,
+fondi e cripto. La prova Bitstamp nel browser era esplorativa, non autorizzazione
+alla pubblicazione.
+
+## Ricerca con attesa visibile e lettura delle spese — 25 settembre 2026
+
+La ricerca degli asset segnala subito che sta cercando e dove appariranno i
+risultati. Un risultato locale si può aprire mentre vengono interrogate le
+altre fonti; se queste falliscono, quello già trovato resta disponibile. Una
+ricerca vuota spiega cosa inserire, senza lasciare visibili risultati ormai
+superati. La scheda indica sempre quando un grafico proviene da un token che
+segue un'azione, distinto dalla quotazione ufficiale.
+
+Ogni scheda apre con «Che cos'è»: per le azioni spiega la quota societaria e,
+se disponibile, traduce in parole semplici la classificazione di attività SEC
+senza nascondere la dicitura originale e l'anno. Per gli ETF noti mostra
+l'obiettivo verificato presso l'emittente con link ufficiale; per gli altri
+non indovina l'indice. IBIT è distinto dal possesso diretto di Bitcoin. Per le
+cripto la descrizione opzionale CoinGecko è attribuita e non trattata come
+verifica indipendente. Queste informazioni sono separate da prezzo, notizie
+e opinioni d'investimento. Il profilo facoltativo viene caricato dopo la
+scheda principale e ha un limite di attesa, per non bloccare la lettura.
+Nel test live Ethereum una ricerca Wikidata omonima descriveva erroneamente
+il forum «Ethereum Stack Exchange»: la selezione ora scarta pagine *sulla*
+cripto e mostra la descrizione specifica CoinGecko. Verificati 10/10 test
+mirati e nuova build portabile; la suite 408/408 era stata eseguita prima
+di questa correzione localizzata.
+
+**Descrizioni specifiche, 25 settembre:** ASML ha una spiegazione breve
+controllata sulla pagina ufficiale dell'azienda. Per gli altri strumenti la
+scheda prova prima le informazioni dell'emittente o di CoinGecko già
+disponibili, poi una voce Wikidata identificata con nome e tipo di strumento.
+Se quella voce collega un articolo Wikipedia nella lingua selezionata (o in
+inglese), ne mostra un estratto breve, la pagina e la licenza CC BY-SA. La
+classificazione SEC resta distinta: non viene usata come prova che l'azienda
+venda un prodotto preciso. Omonimi e strumenti tokenizzati non ereditano la
+descrizione dell'azione sottostante. Durante la richiesta la UI indica che
+sta cercando la descrizione, senza anticipare un'assenza definitiva.
+Per nomi aziendali abbreviati, la ricerca può usare la sigla di borsa
+presente nella voce Wikidata; una somiglianza nel nome da sola non basta.
+Queste descrizioni pubbliche servono a comprendere l'identità, **non** sono
+prezzi, esiti osservati o etichette automaticamente ammissibili al training.
+Il gate già presente `trainingEligible` continua a riguardare soltanto serie
+datate e plausibili; per allenare nuovi modelli sulle descrizioni occorrono
+licenze, corpus validato, obiettivi e benchmark separati. Il browser locale
+ha mostrato la descrizione ufficiale ASML e una descrizione italiana di AMD
+con attribuzione Wikipedia; questo non dimostra copertura di ogni società,
+ETF o cripto né disponibilità permanente delle fonti pubbliche.
+
+**Verifica finale locale, 25 settembre:** 406/406 file di test dell'app e
+11/11 del servizio aziendale passati con isolamento per file, più il test del
+confine dei bundle; build portabile riuscita. Nel browser locale sono state
+aperte ASML, AMD, JPMorgan, Bitcoin e SPY. JPMorgan ha mostrato la descrizione
+specifica solo dopo verifica del ticker nella voce pubblica; il testo è stato
+limitato alla frase di identità perché il seguito conteneva una cifra di
+capitalizzazione potenzialmente vecchia. A 390 px la scheda non ha overflow
+orizzontale. Restano da provare dispositivi fisici, copertura sistematica degli
+strumenti e affidabilità delle fonti nel tempo. Il dato enciclopedico non
+alimenta da solo l'apprendimento dei modelli; i confini sono descritti in
+[learning-source-boundary-2026-09-12.md](learning-source-boundary-2026-09-12.md).
+
+In Analisi il budget mette in evidenza spesa, limite e passo successivo; la
+torta delle categorie e il calendario hanno gerarchie più leggibili anche su
+schermi stretti. Il calendario mostra giorni con spese e giorno più alto. Il
+grafico di un asset riporta massimo, minimo e ultimo dato della **serie
+visibile**, con date, senza chiamarli massimi storici di mercato. Con movimento
+ridotto i giorni del calendario restano visibili: prima un'animazione disattivata
+li lasciava trasparenti.
+
+**Prove nel browser locale:** ricerca e apertura di Microsoft, Nvidia,
+JPMorgan e ASML; su ciascuna l'eventuale storico tokenizzato è dichiarato
+come tale. L'attesa è stata osservata durante la richiesta e il risultato è
+comparso successivamente. A 390 px l'attesa e i risultati sono leggibili senza
+scorrimento orizzontale. Questi controlli non provano completezza delle fonti,
+quotazioni azionarie in tempo reale o funzionamento su dispositivi fisici.
+I test automatici coprono cinque società di settori diversi, quattro fondi,
+una società senza classificazione SEC locale e la distinzione fra cripto e
+azioni tokenizzate.
+
+## Analisi senza numeri inventati e grafici raggiungibili — 25 settembre 2026
+
+Nelle card investimenti e spese, i dati di esempio sono etichettati anche in
+Analisi. Il patrimonio netto, la mappa delle spese e la crescita futura
+distinguono dati propri assenti da uno zero reale; ogni stato vuoto spiega il
+passo successivo e apre l'inserimento. La crescita personale viene mostrata
+solo dopo spese osservate in almeno tre mesi distinti. Un calcolo asincrono
+avviato prima di una modifica non può rimettere numeri in una card ormai vuota.
+I movimenti demo non sbloccano la proiezione. Questo è un requisito minimo di
+presentazione, non una validazione predittiva del modello.
+
+Il grafico di un asset, quando esiste una serie datata, è visibile nella scheda
+senza aprire altri pannelli. Prezzo e storico cripto sono recuperati in modo
+indipendente: il fallimento di una fonte facoltativa non elimina la serie
+riuscita. Se lo storico manca, la scheda offre un tentativo nuovo e la fonte;
+per le azioni c'è una visualizzazione TradingView facoltativa, isolata e solo
+da consultare. Essa non alimenta patrimonio, modelli né avvisi. I piccoli
+motivi grafici aggiunti sono costruiti con il linguaggio di orbite dell'app,
+non con emoji o icone di sistema.
+
+**Prove locali:** build portabile riuscita; test mirati di recupero indipendente,
+stato della previsione, widget e testi in sette lingue riusciti. Nel browser
+locale il grafico Bitcoin è apparso con fonte e data, Apple ha separato il
+titolo dal token e ha mostrato il limite della quotazione esterna. Verificati
+320, 390, 768 e 1280 px senza scorrimento orizzontale. Il collaudo su telefoni
+fisici, disponibilità del provider esterno e accuratezza futura restano aperti.
+
+## Ricerca e lettura degli investimenti — 25 settembre 2026
+
+In Analisi Tensor il percorso inizia dalla stima personale e dalla ricerca.
+La ricerca mette il titolo azionario prima degli omonimi tokenizzati e mostra
+subito fonte del prezzo, stato dei conti, notizie e ultimo trimestre SEC,
+quando disponibili. Bilanci completi, documenti, notizie, andamento e avvisi
+restano in sezioni apribili, mentre il grafico datato disponibile è visibile
+subito; i dati ufficiali di mercato sono separati dal
+patrimonio personale e raccolti nel gruppo investimenti. Il confronto dei
+settori mostra tre righe prima degli altri risultati, con una spiegazione
+leggibile anche su schermi stretti. La nota sui limiti degli avvisi compare
+quando si apre quel controllo. L'importo della riserva per gli imprevisti si può indicare e
+correggere dalla stima; se mancano le spese reali, la card continua ad astenersi
+dal suggerire un importo da investire. Nessun calcolo o dato Vault preesistente
+è stato migrato o rimosso.
+
+**Prove:** suite completa 413/413 file, 109 test mirati su testi nelle sette
+lingue, novità e validazione degli importi; build portabile riuscita. Nel
+browser locale sono stati provati ricerca Apple, scelta del risultato,
+apertura dei bilanci SEC, validazione e salvataggio della riserva. Controllati
+viewport simulati 320, 390, 768 e 1280 px: nessuno scroll orizzontale e
+card affiancate solo dove c'è spazio sufficiente.
+
+**Limiti:** non è un collaudo su dispositivi fisici. Prezzi azionari recenti
+leggibili dall'app e avvisi su azioni/ETF richiedono ancora una fonte
+collegata; una quotazione esterna, anche se visibile, non li alimenta. Il
+nuovo layout non prova accuratezza di previsioni né validità di una decisione
+d'investimento. Questa build locale va ancora distribuita e verificata sul
+dominio pubblico prima di dichiararla rilasciata.
+
+## Ricerca asset con trimestre SEC e controllo delle prove — 25 settembre 2026
+
+Per le società dell'indice SEC incorporato, una nuova route Pages legge
+`companyfacts` ufficiali senza una chiave dell'utente e restituisce solo il
+più recente periodo trimestrale autonomo di 60–120 giorni. Mostra ricavi e
+utile, data del deposito, 10-Q o correzione 10-Q/A e collegamento all'originale;
+non sostituisce il bilancio annuale incorporato e non confronta tre mesi con
+un anno intero. In caso di CIK errato, fatto futuro, periodo cumulativo,
+valori contraddittori o rete indisponibile il numero viene omesso. Se una
+rettifica aggiorna un solo indicatore, gli altri indicatori del vecchio
+deposito non vengono attribuiti a quello nuovo.
+La scheda «Prima di decidere» separa conti, prezzo con ora di mercato e
+notizie recenti, indica il prossimo controllo e non emette un segnale di
+compravendita. Le discussioni comunitarie restano visibili come tali ma non
+alimentano più il gate del sentiment finanziario come notizie correnti.
+
+**Prove:** 52/52 test mirati su route SEC, client, ricerca e notizie; suite
+completa 413/413 file; build portabile app e sette route Pages riuscite.
+La route locale ha letto Apple CIK 320193 dal servizio SEC reale: trimestre
+29 marzo–27 giugno 2026, deposito 31 luglio 2026, ricavi e utile presenti.
+In browser locale, partendo dal primo avvio, la ricerca Apple ha mostrato
+periodo, valori, documento SEC originale e la separazione dal bilancio 2025.
+Il controllo visivo ha trovato e corretto tre colonne troppo strette nel
+modale e importi spezzati nei telefoni stretti. Verificati viewport simulati
+da 320, 390 e 768 px: nessuno scroll orizzontale a 320 px; etichette e
+valori SEC leggibili. Questo non sostituisce un test su dispositivi fisici.
+
+**Limiti:** la nuova route non è ancora verificata su Cloudflare distribuito
+né su telefoni fisici; la prova locale non certifica uptime, quote SEC o
+completezza globale. Le cifre pubblicate dalla società non sono state
+revisionate da Momentum. Nessun nuovo peso AI è stato addestrato; non sono
+arrivati prezzi azionari WebSocket o licenze per opzioni/futures/alternative
+data. Audit dei concorrenti, capacità già presenti e prossimo ordine di
+lavoro: [investment-platform-gap-2026-09-25.md](investment-platform-gap-2026-09-25.md).
+
+## Notizie aziendali nei modelli — 24 settembre 2026
+
+La cascata condivisa da ricerca asset, portafoglio e risposte Momentum prova
+ora anche GDELT DOC 2.0 come fonte pubblica senza chiave, prima delle
+discussioni Hacker News. Mantiene i provider personali già configurati.
+Conserva solo titolo, link, dominio e ora di prima indicizzazione: quest'ultima
+non viene presentata come data certa di pubblicazione. La UI indica fonte e
+data, collega l'articolo originale e attribuisce GDELT. Filtri su URL, titolo,
+marchi ambigui, finestra di sette giorni, cache breve e timeout evitano
+risultati manifestamente fuori tema o blocchi indefiniti. La copertura non è
+esaustiva e il filtro per titoli può scartare notizie pertinenti in altre
+scritture o lingue.
+
+Il modello locale di sentiment già presente può classificare, con consenso,
+i titoli nuovi della fonte; non sono stati modificati i suoi pesi né avviato
+addestramento automatico. Il layer di ragionamento sugli investimenti usa
+solo segnali datati negli ultimi 14 giorni: esclude notizie senza data,
+future, vecchie o recuperate offline. Aggrega prima i punteggi di ciascun
+dominio, poi pesa i domini: nove titoli dello stesso sito non contano come nove
+conferme indipendenti. Il dominio è solo un'indicazione di diversità, non
+dimostra indipendenza editoriale. La confidenza restituita è una **euristica**,
+non una probabilità calibrata. I punteggi ricevuti dalla mesh entrano nel
+ragionamento finanziario solo con due peer distinti, data e valore validi;
+questo non prova che i peer siano indipendenti o affidabili.
+
+La divergenza fra notizie e prezzo richiede quotazioni positive e recenti e
+articoli con **data di pubblicazione** nella stessa finestra. La data di prima
+indicizzazione GDELT non basta; un token azionario non viene spacciato per la
+quotazione del titolo. La divergenza descrive due segnali, **non identifica
+una causa né prevede quale avrà ragione**. Nessun titolo diventa da solo una
+raccomandazione d'investimento. Per addestrare o calibrare in modo credibile
+servono esiti successivi, licenze dei contenuti e una valutazione fuori campione.
+
+Prove: parser GDELT con risposte controllate, filtro pertinenza e sicurezza,
+cache/offline, freschezza nel modello, diversità dei siti, finestra comune
+notizie/prezzi, due peer per il relay finanziario e build portabile.
+**L'endpoint GDELT
+non è stato collaudato dal vivo su questa rete**: prima di dichiarare la
+fonte operativa in produzione servono richiesta reale in browser, verifica
+della forma JSON, della disponibilità CORS e delle quote nel tempo. La
+ricerca e le altre fonti degradano senza inventare notizie se GDELT fallisce.
+
+## Ricerca investimenti senza chiavi — 24 settembre 2026
+
+La ricerca titoli in Analisi riusa ora il pannello SEC già presente nel
+repository per trovare società oltre al piccolo elenco di nomi noti. Un indice
+generato di circa 17 KB permette la ricerca senza caricare il pannello SEC
+completo; il bilancio e il percentile settoriale si caricano solo quando si
+apre una società. I risultati locali compaiono prima che finiscano le
+ricerche di rete. La scheda separa ricavi, utile, margine e anno del
+bilancio dalla quotazione recente, mostra la data dell'archivio e collega i
+documenti ufficiali. Il confronto dei ricavi usa solo anni fiscali
+consecutivi; flusso di cassa, ROE e posizione settoriale si aprono su
+richiesta. Anche ticker di una o due lettere si trovano per corrispondenza
+esatta, senza mostrare centinaia di nomi irrilevanti. Prezzo, notizie e
+storico non tengono in attesa i conti SEC. Una notizia assente non viene
+scambiata per assenza di eventi. La ricerca cripto e la cascata delle fonti configurate
+restano attive; non sono stati migrati né cancellati dati o chiavi personali.
+La ricerca mostra direttamente dove collegare una fonte facoltativa, in tutte
+le sette lingue. Senza chiavi non viene inventato un prezzo azionario.
+
+Prove: test mirati del catalogo, della ricerca e della precedenza sui token
+cripto; suite completa di 408 file, build portabile di 461 moduli e ispezione
+browser locale. La ricerca "Costco" apre il bilancio 2025, mostra la data
+dell'archivio e, con le fonti attualmente non disponibili, dichiara
+esplicitamente che nessuna notizia è stata verificata. Restano da collaudare su
+dispositivi fisici l'uso e la velocità del pannello, e con account reali le
+quote/licenze delle fonti facoltative. Lo snapshot SEC non è un flusso in
+tempo reale e la sua copertura è limitata alle società presenti nell'archivio.
+Il workflow mensile propone una PR con pannello e indice allineati; il dato
+pubblicato si aggiorna soltanto dopo revisione e distribuzione.
+
 ## Vault investimenti e chiavi personali — 24 settembre 2026
 
 Il Vault ora separa le analisi disponibili con i dati già presenti nel
@@ -768,10 +1052,118 @@ caricamento della nuova build pubblica dopo un push. Il bundle principale
 resta circa 3,38 MB minificati / 1,15 MB gzip: il riordino del Vault non ha
 risolto il tempo al primo avvio su rete mobile.
 
-Il lavoro è registrato nel branch locale
-`codex/split-calculation-safety-and-journeys`; non è su `main` né nella
-distribuzione pubblica. Il push del branch di anteprima è stato tentato il
-24 settembre con Git di sistema e runtime, ma il gestore delle credenziali
-non dispone di un accesso funzionante in questo ambiente. Nessun token
-incollato in chat è stato usato. La verifica Cloudflare attende quindi un
-push autenticato; i risultati locali non valgono come collaudo cloud.
+Questa sezione registrava il lavoro del 24 settembre su un branch locale.
+Al 25 settembre il checkout corrente è `main`; lo stato del push e della
+distribuzione di ciascun nuovo intervento va verificato sul commit remoto e
+su Cloudflare, non dedotto dal nome del branch o dalla build locale. Nessun
+token incollato in chat è stato usato per la verifica.
+
+### Ricerca investimenti e fonti senza chiave — 25 settembre 2026
+
+La ricerca asset riconosce ora ETF comuni con tipo dichiarato. Per società
+statunitensi note nell'archivio SEC prova un endpoint same-origin limitato ai
+depositi recenti e collega il documento ufficiale. Per articoli indicizzati
+prova GDELT tramite un relay limitato ai titoli e ai link; per cripto prova
+un feed editoriale CoinDesk, mostrando solo titolo, link e data. I feed
+restano separati dalle discussioni Hacker News e dalle serie storiche.
+TradingView offre una fonte esterna per visualizzare una quotazione di azioni
+ed ETF senza chiave: il link è sempre visibile, l'anteprima è facoltativa,
+e i dati dell'iframe non entrano nei calcoli né negli avvisi di Momentum.
+La disponibilità, la tempestività e la licenza dei listini dipendono dalla
+borsa e dalla fonte: nessuna quotazione universale in tempo reale è garantita.
+Le categorie CoinGecko manifestamente fuorvianti per Bitcoin vengono filtrate.
+Queste modifiche non migrano né riscrivono il Vault.
+Per azioni ed ETF senza una fonte numerica configurata, la scheda offre la
+visualizzazione esterna ma non promette più avvisi che Momentum non potrebbe
+verificare; guida invece a collegare una fonte. Il confronto fra società non
+viene proposto per un ETF come se fosse un'azienda operativa.
+
+**Prove:** test dei parser, input limitati, URL sicuri, date, cache e fallback;
+build portabile dell'app e bundle delle sei route Pages riusciti. Nel
+browser locale al 25 settembre: ricerca SPY senza chiave riuscita e fonte
+TradingView visibile anche quando l'anteprima di terzi è indisponibile;
+Apple mostra il bilancio SEC annuale con anno dell'archivio distinto dalle
+notizie; Bitcoin mostra prezzo CoinGecko con timestamp sorgente e non espone
+più etichette chiaramente improprie come «FTX Holdings». La prova su
+viewport mobile simulato non equivale a un test su telefono fisico.
+
+**Limiti aperti:** i relay SEC/GDELT/CoinDesk/Fed/BCE non sono ancora
+verificati in una distribuzione Cloudflare reale. Un server statico generico
+non esegue le Pages Functions; l'anteprima portabile del progetto inoltra ora
+solo queste quattro route agli stessi handler per consentire il collaudo
+end-to-end locale. Se una fonte non risponde, le discussioni Hacker News
+restano un ripiego chiaramente etichettato.
+Nel test browser la scorciatoia «S&P 500» cercava la frase e non trovava
+risultati: ora apre SPY, etichettato come ETF. Per gli ETF si evitano le
+ricerche lente per nome dell'emittente su GDELT/Hacker News, che potevano
+confondere notizie della società con notizie del fondo; resta la fonte
+esterna del fondo e il contesto macro ufficiale. Notizie e storico partono
+in parallelo per ridurre l'attesa, senza usare un token come prezzo ufficiale.
+La scheda ora appare prima che tutti i feed opzionali siano terminati e
+aggiunge notizie, contesto e storico quando arrivano; una nuova selezione
+impedisce ai risultati della ricerca precedente di sovrascrivere la scheda.
+Se lo storico deriva da un token che segue un'azione, la scheda lo dichiara
+accanto al grafico in tutte le sette lingue: non è una quotazione ufficiale.
+Il 25 settembre la route SEC è stata eseguita con la fonte reale dalla rete
+locale: Apple CIK 320193, HTTP 200, sei depositi recenti (primo 10-Q), in
+circa 0,3 secondi. La route CoinDesk ha restituito HTTP 200 e sei titoli
+Bitcoin datati in circa 0,25 secondi. I feed ufficiali Fed e BCE hanno
+risposto HTTP 200 con 15 voci ciascuno; il riepilogo con entrambi ha
+selezionato un comunicato per fonte in circa 0,3 secondi. Si tratta di
+prove di rete e dei route handler locali, NON di prova della distribuzione
+Cloudflare né di un dispositivo fisico.
+La stessa prova GDELT su Apple è fallita con `source_unavailable` dopo circa
+10,6 secondi per un errore di rete, mentre una richiesta precedente aveva
+restituito dati dopo circa 14 secondi. Il tempo massimo del relay è ora
+18 secondi e il client non ripete un errore 503 con una seconda richiesta
+lenta. GDELT resta opportunistico; l'app mostra cache scaduta come tale o
+discende alle discussioni comunitarie, mai presentate come notizie verificate.
+Il pannello asset usa il motore macro Fed/BCE già esistente per offrire il
+contesto ufficiale separato dalle notizie societarie. La vista breve limita
+una fonte a tre voci, così la BCE non scompare dietro cinque voci Fed; i
+link, le date e gli argomenti economici sono filtrati prima della
+presentazione. Il relay Momentum per Fed e BCE usa due URL ufficiali fissi,
+limita le risposte ai titoli e ai link originali ed evita il relay RSS di
+terzi quando l'app è distribuita con le Pages Functions. Nella prova diretta
+del 25 settembre ha restituito HTTP 200 e 12 voci per fonte in circa 0,25 s
+(Fed) e 0,07 s (BCE). Un comunicato BCE sulle nomine non viene trattato come
+notizia di mercato nel dettaglio asset. Il fallback storico resta nel
+server statico generico, dove le Functions rispondono 404. I codici SEC 8-K,
+10-Q e 10-K hanno una spiegazione breve in tutte le sette lingue.
+Suite completa dopo l'intervento: 411/411 file; build portabile dell'app
+riuscita (464 moduli, bundle principale circa 3,47 MB minificati / 1,17 MB
+gzip); bundle delle sei route Pages riuscito. Nel browser locale a 390 px
+la scheda Apple ha mostrato un articolo indicizzato da GDELT e la sezione
+Fed/BCE apribile senza overflow. Il controllo tablet/desktop e i dispositivi
+fisici restano da effettuare: il viewport del browser di prova non ha
+applicato l'override richiesto.
+CoinDesk/GDELT possono essere indisponibili o non coprire un titolo; i loro
+articoli non sono prove della correttezza dei fatti. Le notizie indicizzate
+riportano la data di osservazione, non una data di pubblicazione inventata.
+L'anteprima portabile locale esegue ora gli stessi quattro lettori di mercato
+usati dalle Pages Functions: SEC, GDELT, CoinDesk, Fed/BCE. Il 25 settembre,
+dal browser a 390 px, Bitcoin ha mostrato quattro titoli CoinDesk con data e
+link originali dopo la selezione; senza il relay locale comparivano soltanto
+le discussioni Hacker News. Apple ha mostrato sei depositi SEC recenti e un
+comunicato Fed e uno BCE nella sezione espandibile. La prova della route
+GDELT nello stesso giro ha restituito 503: l'interfaccia ha mostrato un
+articolo salvato con l'avviso di fonte non disponibile, senza trattarlo come
+evidenza corrente. La provenienza di un titolo GDELT viene ora letta dal
+dominio del collegamento HTTPS, non dal campo `domain` del feed che potrebbe
+essere diverso. La ricerca SPY ha mostrato il fondo come ETF e ha evitato
+di attribuirgli bilanci di un'azienda. Questo è un collaudo locale end-to-end,
+non un collaudo del deploy Cloudflare.
+Una seconda prova in Chrome ha trovato un errore di percorso: CoinGecko Search
+non ha risposto e «Bitcoin» finiva in «nessun risultato». La ricerca ora ha
+identità locali per cinque cripto note (BTC, ETH, SOL, USDC, XRP), senza
+prezzi incorporati: un problema temporaneo del provider non nasconde la
+scheda, ma prezzo, storico e notizie richiedono ancora fonti effettive.
+Il fallback è verificato con il provider simulato offline e poi in Chrome:
+«Bitcoin» compare subito anche quando la ricerca CoinGecko non risponde; la
+scheda apre quattro titoli CoinDesk dal relay locale, ma dichiara che il
+prezzo live non è disponibile. La verifica a 390 px non è un collaudo
+su telefono fisico; l'override a 320 px richiesto al browser non è stato
+applicato dal runtime, quindi non viene dichiarato testato.
+Resta da misurare il tempo al primo risultato su rete mobile reale; il
+bundle iniziale resta circa 3,47 MB minificati / 1,17 MB gzip. Nessun dato
+di prezzo esterno non licenziato alimenta portafoglio, modelli o segnali.

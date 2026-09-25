@@ -20,6 +20,7 @@ import { simulateCategoryChange } from '../predict/what-if.js';
 import { buildCausalGraph, pruneNonCausal, buildCategorySeries, annotateConditionalGranger } from '../predict/causal-graph.js';
 import { projectNetWorthByStrategy } from '../alpha/net-worth.js';
 import { cashForecast } from '../predict/cash-forecast.js';
+import { isFreshNewsEvidence } from '../alpha/news.js';
 
 // Combina la confidenza di più layer ETEROGENEI (analisi INDIPENDENTI che si
 // completano a vicenda, non voti sulla stessa variabile). Ogni layer:
@@ -172,8 +173,8 @@ import { cashFromTransactions } from '../alpha/net-worth.js';
 // confidenza resta bassa (troppo poco per un'aggregazione affidabile), mai
 // finta certezza da 1-2 titoli.
 // Da quando src/ai/local-sentiment.js esiste, `sentimentScore` non è più
-// SOLO Alpha Vantage: qualunque notizia del cascade (Finnhub/NewsAPI/
-// Hacker News/Federal Register/Fed/BCE, tutte a `null` prima) può arrivare
+// Oltre ad Alpha Vantage, qualunque notizia del cascade (Finnhub/NewsAPI/
+// GDELT/Hacker News/Federal Register/Fed/BCE, tutte a `null` prima) può arrivare
 // con un punteggio stimato ON-DEVICE (opt-in, `n.sentimentSource ===
 // 'on-device'`). Prima di questo, questo layer era quasi sempre vuoto per
 // chi non aveva una chiave Alpha Vantage personale — ora si riempie per
@@ -181,17 +182,31 @@ import { cashFromTransactions } from '../alpha/net-worth.js';
 // solo titolo da un modello da 82M parametri non vale quanto un servizio
 // dedicato con più segnali. `onDevice:true` lo dichiara al chiamante (qui
 // e in investmentReadiness), mai presentato come identico.
-export function aggregateNewsSentiment(items = []) {
-  const scored = items.filter((n) => Number.isFinite(n?.sentimentScore));
+export function aggregateNewsSentiment(items = [], { now = Date.now() } = {}) {
+  const scored = items.filter((n) => Number.isFinite(n?.sentimentScore) && Math.abs(n.sentimentScore) <= 1 && isFreshNewsEvidence(n, { now }));
   if (!scored.length) return null;
-  const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
+  // An aggregator can return many articles from one domain. Give each
+  // domain one vote so repeats cannot manufacture agreement. A domain is
+  // only a diversity proxy, not proof of independent editorial reporting.
+  const byPublisher = new Map();
+  for (const item of scored) {
+    let publisher = '';
+    try { publisher = new URL(item.url).hostname.toLowerCase().replace(/^www\./, ''); } catch (_) { /* source fallback below */ }
+    publisher ||= String(item.source || 'unknown').split(' · ')[0].trim().toLowerCase();
+    const scores = byPublisher.get(publisher) || [];
+    scores.push(item.sentimentScore);
+    byPublisher.set(publisher, scores);
+  }
+  const sourceCount = byPublisher.size;
+  const avg = [...byPublisher.values()].reduce((sum, scores) =>
+    sum + scores.reduce((part, score) => part + score, 0) / scores.length, 0) / sourceCount;
   const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg <= -0.35 ? 'bearish' : avg <= -0.15 ? 'somewhat-bearish' : 'neutral';
   const onDevice = scored.some((n) => n.sentimentSource === 'on-device');
-  // Confidenza leggermente più prudente quando la media include stime
-  // on-device: stesso tetto di prima (0,7) ma un fattore in meno, mai
-  // spinta più in alto di quanto sarebbe con solo Alpha Vantage.
-  const confidence = Math.min(onDevice ? 0.6 : 0.7, 0.2 + 0.1 * scored.length);
-  return { score: +avg.toFixed(3), label, n: scored.length, confidence, onDevice };
+  const relayed = scored.some((n) => n.sentimentSource === 'relay-mesh');
+  // This is a heuristic evidence weight, not a calibrated probability.
+  const confidence = Math.min(relayed ? 0.5 : onDevice ? 0.6 : 0.7, 0.15 + 0.1 * sourceCount);
+  const score = +avg.toFixed(3) || 0;
+  return { score, label, n: scored.length, sourceCount, confidence, onDevice, relayed };
 }
 
 export function investmentReadiness({
@@ -208,7 +223,7 @@ export function investmentReadiness({
   const regimeSource = liveRegime ? 'live' : (asset?.regime ? 'static' : null);
   const layers = [{ name: 'market-regime', ok: !!regimeInfo, confidence: regimeInfo ? (liveRegime ? 0.65 : 0.5) : 0 }];
 
-  const sentiment = aggregateNewsSentiment(newsItems || []);
+  const sentiment = aggregateNewsSentiment(newsItems || [], { now });
   layers.push({ name: 'news-sentiment', ok: !!sentiment, confidence: sentiment ? sentiment.confidence : 0 });
 
   // Il minimo PRUDENTE (Cassa Unica) fino al prossimo stipendio: quanto puoi
@@ -238,7 +253,7 @@ export function investmentReadiness({
     const marketAsOf = regimeSource === 'live' ? new Date(now).toISOString() : asset.fetchedAt;
     const staleDays = regimeSource === 'live' ? 0 : Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
     const freshnessNote = regimeSource === 'live' ? '' : `, ${staleDays} giorni fa — verifica un dato più recente`;
-    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} fonti reali${sentiment.onDevice ? ', in parte stimate on-device dai soli titoli' : ''}) sono ${sentiment.label === 'bullish' ? 'nettamente positive' : sentiment.label === 'somewhat-bullish' ? 'leggermente positive' : sentiment.label === 'bearish' ? 'nettamente negative' : sentiment.label === 'somewhat-bearish' ? 'leggermente negative' : 'neutre'}.` : '';
+    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} articoli, ${sentiment.sourceCount} siti distinti${sentiment.onDevice ? ', in parte classificati on-device dai soli titoli' : ''}${sentiment.relayed ? ', in parte valutati da dispositivi collegati' : ''}) hanno un tono ${sentiment.label === 'bullish' ? 'molto positivo' : sentiment.label === 'somewhat-bullish' ? 'positivo' : sentiment.label === 'bearish' ? 'molto negativo' : sentiment.label === 'somewhat-bearish' ? 'negativo' : 'neutro'}; non prova la direzione del prezzo.` : '';
     verdict = {
       marketRegime: regimeInfo.regime,
       marketAsOf,

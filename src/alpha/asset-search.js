@@ -1,7 +1,8 @@
 // Ricerca di un asset (cripto o azione/ETF) per nome/simbolo — CoinGecko
 // /search (nessuna chiave, CORS verificato) per le cripto, Alpha Vantage
 // SYMBOL_SEARCH (chiave personale, stesso host già verificato) per
-// azioni/ETF. Mai un risultato inventato: fonte vuota → lista vuota.
+// azioni/ETF. Le identità note funzionano anche senza rete; prezzi, notizie e
+// storici restano vuoti finché una fonte effettiva non li restituisce.
 'use strict';
 
 import { conTimeout } from '../core/con-timeout.js';
@@ -65,11 +66,55 @@ const NOTI_TICKER = [
   ['nestle', 'NESN.SW', 'Switzerland'], ["nestlé", 'NESN.SW', 'Switzerland'],
   ['lvmh', 'MC.PA', 'France'], ['asml', 'ASML', US], ['sap', 'SAP', US],
   ['samsung', '005930.KS', 'South Korea'], ['toyota', '7203.T', 'Japan'],
-].map(([nome, symbol, region]) => ({ kind: 'stock', id: symbol, symbol, name: nome.replace(/\b\w/g, (c) => c.toUpperCase()), region, _staticMatch: true }));
+].map(([nome, symbol, region]) => ({ kind: 'stock', id: symbol, symbol,
+  name: /^(amd|asml|sap|eni|lvmh)$/.test(nome) ? nome.toUpperCase()
+    : /^(jpmorgan|jp morgan)$/.test(nome) ? 'JPMorgan'
+      : nome.replace(/\b\w/g, (c) => c.toUpperCase()),
+  region, _staticMatch: true }));
+
+// Instrument identity is stable even when a quote is not available. These
+// examples are discovery entries, never prices, holdings or recommendations.
+const NOTI_ETF = [
+  ['spy', 'SPY', 'SPDR S&P 500 ETF Trust'],
+  ['qqq', 'QQQ', 'Invesco QQQ Trust'],
+  ['vti', 'VTI', 'Vanguard Total Stock Market ETF'],
+  ['ivv', 'IVV', 'iShares Core S&P 500 ETF'],
+  ['voo', 'VOO', 'Vanguard S&P 500 ETF'],
+  ['xlf', 'XLF', 'Financial Select Sector SPDR Fund'],
+  ['xlk', 'XLK', 'Technology Select Sector SPDR Fund'],
+  ['xlv', 'XLV', 'Health Care Select Sector SPDR Fund'],
+  ['gld', 'GLD', 'SPDR Gold Shares'],
+  ['ibit', 'IBIT', 'iShares Bitcoin Trust ETF'],
+].map(([alias, symbol, name]) => ({ kind: 'stock', instrumentType: 'etf', id: symbol, symbol, name, region: US, _staticMatch: true, _alias: alias }));
+
+// Identity only. If CoinGecko search is rate-limited or offline, a familiar
+// coin can still be opened; its price and history still require a real source.
+const NOTI_CRYPTO = [
+  ['bitcoin', 'BTC', 'Bitcoin'], ['ethereum', 'ETH', 'Ethereum'],
+  ['solana', 'SOL', 'Solana'], ['usd-coin', 'USDC', 'USDC'],
+  ['ripple', 'XRP', 'XRP'],
+].map(([id, symbol, name]) => ({ kind: 'crypto', id, symbol, name, _staticMatch: true }));
 
 function resolveStaticTicker(q) {
-  const hit = NOTI_TICKER.find((t) => t.name.toLowerCase() === q || t.symbol.toLowerCase() === q);
+  const hit = [...NOTI_ETF, ...NOTI_TICKER, ...NOTI_CRYPTO]
+    .find((t) => t.name.toLowerCase() === q || t.symbol.toLowerCase() === q || t._alias === q);
   return hit ? [hit] : [];
+}
+
+// Display public/local evidence immediately while optional network searches
+// continue. This never supplies a quote and never substitutes for the final
+// merged results from searchAsset.
+export async function searchAssetLocal(query) {
+  const q = (query || '').trim().toLowerCase();
+  if (!q) return [];
+  const proxy = resolveSectorProxy(q);
+  if (proxy.length) return proxy;
+  const sec = await import('./sec-catalog.js').then(({ searchSecCatalog }) => searchSecCatalog(query)).catch(() => []);
+  const bySymbol = new Map();
+  for (const item of [...resolveStaticTicker(q), ...sec]) {
+    if (!bySymbol.has(item.symbol)) bySymbol.set(item.symbol, item);
+  }
+  return [...bySymbol.values()].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
 }
 
 export async function searchStock(query, { apiKey, fetchImpl = fetch } = {}) {
@@ -218,9 +263,10 @@ export async function searchAsset(query, { apiKey, twelvedataKey, fmpKey, fetchI
   // restituito solo se TUTTE le fonti configurate falliscono e l'unico
   // risultato rimasto è una cripto poco pertinente (mai un match esatto).
   const staticTicker = resolveStaticTicker(q);
-  const [crypto, stockRes] = await Promise.all([
+  const [crypto, stockRes, sec] = await Promise.all([
     searchCrypto(query, { fetchImpl }).catch(() => []),
     (apiKey || twelvedataKey || fmpKey) ? searchStockCascade(query, { apiKey, twelvedataKey, fmpKey, fetchImpl }) : Promise.resolve({ results: [], error: null }),
+    import('./sec-catalog.js').then(({ searchSecCatalog }) => searchSecCatalog(query)).catch(() => []),
   ]);
   const stock = stockRes.results;
   let stockWarning = stockRes.error?.message || null;
@@ -233,10 +279,10 @@ export async function searchAsset(query, { apiKey, twelvedataKey, fmpKey, fetchI
   // cancellava il match statico corretto, riproducendo esattamente il bug
   // che questa tabella doveva risolvere.
   const perSimbolo = new Map();
-  for (const item of [...staticTicker, ...crypto, ...stock]) {
+  for (const item of [...staticTicker, ...sec, ...crypto, ...stock]) {
     const key = item.symbol?.toLowerCase();
     const esistente = perSimbolo.get(key);
-    if (!esistente || (esistente._staticMatch && item.kind === 'stock')) perSimbolo.set(key, item);
+    if (!esistente || ((esistente._staticMatch || esistente._secMatch) && item.kind === 'stock' && !item._secMatch)) perSimbolo.set(key, item);
   }
   const results = [...perSimbolo.values()].sort((a, b) => relevanceScore(b, q) - relevanceScore(a, q));
   if (results.length) {

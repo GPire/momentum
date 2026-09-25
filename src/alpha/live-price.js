@@ -9,7 +9,7 @@
 // esplicitamente "Aggiorna" (mai in background, mai automatico).
 //
 // CoinGecko fornisce prezzi cripto senza chiave. Per le azioni l'utente può
-// interrogare direttamente Alpha Vantage o Twelve Data con le proprie chiavi;
+// interrogare direttamente Finnhub, Alpha Vantage o Twelve Data con la propria chiave;
 // disponibilità, copertura, ritardo e licenza dipendono dal piano del provider.
 // Non chiamare "live" una risposta solo perché è stata ricevuta ora.
 'use strict';
@@ -31,21 +31,32 @@ async function fetchWithTimeout(url, ms = 6000) {
   }
 }
 
-// Prezzo live di UNA cripto in EUR. Ritorna { price, asOf } o lancia un errore
-// con un messaggio onesto (mai un numero inventato se la rete fallisce).
+// Ultimo prezzo disponibile di UNA cripto in EUR. L'ora della quotazione
+// proviene dal provider; asOf è soltanto l'ora in cui riceviamo la risposta.
 export async function fetchLiveCryptoPrice(coin = 'bitcoin', { vsCurrency = 'eur', fetchImpl = fetchWithTimeout } = {}) {
   const id = COINGECKO_IDS[coin.toLowerCase()] || coin.toLowerCase();
   let res;
   try {
-    res = await fetchImpl(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)}&vs_currencies=${encodeURIComponent(vsCurrency)}`);
+    res = await fetchImpl(`https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(id)}&vs_currencies=${encodeURIComponent(vsCurrency)}&include_last_updated_at=true`);
   } catch (e) {
     throw new Error('Rete non disponibile: resto sul dato storico.');
   }
   if (!res.ok) throw new Error(`CoinGecko ha risposto ${res.status}: resto sul dato storico.`);
   const json = await res.json();
   const price = json?.[id]?.[vsCurrency];
-  if (typeof price !== 'number') throw new Error('Prezzo non trovato per questa cripto: resto sul dato storico.');
-  return { price, asOf: new Date().toISOString(), source: 'CoinGecko (pubblico, nessun dato personale inviato)' };
+  if (!Number.isFinite(price) || price <= 0) throw new Error('Prezzo non trovato per questa cripto: resto sul dato storico.');
+  const receivedAt = Date.now();
+  const updatedSeconds = json?.[id]?.last_updated_at;
+  const validTime = Number.isSafeInteger(updatedSeconds) && updatedSeconds > 0
+    && updatedSeconds * 1000 <= receivedAt + 5 * 60_000;
+  const marketAsOf = validTime ? new Date(updatedSeconds * 1000).toISOString() : null;
+  return {
+    price,
+    asOf: new Date(receivedAt).toISOString(),
+    marketAsOf,
+    freshness: marketAsOf ? (receivedAt - updatedSeconds * 1000 > 15 * 60_000 ? 'stale' : 'recent') : 'unverified',
+    source: 'CoinGecko (pubblico, nessun dato personale inviato)',
+  };
 }
 
 // ── AZIONI/INDICI — fonti facoltative con chiave personale ──────────────────
@@ -53,6 +64,12 @@ export async function fetchLiveCryptoPrice(coin = 'bitcoin', { vsCurrency = 'eur
 // scelto nella richiesta API. La seconda fonte è un fallback, non una garanzia
 // di disponibilità o di quotazione in tempo reale.
 const STOCK_PROVIDERS = {
+  finnhub: {
+    label: 'Finnhub',
+    url: (symbol, key) => `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(key)}`,
+    extract: (json) => typeof json?.c === 'number' && Number.isFinite(json.c) ? json.c : null,
+    rateLimitHint: 'controlla la quota sul sito del provider',
+  },
   alphavantage: {
     label: 'Alpha Vantage',
     url: (symbol, key) => `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(key)}`,
@@ -90,7 +107,7 @@ export async function fetchLiveStockPrice(symbol, { provider = 'alphavantage', a
   }
   if (!res.ok) throw new Error(`${p.label} ha risposto ${res.status}: resto sul dato storico.`);
   const json = await res.json();
-  if (json?.Note || json?.Information || json?.status === 'error' || json?.code) {
+  if (json?.Note || json?.Information || json?.status === 'error' || json?.code || json?.error) {
     // Alpha Vantage restituisce 200 anche quando il limite giornaliero è
     // esaurito, con un messaggio in 'Note'/'Information' invece del prezzo:
     // onesto segnalarlo come tale, non come "prezzo non trovato" generico.
@@ -98,21 +115,26 @@ export async function fetchLiveStockPrice(symbol, { provider = 'alphavantage', a
   }
   const price = p.extract(json);
   if (price === null || price <= 0) throw new Error(`Prezzo non trovato per "${symbol}" su ${p.label}: resto sul dato storico.`);
+  const receivedAt = Date.now();
+  const finnhubSeconds = json?.t;
+  const finnhubTime = provider === 'finnhub' && Number.isSafeInteger(finnhubSeconds) && finnhubSeconds > 0
+    && finnhubSeconds * 1000 <= receivedAt + 5 * 60_000
+    ? new Date(finnhubSeconds * 1000).toISOString() : null;
   return {
     price,
-    asOf: new Date().toISOString(), // istante della risposta, NON istante del mercato
-    marketAsOf: provider === 'alphavantage' ? (json?.['Global Quote']?.['07. latest trading day'] || null) : null,
+    asOf: new Date(receivedAt).toISOString(), // istante della risposta, NON istante del mercato
+    marketAsOf: provider === 'alphavantage' ? (json?.['Global Quote']?.['07. latest trading day'] || null) : finnhubTime,
     source: p.label,
-    freshness: provider === 'alphavantage' ? 'end-of-day' : 'latest-available',
+    freshness: provider === 'alphavantage' ? 'end-of-day' : finnhubTime ? 'source-timestamp' : 'latest-available',
   };
 }
 
 // Una chiave salvata non garantisce una risposta: prova la seconda fonte già
-// configurata, senza inventare un prezzo se entrambe falliscono. FMP è solo
+// configurata, senza inventare un prezzo se tutte falliscono. FMP è solo
 // ricerca/storico qui; il piano gratuito non è un backup quotazioni intraday.
 export async function fetchConfiguredStockPrice(symbol, { keys = {}, fetchImpl = fetchWithTimeout } = {}) {
   const available = STOCK_PROVIDER_IDS.filter(provider => keys[provider]);
-  if (!available.length) throw new Error('Collega Alpha Vantage o Twelve Data per vedere una quotazione aggiornata.');
+  if (!available.length) throw new Error('Collega Finnhub, Alpha Vantage o Twelve Data per vedere una quotazione aggiornata.');
   let lastError;
   for (const provider of available) {
     try {

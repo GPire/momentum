@@ -19,6 +19,8 @@ import { conTimeout } from '../core/con-timeout.js';
 // risponde mai. 15s (non 60s come i modelli: qui è solo JSON, non un
 // download di decine di MB).
 const TIMEOUT_NOTIZIE_MS = 15_000;
+const GDELT_TIMEOUT_MS = 20_000;
+const CRYPTO_NEWS_TIMEOUT_MS = 5_000;
 
 // Esportate (non più solo interne): src/ai/local-sentiment.js le riusa per
 // etichettare il punteggio calcolato ON-DEVICE con le STESSE soglie di
@@ -47,6 +49,25 @@ function shortSummary(text) {
   const clean = text.trim();
   if (!clean) return null;
   return clean.length > 160 ? `${clean.slice(0, 157)}...` : clean;
+}
+
+function compactNewsTimestamp(raw) {
+  if (typeof raw !== 'string') return null;
+  const match = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?$/.exec(raw);
+  if (!match) return null;
+  const iso = `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}:${match[6]}Z`;
+  return Number.isFinite(Date.parse(iso)) ? iso : null;
+}
+
+// Old/offline headlines remain readable but cannot inform a current signal.
+export function isFreshNewsEvidence(item, { now = Date.now(), maxAgeDays = 14 } = {}) {
+  if (item?.staleSource || item?.stale) return false;
+  // A discussion is useful context, but its title is not reported evidence.
+  // In particular it must not train/weight investment sentiment as news.
+  if (item?.sourceType === 'community') return false;
+  const raw = item?.publishedAt || item?.observedAt;
+  const at = Date.parse(compactNewsTimestamp(raw) || raw || '');
+  return Number.isFinite(at) && at <= now + 5 * 60_000 && at >= now - maxAgeDays * 86_400_000;
 }
 
 // Una stessa notizia può comparire più volte nello stesso feed (URL con
@@ -135,7 +156,7 @@ export async function fetchNewsSentiment(symbol, { apiKey, fetchImpl = fetch, li
       title: a.title,
       url: a.url,
       source: a.source,
-      publishedAt: a.time_published,
+      publishedAt: compactNewsTimestamp(a.time_published) || a.time_published || null,
       summary: shortSummary(a.summary),
       sentimentScore: Number.isFinite(score) ? score : null,
       sentimentLabel: Number.isFinite(score) ? labelFor(score) : 'sconosciuto',
@@ -259,6 +280,7 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
     title: h.title,
     url: h.url,
     source: `Hacker News (${h.points ?? 0} punti, ${h.num_comments ?? 0} commenti)`,
+    sourceType: 'community',
     publishedAt: h.created_at || null,
     summary: null, // onesto: solo il titolo della discussione, l'articolo collegato non è mai stato letto
     sentimentScore: null,
@@ -268,6 +290,127 @@ export async function fetchHackerNewsMentions(query, { fetchImpl = fetch, limit 
   const result = { symbol: query, asOf: new Date().toISOString(), items, stale: false };
   if (cache) await cache.put(cacheKey, result).catch(() => {});
   return result;
+}
+
+// GDELT DOC 2.0 indexes public reporting across languages without an API
+// key. Only headline metadata and a link are kept: "seendate" is when GDELT
+// first saw a page, NOT proof of its publication date or of the reported fact.
+// The query is narrow and the title is checked again because full-text search
+// alone can return an article about a different company.
+function gdeltNewsTerm(name) {
+  const words = String(name || '').replace(/["()]/g, ' ').split(/[^\p{L}\p{N}]+/u)
+    .filter(Boolean).filter((word) => !/^(the|inc|incorporated|corp|corporation|co|company|ltd|limited|plc|class)$/i.test(word));
+  if (!words.length) return '';
+  const broad = /^(american|united|general|international|global|first|new|royal)$/i.test(words[0]);
+  return (broad ? words.slice(0, 2) : words.slice(0, 1)).join(' ').slice(0, 70);
+}
+
+const AMBIGUOUS_COMPANY_CONTEXT = {
+  apple: /\b(iphone|ipad|macbook|macos|tim cook|app store|airpods|stock|shares|earnings|company|technology|software)\b/i,
+  amazon: /\b(aws|prime|alexa|bezos|jassy|cloud|warehouse|stock|shares|earnings|company|retail|ecommerce)\b/i,
+  visa: /\b(payments|payment|credit card|debit card|stock|shares|earnings|company|network)\b/i,
+  meta: /\b(facebook|instagram|whatsapp|zuckerberg|quest|llama|ai|stock|shares|earnings|company|social)\b/i,
+};
+
+export async function fetchGdeltCompanyNews(name, { fetchImpl = fetch, limit = 5, cache = null, now = Date.now(), relayFirst = typeof window !== 'undefined' } = {}) {
+  const term = gdeltNewsTerm(name);
+  if (term.length < 4 || !/[A-Za-z0-9]/.test(term)) throw new Error('Serve un nome di azienda riconoscibile.');
+  const cacheKey = `gdelt-company-news:${term.toLowerCase()}`;
+  const saved = cache ? await cache.get(cacheKey).catch(() => null) : null;
+  if (saved?.asOf && now - Date.parse(saved.asOf) < 10 * 60_000 && now >= Date.parse(saved.asOf)) return saved;
+  const url = new URL('https://api.gdeltproject.org/api/v2/doc/doc');
+  url.searchParams.set('query', `"${term}"`);
+  url.searchParams.set('mode', 'artlist');
+  url.searchParams.set('format', 'json');
+  url.searchParams.set('timespan', '1week');
+  url.searchParams.set('sort', 'datedesc');
+  url.searchParams.set('maxrecords', '25');
+  let json, lastError;
+  const candidates = relayFirst ? [`/api/market-headlines?name=${encodeURIComponent(term)}`, url.toString()] : [url.toString()];
+  for (const candidate of candidates) {
+    try {
+      const response = await conTimeout(fetchImpl(candidate, { signal: AbortSignal.timeout(GDELT_TIMEOUT_MS) }), GDELT_TIMEOUT_MS, 'GDELT non risponde da troppo tempo');
+      // A missing route is expected in a static local preview: try GDELT
+      // directly. A 503 means the deployed relay already tried the same
+      // source; repeating the slow query would double the wait for users.
+      if (!response.ok) {
+        lastError = new Error(`GDELT: HTTP ${response.status}`);
+        if (candidate.startsWith('/api/') && [404, 405].includes(response.status)) continue;
+        break;
+      }
+      const data = await response.json();
+      if (!Array.isArray(data?.articles)) throw new Error('GDELT: risposta non valida.');
+      json = data;
+      break;
+    } catch (error) {
+      lastError = error;
+      // Network failure, timeout or invalid response from a deployed relay:
+      // fail to cached data/community discussion without a second long wait.
+      if (candidate.startsWith('/api/')) break;
+    }
+  }
+  if (!json) {
+    if (saved?.asOf && now - Date.parse(saved.asOf) <= 7 * 86_400_000 && now >= Date.parse(saved.asOf)) {
+      return { ...saved, stale: true };
+    }
+    throw lastError;
+  }
+  const usedUrls = new Set();
+  const items = json.articles.flatMap((article) => {
+    const observedAt = compactNewsTimestamp(article?.seendate);
+    const seen = Date.parse(observedAt || '');
+    if (!observedAt || seen > now + 5 * 60_000 || seen < now - 7 * 86_400_000) return [];
+    if (!term.split(' ').every((word) => titoloParlaDi(article?.title, word))) return [];
+    if (AMBIGUOUS_COMPANY_CONTEXT[term.toLowerCase()] && !AMBIGUOUS_COMPANY_CONTEXT[term.toLowerCase()].test(article.title)) return [];
+    let target;
+    try {
+      target = new URL(article.url);
+      if (target.protocol !== 'https:') return [];
+      target.hash = '';
+    } catch (_) { return []; }
+    if (usedUrls.has(target.href)) return [];
+    usedUrls.add(target.href);
+    return [{
+      // The upstream "domain" field is metadata, not authority over the
+      // destination. Attribute the headline to the actual linked HTTPS host.
+      title: article.title, url: target.href, source: `${target.hostname} · GDELT`,
+      sourceType: 'gdelt', observedAt, publishedAt: null, summary: null,
+      sentimentScore: null, sentimentLabel: 'sconosciuto', relevance: null,
+    }];
+  }).slice(0, Math.max(0, limit));
+  const result = { symbol: term, asOf: new Date(now).toISOString(), items, stale: false };
+  if (cache) await cache.put(cacheKey, result).catch(() => {});
+  return result;
+}
+
+// A separate editorial feed for crypto. It is displayed with its publisher
+// and timestamp, never confused with an official filing or a price signal.
+export async function fetchCoinDeskCryptoNews(name, { fetchImpl = fetch, limit = 4, cache = null, now = Date.now() } = {}) {
+  const coin = String(name || '').trim();
+  if (!/^[a-zA-Z][a-zA-Z0-9 -]{2,35}$/.test(coin)) throw new Error('Serve il nome della cripto.');
+  const cacheKey = `coindesk-headlines:${coin.toLowerCase()}`;
+  const saved = cache ? await cache.get(cacheKey).catch(() => null) : null;
+  if (saved?.asOf && now - Date.parse(saved.asOf) < 10 * 60_000 && now >= Date.parse(saved.asOf)) return saved;
+  try {
+    const response = await conTimeout(fetchImpl(`/api/market-crypto-news?coin=${encodeURIComponent(coin)}`), CRYPTO_NEWS_TIMEOUT_MS, 'Il feed cripto non risponde.');
+    if (!response.ok) throw new Error(`CoinDesk: HTTP ${response.status}`);
+    const json = await response.json();
+    if (!Array.isArray(json?.articles)) throw new Error('Feed cripto non valido.');
+    const items = json.articles.slice(0, Math.max(0, limit)).flatMap(article => {
+      let url;
+      try { url = new URL(article.url); } catch (_) { return []; }
+      if (url.protocol !== 'https:' || !/(^|\.)coindesk\.com$/i.test(url.hostname)) return [];
+      const when = Date.parse(article.publishedAt);
+      if (!Number.isFinite(when) || when > now + 300_000 || when < now - 7 * 86_400_000) return [];
+      return [{ title: String(article.title || '').slice(0, 300), url: url.href, source: 'CoinDesk', sourceType: 'editorial', publishedAt: new Date(when).toISOString(), summary: null, sentimentScore: null, sentimentLabel: 'sconosciuto', relevance: null }];
+    });
+    const result = { symbol: coin, asOf: new Date(now).toISOString(), items, stale: false };
+    if (cache) await cache.put(cacheKey, result).catch(() => {});
+    return result;
+  } catch (error) {
+    if (saved?.asOf && now - Date.parse(saved.asOf) <= 7 * 86_400_000 && now >= Date.parse(saved.asOf)) return { ...saved, stale: true };
+    throw error;
+  }
 }
 
 // Piano B a chiave, ulteriore diversificazione (CORS verificato dal vivo,

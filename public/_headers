@@ -19,6 +19,13 @@
   X-Frame-Options: DENY
   Content-Security-Policy: frame-ancestors 'none'; object-src 'none'; base-uri 'self'
 
+# The public market display contains no Vault data. It is embedded by the
+# same-origin app inside an opaque sandbox; other sites cannot frame it.
+/market-widget.html
+  ! X-Frame-Options
+  ! Content-Security-Policy
+  Content-Security-Policy: frame-ancestors 'self'; object-src 'none'; base-uri 'self'
+
 # Sul dominio Pages gli HTML e il service worker restano freschi. I file
 # statici versionati possono invece essere riusati dal browser. Il mirror
 # Netlify storico conserva il no-store sopra: nessun vecchio PWA resta fermo.

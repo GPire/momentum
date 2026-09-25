@@ -1,6 +1,77 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { searchCrypto, searchStock, searchAsset, searchStockTwelveData, searchStockFMP } from './asset-search.js';
+import { searchCrypto, searchStock, searchAsset, searchAssetLocal, searchStockTwelveData, searchStockFMP } from './asset-search.js';
+import { searchSecCatalog, secCompanySnapshot } from './sec-catalog.js';
+import { SEC_CATALOG_INDEX, SEC_CATALOG_SCARICATO_IL } from './sec-catalog-index.js';
+import { AZIENDE_PANEL, SEC_PANEL_SCARICATO_IL } from './panel-settoriale.js';
+
+test('indice SEC leggero allineato all’archivio completo', () => {
+  assert.equal(SEC_CATALOG_SCARICATO_IL, SEC_PANEL_SCARICATO_IL);
+  assert.deepEqual(SEC_CATALOG_INDEX, AZIENDE_PANEL.filter((row) => row.ticker && row.nome).map((row) => [row.ticker, row.nome]));
+});
+
+test('SEC locale: nome parziale senza chiave, anno e fonte separati dal prezzo', async () => {
+  const matches = searchSecCatalog('costco');
+  assert.equal(matches[0]?.symbol, 'COST');
+  assert.equal(searchSecCatalog('T')[0]?.symbol, 'T', 'anche un ticker di una lettera è ricercabile');
+  assert.equal(searchSecCatalog('GE')[0]?.symbol, 'GE');
+  assert.deepEqual(searchSecCatalog('an').map((row) => row.symbol), ['AN'], 'due lettere mostrano solo il ticker esatto');
+  const snapshot = await secCompanySnapshot('COST');
+  assert.equal(snapshot.ticker, 'COST');
+  assert.ok(snapshot.year >= 2000);
+  assert.match(snapshot.snapshotAt, /^\d{4}-\d{2}-\d{2}$/);
+  assert.ok(snapshot.cik > 0);
+  const years = AZIENDE_PANEL.find((row) => row.ticker === 'COST').anni;
+  const current = years.find((row) => row.anno === snapshot.year);
+  const previous = years.find((row) => row.anno === snapshot.year - 1);
+  assert.equal(snapshot.revenueGrowth, current.ricavi / previous.ricavi - 1, 'il confronto usa solo due anni fiscali consecutivi');
+  assert.equal(snapshot.operatingCashFlow, current.flussoCassaOperativo);
+  assert.equal(await secCompanySnapshot('NOT-A-TICKER'), null);
+});
+
+test('la ricerca locale mostra subito il bilancio senza dipendere dalle fonti di rete', async () => {
+  assert.equal((await searchAssetLocal('Costco'))[0]?.symbol, 'COST');
+  assert.equal((await searchAssetLocal('Apple')).filter((row) => row.symbol === 'AAPL').length, 1);
+  assert.deepEqual(await searchAssetLocal(''), []);
+});
+
+test('le sigle delle società note mantengono il nome leggibile', async () => {
+  for (const symbol of ['AMD', 'ASML', 'SAP', 'ENI', 'LVMH']) {
+    assert.equal((await searchAssetLocal(symbol))[0]?.name, symbol);
+  }
+  assert.equal((await searchAssetLocal('JPMorgan'))[0]?.name, 'JPMorgan');
+});
+
+test('ETF comuni senza chiave: identità verificabile, mai prezzo inventato', async () => {
+  for (const [query, ticker] of [['SPY', 'SPY'], ['Invesco QQQ Trust', 'QQQ'], ['Vanguard S&P 500 ETF', 'VOO'], ['iShares Bitcoin Trust ETF', 'IBIT']]) {
+    const local = await searchAssetLocal(query);
+    assert.equal(local[0]?.symbol, ticker);
+    assert.equal(local[0]?.instrumentType, 'etf');
+    assert.equal('price' in local[0], false);
+  }
+  const result = await searchAsset('SPY', { fetchImpl: async () => ({ ok: true, json: async () => ({ coins: [] }) }) });
+  assert.equal(result.results[0]?.symbol, 'SPY');
+  assert.equal(result.results[0]?.instrumentType, 'etf');
+});
+
+test('una cripto nota resta ricercabile senza rete, senza inventare un prezzo', async () => {
+  for (const query of ['Bitcoin', 'BTC', 'Ethereum', 'ETH', 'Solana']) {
+    const local = await searchAssetLocal(query);
+    assert.equal(local[0]?.kind, 'crypto');
+    assert.equal('price' in local[0], false);
+  }
+  const result = await searchAsset('Bitcoin', { fetchImpl: async () => { throw new Error('offline'); } });
+  assert.equal(result.results[0]?.id, 'bitcoin');
+  assert.equal(result.stale, false, 'the identity is current even if the quote is unavailable');
+});
+
+test('ricerca SEC senza chiave: titolo prima dei token e nessun prezzo inventato', async () => {
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ coins: [{ id: 'costco-token', symbol: 'COSTX', name: 'Costco Token', market_cap_rank: 9000 }] }) });
+  const result = await searchAsset('costco', { fetchImpl });
+  assert.equal(result.results[0].symbol, 'COST');
+  assert.equal(result.results[0].kind, 'stock');
+  assert.equal('price' in result.results[0], false);
+});
 
 test('searchCrypto: query vuota → nessuna chiamata, lista vuota', async () => {
   assert.deepEqual(await searchCrypto(''), []);
@@ -46,17 +117,17 @@ test('searchAsset: senza chiave → solo cripto, nessun errore', async () => {
 });
 
 test('searchAsset: tutte le fonti giù CON cache → ripiega sull\'ultima ricerca, dichiarata stale', async () => {
-  const cached = [{ kind: 'crypto', id: 'bitcoin', symbol: 'BTC', name: 'Bitcoin' }];
+  const cached = [{ kind: 'crypto', id: 'litecoin', symbol: 'LTC', name: 'Litecoin' }];
   const cache = { get: async () => cached, put: async () => {} };
   const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
-  const r = await searchAsset('bitcoin', { fetchImpl, cache });
+  const r = await searchAsset('litecoin', { fetchImpl, cache });
   assert.equal(r.stale, true);
   assert.deepEqual(r.results, cached);
 });
 
 test('searchAsset: tutte le fonti giù SENZA cache → lista vuota, mai inventata', async () => {
   const fetchImpl = async () => { throw new TypeError('Failed to fetch'); };
-  const r = await searchAsset('bitcoin', { fetchImpl });
+  const r = await searchAsset('unknown-coin', { fetchImpl });
   assert.deepEqual(r, { results: [], stale: false });
 });
 

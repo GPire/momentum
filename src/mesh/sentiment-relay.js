@@ -114,6 +114,17 @@ export function bestKnownSentiment(store, testo) {
   return voce ? { ...voce } : null;
 }
 
+// Financial reasoning has a stricter boundary than the general mesh UI:
+// an old persisted `affidabile` flag or one peer's reputation is insufficient.
+export function bestCorroboratedSentiment(store, testo, { now = Date.now() } = {}) {
+  const item = bestKnownSentiment(store, testo);
+  if (!item || new Set(item.corroboratedBy || []).size < 2 ||
+      !Number.isFinite(item.score) || Math.abs(item.score) > 1 || item.label !== labelFor(item.score)) return null;
+  const at = Date.parse(item.asOf || '');
+  if (!Number.isFinite(at) || at > now + 60_000 || now - at > 14 * 86_400_000) return null;
+  return item;
+}
+
 export function pruneSentimentRelay(store, { now = Date.now(), maxAgeMs = ETA_MASSIMA_RELAY_MS } = {}) {
   const out = {};
   for (const [k, v] of Object.entries(store)) {

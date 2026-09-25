@@ -1,6 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchNewsSentiment, fetchFinnhubNews, fetchHackerNewsMentions, fetchNewsApiOrg } from './news.js';
+import { fetchNewsSentiment, fetchFinnhubNews, fetchHackerNewsMentions, fetchNewsApiOrg, fetchGdeltCompanyNews, fetchCoinDeskCryptoNews, isFreshNewsEvidence } from './news.js';
+
+test('crypto editorial feed keeps verified publisher, date and safe link', async () => {
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const result = await fetchCoinDeskCryptoNews('Bitcoin', { now, fetchImpl: async (url) => {
+    assert.equal(url, '/api/market-crypto-news?coin=Bitcoin');
+    return { ok: true, json: async () => ({ articles: [
+      { title: 'Bitcoin ETF inflows', url: 'https://www.coindesk.com/markets/bitcoin/', publishedAt: '2026-09-25T11:00:00Z' },
+      { title: 'Malicious', url: 'https://example.com/', publishedAt: '2026-09-25T11:00:00Z' },
+    ] }) };
+  } });
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].sourceType, 'editorial');
+  assert.equal(result.items[0].sentimentScore, null);
+});
 
 const realShape = () => ({
   ok: true,
@@ -29,6 +43,7 @@ test('fetchNewsSentiment: forma reale → titoli, punteggio ticker-specifico, et
   assert.equal(r.symbol, 'AAPL');
   assert.equal(r.items.length, 2);
   assert.equal(r.items[0].sentimentScore, 0.42);
+  assert.equal(r.items[0].publishedAt, '2026-07-27T09:00:00Z');
   assert.equal(r.items[0].sentimentLabel, 'bullish');
   assert.equal(r.items[1].sentimentLabel, 'somewhat-bearish');
   assert.equal(r.items[0].summary, 'Apple ha rialzato le stime di fatturato per il trimestre.');
@@ -196,6 +211,88 @@ test('fetchNewsApiOrg: forma reale → titoli reali', async () => {
 test('fetchNewsApiOrg: chiave non valida → errore col messaggio reale, mai dati finti', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => ({ status: 'error', code: 'apiKeyInvalid', message: 'Your API key is invalid or incorrect.' }) });
   await assert.rejects(() => fetchNewsApiOrg('Apple', { apiKey: 'sbagliata', fetchImpl }), /API key is invalid/);
+});
+
+test('GDELT: titoli recenti pertinenti, URL sicuri, data di indicizzazione separata dalla pubblicazione', async () => {
+  const now = Date.parse('2026-09-24T12:00:00Z');
+  let requested;
+  const fetchImpl = async (url) => {
+    requested = new URL(url);
+    return { ok: true, json: async () => ({ articles: [
+      { title: 'Costco aggiorna la rete dei negozi', url: 'https://news.example/costco', domain: 'trusted.example', seendate: '20260924T100000Z' },
+      { title: 'COSTCO aggiornamenti ripubblicati', url: 'javascript:alert(1)', seendate: '20260924T100000Z' },
+      { title: 'Costco su pagina non cifrata', url: 'http://news.example/costco', seendate: '20260924T100000Z' },
+      { title: 'Un retailer diverso', url: 'https://news.example/other', seendate: '20260924T100000Z' },
+      { title: 'Costco: articolo vecchio', url: 'https://news.example/old', seendate: '20260901T100000Z' },
+    ] }) };
+  };
+  const r = await fetchGdeltCompanyNews('Costco Wholesale Corporation', { fetchImpl, now });
+  assert.equal(requested.hostname, 'api.gdeltproject.org');
+  assert.equal(requested.searchParams.get('query'), '"Costco"');
+  assert.equal(requested.searchParams.get('timespan'), '1week');
+  assert.equal(r.items.length, 1);
+  assert.equal(r.items[0].publishedAt, null);
+  assert.equal(r.items[0].observedAt, '2026-09-24T10:00:00Z');
+  assert.equal(r.items[0].sentimentScore, null);
+  assert.equal(r.items[0].source, 'news.example · GDELT');
+  assert.equal(isFreshNewsEvidence(r.items[0], { now }), true);
+});
+
+test('GDELT: cache recente evita nuove richieste; offline è segnalato e non alimenta il modello', async () => {
+  const now = Date.parse('2026-09-24T12:00:00Z');
+  let stored = null, calls = 0;
+  const cache = { get: async () => stored, put: async (_key, value) => { stored = value; } };
+  const fetchImpl = async () => { calls++; return { ok: true, json: async () => ({ articles: [
+    { title: 'Nvidia aggiorna i chip', url: 'https://news.example/nvidia', seendate: '20260924T100000Z' },
+  ] }) }; };
+  await fetchGdeltCompanyNews('Nvidia Corporation', { fetchImpl, cache, now });
+  await fetchGdeltCompanyNews('Nvidia Corporation', { fetchImpl, cache, now: now + 60_000 });
+  assert.equal(calls, 1);
+  const offline = await fetchGdeltCompanyNews('Nvidia Corporation', { fetchImpl: async () => { throw new Error('offline'); }, cache, now: now + 11 * 60_000 });
+  assert.equal(offline.stale, true);
+  assert.equal(isFreshNewsEvidence({ ...offline.items[0], staleSource: offline.stale }, { now }), false);
+});
+
+test('una discussione recente non diventa evidenza per il modello di sentiment', () => {
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  assert.equal(isFreshNewsEvidence({ sourceType: 'community', publishedAt: '2026-09-25T11:00:00Z', sentimentScore: 0.8 }, { now }), false);
+  assert.equal(isFreshNewsEvidence({ sourceType: 'editorial', publishedAt: '2026-09-25T11:00:00Z', sentimentScore: 0.8 }, { now }), true);
+});
+
+test('GDELT: risposta non valida e nomi troppo generici non diventano notizie', async () => {
+  await assert.rejects(() => fetchGdeltCompanyNews('E', { fetchImpl: async () => ({ ok: true, json: async () => ({}) }) }), /nome/i);
+  await assert.rejects(() => fetchGdeltCompanyNews('Costco', { fetchImpl: async () => ({ ok: true, json: async () => ({}) }) }), /risposta non valida/i);
+});
+
+test('GDELT: same-origin relay first, then direct source when the relay is unavailable', async () => {
+  const urls = [];
+  const r = await fetchGdeltCompanyNews('Costco', { relayFirst: true, fetchImpl: async (url) => {
+    urls.push(url);
+    if (url.startsWith('/api/')) return { ok: false, status: 404 };
+    return { ok: true, json: async () => ({ articles: [] }) };
+  } });
+  assert.match(urls[0], /^\/api\/market-headlines\?name=Costco$/);
+  assert.equal(new URL(urls[1]).hostname, 'api.gdeltproject.org');
+  assert.deepEqual(r.items, []);
+});
+
+test('GDELT: a failed deployed relay does not repeat the slow upstream query', async () => {
+  const urls = [];
+  await assert.rejects(() => fetchGdeltCompanyNews('Costco', { relayFirst: true, fetchImpl: async (url) => {
+    urls.push(url);
+    return { ok: false, status: 503 };
+  } }), /503/);
+  assert.equal(urls.length, 1);
+});
+
+test('GDELT: per un marchio ambiguo non confonde il frutto con la società', async () => {
+  const now = Date.parse('2026-09-24T12:00:00Z');
+  const fetchImpl = async () => ({ ok: true, json: async () => ({ articles: [
+    { title: 'Apple pie recipe goes viral', url: 'https://food.example/pie', seendate: '20260924T100000Z' },
+    { title: 'Apple reveals an iPhone update', url: 'https://tech.example/iphone', seendate: '20260924T090000Z' },
+  ] }) });
+  const r = await fetchGdeltCompanyNews('Apple Inc', { fetchImpl, now });
+  assert.deepEqual(r.items.map((item) => item.title), ['Apple reveals an iPhone update']);
 });
 
 // ── "APPLE" DENTRO "APPLYING" ──

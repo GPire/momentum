@@ -74,7 +74,7 @@ test('il 2011 è l\'anno in cui quattro mercati hanno fatto picco insieme', () =
   assert.equal(insieme.anno, 2011);
   assert.ok(insieme.mercati.length >= 4, `mercati: ${insieme.mercati}`);
   assert.match(cicliText(), /2011/);
-  assert.match(cicliText(), /costo del denaro/);
+  assert.match(cicliText(), /non dimostra una causa/);
 });
 
 test('con un solo episodio il modulo RIFIUTA di calcolare una percentuale', () => {

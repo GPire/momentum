@@ -9,15 +9,29 @@
 'use strict';
 
 import { valutaFondamentali } from './fondamentali.js';
+import { conTimeout } from '../core/con-timeout.js';
 
 function stripHtml(s = '') {
   return String(s).replace(/<[^>]*>/g, '').trim();
 }
 
+// CoinGecko categories are crowd-maintained tags, not a verified taxonomy.
+// In particular, past portfolio/holdings tags and Ethereum-like platform
+// labels have appeared on Bitcoin. Keep only plain descriptive tags and
+// never present them as a classification Momentum has independently verified.
+export function visibleCryptoCategories(categories, id) {
+  return (Array.isArray(categories) ? categories : [])
+    .filter((value) => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter((value) => value && !/holdings?|portfolio|ecosystem|wrapped|synthetic|exchange|fund|index/i.test(value))
+    .filter((value) => id !== 'bitcoin' || !/smart.contract|layer\s*[12]|ethereum|defi|web3/i.test(value))
+    .slice(0, 3).join(', ') || null;
+}
+
 export async function fetchCryptoOverview(id, { fetchImpl = fetch } = {}) {
   if (!id) throw new Error('Serve un id cripto.');
   const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), 8_000, 'CoinGecko: descrizione non disponibile ora');
   if (!res.ok) throw new Error(`CoinGecko overview: HTTP ${res.status}`);
   const json = await res.json();
   const desc = stripHtml(json?.description?.en || '');
@@ -25,7 +39,7 @@ export async function fetchCryptoOverview(id, { fetchImpl = fetch } = {}) {
     kind: 'crypto',
     name: json?.name || id,
     summary: desc ? (desc.split(/\.\s/).slice(0, 2).join('. ') + '.') : 'Nessuna descrizione disponibile per questa cripto.',
-    category: (json?.categories || []).filter(Boolean).slice(0, 3).join(', ') || null,
+    category: visibleCryptoCategories(json?.categories, id),
     marketCapRank: json?.market_cap_rank ?? null,
     homepage: json?.links?.homepage?.[0] || null,
   };
@@ -35,7 +49,7 @@ export async function fetchStockOverview(symbol, { apiKey, fetchImpl = fetch } =
   if (!symbol) throw new Error('Serve un ticker.');
   if (!apiKey) throw new Error('Serve la tua chiave Alpha Vantage personale (Momentum Vault → Prezzi live).');
   const url = `https://www.alphavantage.co/query?function=OVERVIEW&symbol=${encodeURIComponent(symbol)}&apikey=${encodeURIComponent(apiKey)}`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), 8_000, 'Alpha Vantage: descrizione non disponibile ora');
   if (!res.ok) throw new Error(`Alpha Vantage overview: HTTP ${res.status}`);
   const json = await res.json();
   if (json?.Note || json?.Information || !json?.Name) {

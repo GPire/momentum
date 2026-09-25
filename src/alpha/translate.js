@@ -9,6 +9,8 @@
 // spacciato per il testo originale della fonte.
 'use strict';
 
+import { conTimeout } from '../core/con-timeout.js';
+
 export function isItalianDevice(navigatorLike = (typeof navigator !== 'undefined' ? navigator : null)) {
   const langs = navigatorLike?.languages?.length ? navigatorLike.languages : [navigatorLike?.language].filter(Boolean);
   return langs.some((l) => String(l).toLowerCase().startsWith('it'));
@@ -20,7 +22,7 @@ export async function translateText(text, { from = 'en', to = 'it', fetchImpl = 
   // MyMemory limita ~500 caratteri per richiesta sul tier gratuito.
   const chunk = clean.slice(0, 480);
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=${from}|${to}`;
-  const res = await fetchImpl(url);
+  const res = await conTimeout(fetchImpl(url), 4_000, 'Traduzione non disponibile ora.');
   if (!res.ok) throw new Error(`Traduzione: HTTP ${res.status}`);
   const json = await res.json();
   const translated = json?.responseData?.translatedText;

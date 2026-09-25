@@ -1,9 +1,9 @@
 // Storico mensile REALE per azioni/ETF — Alpha Vantage TIME_SERIES_MONTHLY
 // o Twelve Data /time_series (stessi host già verificati per prezzi/notizie,
-// CORS aperto con chiave personale). A differenza di CoinGecko (limitata a
-// 365gg sul piano gratuito), entrambi danno storico mensile reale spesso
-// 20+ anni anche gratis — qui NON serve nessun compromesso "solo punti
-// singoli": una vera serie continua multi-anno. Mai un prezzo inventato:
+// CORS aperto con chiave personale). La profondità disponibile dipende dal
+// piano e dal titolo. Le condizioni per uso commerciale vanno verificate
+// separatamente; una chiave personale non conferisce diritti di distribuzione.
+// Mai un prezzo inventato:
 // se la fonte non risponde o la chiave non ha quota, ritorna array vuoto.
 'use strict';
 
@@ -69,7 +69,11 @@ async function fetchFromFMP(symbol, { apiKey, fetchImpl, yearsBack }) {
     .map(v => ({ date: v.date, price: Number(v.close) }))
     .filter(p => Number.isFinite(p.price))
     .sort((a, b) => a.date.localeCompare(b.date));
-  return filterByYearsBack(entries, yearsBack);
+  // FMP returns daily rows here; keep the last observed close per month so
+  // the all-time chart stays responsive and comparable to the other sources.
+  const monthly = new Map();
+  for (const point of entries) monthly.set(point.date.slice(0, 7), point);
+  return filterByYearsBack([...monthly.values()], yearsBack);
 }
 
 const PROVIDERS = { alphavantage: fetchFromAlphaVantage, twelvedata: fetchFromTwelveData, fmp: fetchFromFMP };
@@ -81,19 +85,20 @@ export async function fetchStockMonthlySeries(symbol, { apiKey, fetchImpl = fetc
   try { return cleanPriceSeries(await fn(symbol, { apiKey, fetchImpl, yearsBack })); } catch (_) { return []; }
 }
 
-// A CASCATA (stesso principio già usato per la chat generica): prova ogni
-// provider per cui l'utente ha configurato una chiave, in ordine, si ferma
-// al primo che dà una serie non vuota. `keys` = { alphavantage?, twelvedata? }.
-// Richiesto esplicitamente dall'utente: mai dipendere da un solo provider —
-// se Momentum crescesse, ogni utente usa comunque la propria chiave (mai
-// condivisa), ma avere un piano B onesto resta più solido.
+// Ask configured providers concurrently. The first response is not always the
+// longest history; prefer the oldest series that is also current relative to
+// the freshest available source. Do not splice prices from different vendors.
 export async function fetchStockMonthlySeriesCascade(symbol, { keys = {}, fetchImpl = fetch, yearsBack = null, order = ['alphavantage', 'twelvedata', 'fmp'] } = {}) {
-  for (const provider of order) {
-    if (!keys[provider]) continue;
-    const series = await fetchStockMonthlySeries(symbol, { apiKey: keys[provider], fetchImpl, yearsBack, provider });
-    if (series.length) return { series, provider };
-  }
-  return { series: [], provider: null };
+  const available = order.filter(provider => keys[provider]);
+  const results = await Promise.all(available.map(async provider => ({
+    provider, series: await fetchStockMonthlySeries(symbol, { apiKey: keys[provider], fetchImpl, yearsBack, provider }),
+  })));
+  const populated = results.filter(result => result.series.length);
+  if (!populated.length) return { series: [], provider: null };
+  const latest = Math.max(...populated.map(result => Date.parse(`${result.series.at(-1).date}T00:00:00Z`)));
+  const recent = populated.filter(result => Date.parse(`${result.series.at(-1).date}T00:00:00Z`) >= latest - 62 * 86_400_000);
+  recent.sort((a, b) => a.series[0].date.localeCompare(b.series[0].date) || b.series.length - a.series.length);
+  return recent[0];
 }
 
 // Confronto reale "N anni fa vs oggi" a partire dalla STESSA serie mensile

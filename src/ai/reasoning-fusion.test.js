@@ -208,26 +208,58 @@ test('aggregateNewsSentiment: nessuna notizia con punteggio → null, mai un sen
   assert.equal(aggregateNewsSentiment([{ title: 'x' }]), null); // niente sentimentScore
 });
 
+const newsNow = Date.parse('2026-07-26T12:00:00Z');
+const recentNews = (scores) => scores.map((item) => ({ publishedAt: '2026-07-25T09:00:00Z', ...item }));
+
 test('aggregateNewsSentiment: media reale, etichetta e confidenza proporzionale al numero di fonti', () => {
-  const r = aggregateNewsSentiment([{ sentimentScore: 0.4 }, { sentimentScore: 0.3 }, { sentimentScore: 0.5 }]);
+  const r = aggregateNewsSentiment(recentNews([{ sentimentScore: 0.4 }, { sentimentScore: 0.3 }, { sentimentScore: 0.5 }]), { now: newsNow });
   assert.equal(r.n, 3);
   assert.equal(r.label, 'bullish');
   assert.ok(r.confidence > 0.2 && r.confidence <= 0.7);
 });
 
 test('aggregateNewsSentiment: notizie miste negative → etichetta bearish/somewhat-bearish coerente', () => {
-  const r = aggregateNewsSentiment([{ sentimentScore: -0.4 }, { sentimentScore: -0.3 }]);
+  const r = aggregateNewsSentiment(recentNews([{ sentimentScore: -0.4 }, { sentimentScore: -0.3 }]), { now: newsNow });
   assert.equal(r.label, 'bearish');
 });
 
 test('aggregateNewsSentiment: dichiara quando la media include stime on-device (src/ai/local-sentiment.js), e resta un po\' più prudente', () => {
-  const soloAlphaVantage = aggregateNewsSentiment([{ sentimentScore: 0.4 }, { sentimentScore: 0.4 }, { sentimentScore: 0.4 }]);
+  const soloAlphaVantage = aggregateNewsSentiment(recentNews([{ sentimentScore: 0.4 }, { sentimentScore: 0.4 }, { sentimentScore: 0.4 }]), { now: newsNow });
   assert.equal(soloAlphaVantage.onDevice, false);
-  const conOnDevice = aggregateNewsSentiment([
+  const conOnDevice = aggregateNewsSentiment(recentNews([
     { sentimentScore: 0.4 }, { sentimentScore: 0.4 }, { sentimentScore: 0.4, sentimentSource: 'on-device' },
-  ]);
+  ]), { now: newsNow });
   assert.equal(conOnDevice.onDevice, true);
   assert.ok(conOnDevice.confidence <= soloAlphaVantage.confidence, 'la presenza di stime on-device non deve MAI aumentare la confidenza rispetto a fonti tutte reali');
+});
+
+test('aggregateNewsSentiment: una raffica dallo stesso editore non sovrasta una fonte indipendente', () => {
+  const articles = recentNews([
+    ...Array.from({ length: 9 }, (_, i) => ({ sentimentScore: 0.8, url: `https://news.example/story-${i}` })),
+    { sentimentScore: -0.8, url: 'https://other.example/story' },
+    { sentimentScore: 9, url: 'https://third.example/invalid' },
+  ]);
+  const result = aggregateNewsSentiment(articles, { now: newsNow });
+  const onePublisher = aggregateNewsSentiment(articles.slice(0, 9), { now: newsNow });
+  assert.equal(result.n, 10);
+  assert.equal(result.sourceCount, 2);
+  assert.equal(result.score, 0);
+  assert.equal(result.label, 'neutral');
+  assert.ok(onePublisher.confidence < result.confidence);
+});
+
+test('aggregateNewsSentiment: offline, vecchie, senza data e future non diventano un segnale attuale', () => {
+  const items = [
+    { sentimentScore: 0.9, publishedAt: '2026-07-25T09:00:00Z', staleSource: true },
+    { sentimentScore: 0.9, publishedAt: '2026-06-01T09:00:00Z' },
+    { sentimentScore: 0.9 },
+    { sentimentScore: 0.9, observedAt: '2026-07-27T09:00:00Z' },
+    { sentimentScore: -0.4, observedAt: '2026-07-26T08:00:00Z' },
+  ];
+  const r = aggregateNewsSentiment(items, { now: newsNow });
+  assert.equal(r.n, 1);
+  assert.equal(r.label, 'bearish');
+  assert.equal(aggregateNewsSentiment(items.slice(0, 4), { now: newsNow }), null);
 });
 
 function richHistoryAllTx() {
@@ -259,7 +291,7 @@ test('investmentReadiness: senza liveRegime usa lo scatto statico come prima (ne
 
 test('investmentReadiness: con newsItems reali aggiunge il layer sentiment e lo cita nel messaggio', () => {
   const salary = { dayOfMonth: 27, amount: 1800 };
-  const newsItems = [{ sentimentScore: 0.4 }, { sentimentScore: 0.45 }, { sentimentScore: 0.5 }];
+  const newsItems = recentNews([{ sentimentScore: 0.4 }, { sentimentScore: 0.45 }, { sentimentScore: 0.5 }]);
   const r = investmentReadiness({ allTx: richHistoryAllTx(), salary, now: Date.parse('2026-07-26T12:00:00Z'), newsItems });
   assert.equal(r.verdict.newsSentiment.label, 'bullish');
   assert.ok(r.verdict.message.includes('notizie recenti'));

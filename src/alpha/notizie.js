@@ -49,15 +49,15 @@ import { DATE_GIORNI, GIORNALIERO, NOMI_GIORNALIERI } from './daily-panel.js';
 // gratuiti anonimi, nessun SLA, nessuno garantisce che domani funzionino).
 // Usarli come fonte "pulita" per un prodotto serio sarebbe stata la stessa
 // scommessa fragile già rifiutata per gli aggregatori di notizie.
+// Per Fed e BCE l'app pubblicata prova prima il relay same-origin di Momentum,
+// limitato a due URL ufficiali; nel preview statico resta il fallback storico.
 // La differenza con `rss2json.com`: non è un proxy generico anti-CORS, è un
 // prodotto che fa UNA cosa sola (RSS→JSON) con CORS abilitato di proposito
 // per questo uso — verificato dal vivo con dati REALI il 2026-08-24 (fed E
 // bce, `access-control-allow-origin: *` nell'header, contenuto identico
 // all'XML originale, solo riformattato). Resta comunque un RELAY di terzi,
-// non la fonte primaria: usato SOLO come fallback (mai al posto del fetch
-// diretto, che va sempre tentato per primo — se domani questi domini
-// aggiungessero l'header, il relay smetterebbe di servire senza cambiare
-// una riga), e ogni voce che passa da qui porta `viaRelay:true` — mai
+// non la fonte primaria: usato SOLO come ultimo fallback. Ogni voce che
+// passa da un relay porta `viaRelay:true` — mai
 // presentata come se fosse arrivata diretta dalla fonte. Nessun dato
 // dell'utente attraversa questo relay: è una richiesta per un URL
 // pubblico, non diverso da chiedere a chiunque "apri questa pagina per
@@ -69,6 +69,7 @@ export const FONTI_NOTIZIE = [
     formato: 'rss', lingua: 'en',
     licenza: 'ente federale USA: i contenuti non sono soggetti a copyright',
     pulita: true,
+    sameOrigin: '/api/market-policy-news?source=fed',
     fallback: {
       url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.federalreserve.gov%2Ffeeds%2Fpress_monetary.xml',
       formato: 'rss2json',
@@ -93,6 +94,7 @@ export const FONTI_NOTIZIE = [
     formato: 'rss', lingua: 'en',
     licenza: 'riproduzione permessa citando la fonte',
     pulita: true,
+    sameOrigin: '/api/market-policy-news?source=bce',
     fallback: {
       url: 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fwww.ecb.europa.eu%2Frss%2Fpress.html',
       formato: 'rss2json',
@@ -194,14 +196,12 @@ export function leggi(formato, testo) {
 // ── Il recupero, con ricaduta e senza mai bloccare ──
 // Se la rete non c'è — ed è la condizione normale per un'app che funziona
 // offline — non succede niente di male: si restituisce quello che si ha.
-export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeoutMs = 6000, fetchImpl = null } = {}) {
+export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeoutMs = 6000, fetchImpl = null, preferSameOrigin = typeof window !== 'undefined' } = {}) {
   const f = fetchImpl || (typeof fetch === 'function' ? fetch : null);
   if (!f) return { voci: [], fonti: [], errore: 'nessun modo di andare in rete in questo ambiente' };
-  // Un solo tentativo (url+formato): usato prima per la fonte diretta, poi —
-  // solo se quella non ha dato niente — per il `fallback` dichiarato sulla
-  // fonte, se esiste. Mai il contrario: la fonte diretta va sempre provata
-  // per prima, un domani in cui aggiungessero l'header CORS non richiede
-  // toccare una riga qui.
+  // Un solo tentativo (url+formato): nel browser prima il relay Momentum,
+  // poi la fonte diretta e infine il relay pubblico storico. Nel runtime Node
+  // la fonte diretta resta il primo tentativo.
   const provaUnaVolta = async (url, formato) => {
     const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
     const t = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
@@ -219,16 +219,22 @@ export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeout
 
   const usate = [], voci = [];
   for (const fonte of fonti) {
-    let lette = await provaUnaVolta(fonte.url, fonte.formato);
-    let viaFallback = false;
+    // Our fixed-source relay avoids CORS and third-party RSS relays in the
+    // installed app. Static previews (404) and offline use still have the
+    // original direct/fallback path; the original link stays on every item.
+    let lette = preferSameOrigin && fonte.sameOrigin ? await provaUnaVolta(fonte.sameOrigin, 'rss2json') : [];
+    let viaFallback = lette.length > 0;
+    let relayNota = viaFallback ? 'via relay Momentum: fonte ufficiale originale' : null;
+    if (!lette.length) lette = await provaUnaVolta(fonte.url, fonte.formato);
     if (!lette.length && fonte.fallback) {
       lette = await provaUnaVolta(fonte.fallback.url, fonte.fallback.formato);
       viaFallback = lette.length > 0;
+      relayNota = viaFallback ? fonte.fallback.nota : null;
     }
     if (!lette.length) continue;
     usate.push({
       chiave: fonte.chiave, nome: fonte.nome, licenza: fonte.licenza, voci: lette.length,
-      viaFallback, relayNota: viaFallback ? fonte.fallback.nota : null,
+      viaFallback, relayNota,
     });
     // La fonte resta attaccata a ogni voce: senza, fra un mese nessuno sa
     // piu' da dove venga una riga. `viaRelay` dichiara SEMPRE quando il
@@ -236,7 +242,7 @@ export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeout
     for (const v of lette) {
       voci.push({
         ...v, fonte: fonte.chiave, nomeFonte: fonte.nome, licenza: fonte.licenza,
-        viaRelay: viaFallback, relayNota: viaFallback ? fonte.fallback.nota : null,
+        viaRelay: viaFallback, relayNota,
       });
     }
   }
@@ -249,7 +255,9 @@ export async function prendiNotizie({ fonti = FONTI_NOTIZIE, quante = 8, timeout
   // tecnico. Con un tetto per fonte, cosi' nessuna puo' occupare tutta la
   // lista solo perche' pubblica di piu'.
   const rilievo = { fed: 0, bce: 1, fedTutti: 2, federalRegister: 3 };
-  const tetto = { federalRegister: 3, fedTutti: 2 };
+  // In una vista breve, cinque comunicati Fed consecutivi nascondevano
+  // completamente la BCE. Una fonte non deve monopolizzare il contesto.
+  const tetto = { fed: 3, bce: 3, federalRegister: 3, fedTutti: 2 };
   voci.sort((a, b) => ((rilievo[a.fonte] ?? 9) - (rilievo[b.fonte] ?? 9))
     || (b.data || '').localeCompare(a.data || ''));
   const contati = {};

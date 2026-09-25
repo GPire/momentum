@@ -33,6 +33,7 @@ import { buildTripArchive, inspectTripArchive } from './trips/trip-archive.js';
 import { evaluateTripPredictions } from './trips/trip-prediction.js';
 import { tripReimbursementHtml } from './ui/trip-reimbursement.js';
 import { splitAnomalyMessage, splitShapeSuggestion } from './ui/split-anomaly.js';
+import { historyWithinYears, historyPlot, nearestHistoryIndex, formatHistoryPrice, historyCoverage } from './alpha/history-range.js';
 import { splitForesightActionCopy, splitForesightShareCopy, splitForesightEvidenceCopy, splitForesightDisclaimerCopy } from './i18n/split-foresight.js';
 import { reimbursementBalance } from './trips/reimbursement-balance.js';
 import { creditPickerHtml, bindCreditPicker } from './ui/trip-credit-picker.js';
@@ -83,7 +84,7 @@ import { suggestCategoryIcon } from './ui/category-icon-hints.js';
 import { keyboardViewportInset, modalViewport } from './ui/viewport-inset.js';
 import { editCategoryAppearance } from './core/category-appearance.js';
 import { EXTRA_CATEGORY_ICONS } from './ui/category-icons.js';
-import { parseSalaryDraft, parseReminderDraft } from './ui/money-editor-values.js';
+import { parseSalaryDraft, parseReminderDraft, parseEmergencyFundAmount } from './ui/money-editor-values.js';
 import { recoveryPromptKey, shouldAutoOpenRecoveryPrompt } from './core/recovery-notice.js';
 import { SCHEMA_VERSION, $, $$, formatMoney, monthKey } from './core/constants.js';
 import { haCompletatoOnboarding } from './core/onboarding-state.js';
@@ -111,6 +112,7 @@ import { showSignatureAlert, showToast, showToastAction } from './ui/feedback.js
 import { NeuralNexus, AntiFOMO } from './ai/neural-nexus.js';
 import { VoiceCore, linguaVoceAttiva, VoiceParser, SPEECH_LOCALE } from './voice/voice.js';
 import { PredictiveOracle } from './predict/oracle.js';
+import { forecastReadiness } from './predict/forecast-readiness.js';
 import { initDeviceProfile } from './device/profiler.js';
 import { AnomalyDetector, findUnknownMerchants } from './predict/anomaly.js';
 import { subscriptionSummary, detectDormantSubscriptions, detectNewSubscriptions, dormantSubscriptionKey } from './predict/subscriptions.js';
@@ -142,7 +144,7 @@ function syntheticAnnualReturns(mu, sigma, n = 40, seed = 1) {
   return out;
 }
 import { sectorRanking } from './alpha/sector-rotation.js';
-import { prendiNotizie } from './alpha/notizie.js';
+import { prendiNotizie, FONTI_NOTIZIE } from './alpha/notizie.js';
 import { tassiMondoText, sincroniaConGliUsa, scartoFraPaesi, scartoText, cicloGlobale } from './alpha/tassi-mondo.js';
 import { NOMI_PAESI as PAESI_NOMI, PAESI_A as TASSI_MONDO_A } from './alpha/country-rates-panel.js';
 import { speedupCeiling } from './mesh/mesh-economics.js';
@@ -160,6 +162,7 @@ import { statoMercato } from './alpha/mercato-vivo.js';
 import measuredAssumptions from './alpha/measured-assumptions.js';
 import { createPriceAlert, checkPriceAlerts, removePriceAlert } from './predict/price-alerts.js';
 import { isItalianDevice } from './alpha/translate.js';
+import { assetIdentityBrief } from './alpha/asset-identity-brief.js';
 import { chiediAlMercatoSync, rifiutoMotivato, precarica as precaricaMercato } from './alpha/mercato-qa.js';
 import { isTelemetryEnabled, setTelemetryEnabled, sendTelemetryPings, sendFeatureEvent, sendEssentialDiagnostic, sendAppObservation } from './core/telemetry.js';
 
@@ -328,7 +331,7 @@ import { cashForecast } from './predict/cash-forecast.js';
 import { snapshotForecast, evaluateAllSnapshots, calibrationSummary } from './predict/forecast-calibration.js';
 import { trainCommitments, enrichWithNormality, judgeCommitmentPayment } from './predict/commitment-training.js';
 import { bnplExposure, bnplToLedgerEvents, learnPlanLengths, detectBnplSeries } from './predict/bnpl.js';
-import { investmentReadiness } from './ai/reasoning-fusion.js';
+import { aggregateNewsSentiment, investmentReadiness } from './ai/reasoning-fusion.js';
 import { detectRegime } from './alpha/regime.js';
 import { currentWeights, rebalanceSuggestions, riskParityWeights } from './alpha/portfolio.js';
 import { toReturns } from './alpha/market-data.js';
@@ -4999,7 +5002,9 @@ window.runAIOverflowSweep = () => {
 // di novità), non vale la pena svegliare il Web Worker per Monte Carlo/GARCH
 // — il calcolo sincrono già mostrato in UI resta valido. Risparmia CPU/batteria
 // senza cambiare cosa vede l'utente su transazioni ordinarie.
+let forecastRenderSequence = 0;
 const renderAnalysis = (opts = {}) => {
+  const forecastRenderId = ++forecastRenderSequence;
   // Sempre in cima, a prescindere da chi ha chiamato renderAnalysis: la
   // vista Essenziale/Completa deve restare coerente ad ogni ridisegno, non
   // solo al primo ingresso nella schermata (main.js ha decine di punti che
@@ -5016,6 +5021,8 @@ const renderAnalysis = (opts = {}) => {
   // Dashboard; `txs` (solo dati veri) resta per tutto il resto della
   // funzione, dove i numeri finti non devono entrare.
   const txsVista = displayTxForMonth(k);
+  const analysisDemoNote = document.getElementById('analysis-demo-note');
+  if (analysisDemoNote) analysisDemoNote.hidden = liveDemoTx().length === 0;
   let exp = 0;
   const catTotals = {};
 
@@ -5026,11 +5033,31 @@ const renderAnalysis = (opts = {}) => {
     }
   });
 
+  const spendingCard = document.getElementById('spending-orbit-card');
+  if (spendingCard) spendingCard.dataset.state = exp > 0 ? 'ready' : 'empty';
+  const spendingEmpty = document.getElementById('spending-orbit-empty');
+  if (spendingEmpty) spendingEmpty.hidden = exp > 0;
+
   const budgetLimit = VaultDAO.state.monthlyBudget;
   $('#budget-spent').textContent = formatMoney(exp);
   $('#budget-limit').textContent = budgetLimit > 0
     ? tCh('alphaOfBudget', __uiLang, formatMoney(budgetLimit))
     : tCh('alphaBudgetUnset', __uiLang);
+  const budgetRemaining = document.getElementById('budget-remaining');
+  const budgetPosition = document.getElementById('budget-position');
+  const budgetNextStep = document.getElementById('budget-next-step');
+  const budgetEditLabel = document.getElementById('budget-edit-label');
+  const weeklyBox = $('#weekly-budget-container');
+  if (budgetPosition) budgetPosition.dataset.state = budgetLimit > 0 ? (exp > budgetLimit ? 'over' : 'within') : 'unset';
+  if (budgetRemaining) {
+    budgetRemaining.hidden = !(budgetLimit > 0);
+    budgetRemaining.textContent = budgetLimit > 0 ? formatMoney(Math.abs(budgetLimit - exp)) : '';
+  }
+  if (budgetNextStep) budgetNextStep.textContent = budgetLimit > 0
+    ? tCh(exp > budgetLimit ? 'analysisBudgetOver' : 'analysisBudgetLeft', __uiLang)
+    : tCh('analysisBudgetNoLimitHelp', __uiLang);
+  if (budgetEditLabel) budgetEditLabel.textContent = tCh(budgetLimit > 0 ? 'alphaBudgetTapHint' : 'analysisBudgetSet', __uiLang);
+  if (weeklyBox) weeklyBox.hidden = !(budgetLimit > 0);
   
   const bBar = $('#budget-progress');
   bBar.parentElement.hidden = !(budgetLimit > 0);
@@ -5042,7 +5069,6 @@ const renderAnalysis = (opts = {}) => {
 
   // Budget settimanale (src/predict/weekly-budget.js) — derivato in automatico
   // dallo stesso tetto mensile già impostato, zero input nuovi da configurare.
-  const weeklyBox = $('#weekly-budget-container');
   if (weeklyBox && budgetLimit > 0) {
     const realNowForWeekly = new Date();
     const viewingCurrentMonth = monthKey(realNowForWeekly) === k;
@@ -5198,23 +5224,29 @@ const renderAnalysis = (opts = {}) => {
   selectSpendingCategory(null);
 
   // Predictions & Jar Fill
-  const proj = PredictiveOracle.calculateProjections();
-  $('#forecast-cagr').textContent = tCh('alphaCagrEstimate', __uiLang, (proj.dynCagr * 100).toFixed(1));
-  $('#forecast-1y').textContent = formatMoney(proj.proj1y);
-  $('#forecast-5y').textContent = formatMoney(proj.proj5y);
+  const wealthEvidence = forecastReadiness(VaultDAO.state.transactions);
+  const wealthCard = document.getElementById('wealth-growth-card');
+  if (wealthCard) wealthCard.dataset.state = wealthEvidence.ready ? 'ready' : 'empty';
+  const wealthEmpty = document.getElementById('wealth-growth-empty');
+  if (wealthEmpty) wealthEmpty.hidden = wealthEvidence.ready;
+  const wealthEmptyDetail = document.getElementById('wealth-growth-empty-detail');
+  if (wealthEmptyDetail && !wealthEvidence.ready) wealthEmptyDetail.textContent = tCh('wealthDataMissingBody', __uiLang);
+  const proj = wealthEvidence.ready ? PredictiveOracle.calculateProjections() : null;
+  $('#forecast-cagr').textContent = proj ? tCh('alphaCagrEstimate', __uiLang, (proj.dynCagr * 100).toFixed(1)) : '';
+  $('#forecast-1y').textContent = proj ? formatMoney(proj.proj1y) : '—';
+  $('#forecast-5y').textContent = proj ? formatMoney(proj.proj5y) : '—';
   const bandDisplay = document.getElementById('forecast-band-display');
-  if (bandDisplay && proj.sim5y) {
-    bandDisplay.textContent = tCh('alphaScenarios5y', __uiLang, formatMoney(proj.sim5y.p5), formatMoney(proj.sim5y.p95));
-  }
-  $('#discipline-score').textContent = tCh('alphaDiscipline', __uiLang, proj.discipline);
+  if (bandDisplay) bandDisplay.textContent = proj?.sim5y
+    ? tCh('alphaScenarios5y', __uiLang, formatMoney(proj.sim5y.p5), formatMoney(proj.sim5y.p95)) : '';
+  $('#discipline-score').textContent = proj ? tCh('alphaDiscipline', __uiLang, proj.discipline) : '';
 
 
   // Aggiornamento progressivo: il worker ricalcola con l'ensemble
   // (linreg+AR2 pesati per backtest), Holt-Winters, GARCH e Monte Carlo
   // Cornish-Fisher, senza bloccare la UI. Se fallisce, resta il calcolo sopra.
-  if (!opts.skipHeavyForecast) {
+  if (wealthEvidence.ready && !opts.skipHeavyForecast) {
     PredictiveOracle.enhanceAsync(window.momentumDeviceProfile?.forecastBudget).then(r => {
-      if (!r) return;
+      if (!r || forecastRenderId !== forecastRenderSequence || wealthCard?.dataset.state !== 'ready') return;
       $('#forecast-1y').textContent = formatMoney(r.sims.y1.p50);
       $('#forecast-5y').textContent = formatMoney(r.sims.y5.p50);
       const band = document.getElementById('forecast-band-display');
@@ -5266,18 +5298,18 @@ const renderAnalysis = (opts = {}) => {
     liabilities: 0,
   }).invested;
 
-  $('#fire-target-val').textContent = formatMoney(fireTargetVal);
+  $('#fire-target-val').textContent = proj ? formatMoney(fireTargetVal) : '—';
   const fireResult = yearsToFire({
     currentInvested: fireInvested,
-    monthlyContribution: Math.max(0, proj.projectedMonthlyFlow || 0),
+    monthlyContribution: Math.max(0, proj?.projectedMonthlyFlow || 0),
     targetCapital: fireTargetVal,
     expectedAnnualReturn: fireExpectedReturn,
   });
-  $('#fire-years').textContent = fireResult.reachable ? tCh('alphaFireYearsResult', __uiLang, fireResult.years.toFixed(1)) : tCh('alphaFireNoSavings', __uiLang);
+  $('#fire-years').textContent = proj ? (fireResult.reachable ? tCh('alphaFireYearsResult', __uiLang, fireResult.years.toFixed(1)) : tCh('alphaFireNoSavings', __uiLang)) : '—';
   const coastNoteEl = $('#fire-coast-note');
   if (coastNoteEl) {
     const coast = coastFireCheck({ currentAge: 35, retirementAge: 65, currentInvested: fireInvested, targetCapital: fireTargetVal, expectedAnnualReturn: fireExpectedReturn });
-    coastNoteEl.textContent = tCh('alphaFireCoastNote', __uiLang, (fireExpectedReturn * 100).toFixed(1)) + (fireInvested > 0 && coast.isCoastFire ? tCh('alphaFireCoastBonus', __uiLang) : '');
+    coastNoteEl.textContent = proj ? tCh('alphaFireCoastNote', __uiLang, (fireExpectedReturn * 100).toFixed(1)) + (fireInvested > 0 && coast.isCoastFire ? tCh('alphaFireCoastBonus', __uiLang) : '') : '';
   }
 
   // ── IL CALENDARIO DEL MESE, FATTO COME UN CALENDARIO ──
@@ -8737,7 +8769,7 @@ const API_KEY_GUIDES = {
   // condivide lo stesso limite di 25 richieste/giorno della ricerca).
   // Piano gratuito molto più generoso (60/minuto), CORS verificato dal vivo.
   finnhub: {
-    title: 'Notizie aziendali reali — Finnhub (piano B, molto più generoso)',
+    title: 'Notizie e quotazioni azioni/ETF — Finnhub',
     url: 'https://finnhub.io/register',
     usageUrl: 'https://finnhub.io/dashboard',
     freeNoCard: true,
@@ -8872,6 +8904,22 @@ window.openApiKeyGuide = (provider) => {
     </div>
     ${__uiLang === 'it' ? `<details class="vault-focus-details"><summary>${tCh('vaultKeyProviderDetails', __uiLang)}</summary><ul class="vault-provider-notes">${g.steps.map(s => `<li>${s}</li>`).join('')}</ul></details>` : ''}
   `);
+};
+window.openMarketSources = () => {
+  const keys = VaultDAO.state.liveDataKeys || {};
+  const providers = [
+    ['alphavantage', 'Alpha Vantage', 'marketSourceStocks'],
+    ['twelvedata', 'Twelve Data', 'marketSourceStocks'],
+    ['fmp', 'Financial Modeling Prep', 'marketSourceResearch'],
+    ['finnhub', 'Finnhub', 'marketSourceStocksNews'],
+  ];
+  window.openModal(`<section class="market-source-dialog">
+    <h3>${tCh('marketSourcesTitle', __uiLang)}</h3>
+    <p>${tCh('marketSourcesIntro', __uiLang)}</p>
+    <div class="market-source-free"><strong>${tCh('marketKeylessTitle', __uiLang)}</strong><span>${tCh('marketKeylessBody', __uiLang)}</span></div>
+    <div class="market-source-providers">${providers.map(([id, name, purpose]) => `<button type="button" onclick="window.openApiKeyGuide('${id}')"><span><strong>${name}</strong><small>${tCh(purpose, __uiLang)}</small></span><span class="market-source-state">${tCh(keys[id] ? 'marketSourceConnected' : 'marketSourceAdd', __uiLang)}</span></button>`).join('')}</div>
+    <p class="market-source-limit">${tCh('marketSourceLimit', __uiLang)}</p>
+  </section>`);
 };
 window.saveGuideKey = (provider) => {
   const input = document.getElementById('guide-key-input');
@@ -9032,6 +9080,48 @@ window.setChatContextOptIn = (checked) => {
 // avvisati quando un prezzo tocca una soglia scelta dall'utente.
 const assetSearchCache = { get: (k) => DurableStore.get('state', k).catch(() => null), put: (k, v) => DurableStore.put('state', v, k).catch(() => {}) };
 let lastSearchResults = [];
+let assetSearchRequest = 0;
+let assetSelectionRequest = 0;
+function setAssetSearchProgress(message = '', phase = 'active') {
+  const progress = document.getElementById('asset-search-progress');
+  const label = document.getElementById('asset-search-progress-label');
+  const submit = document.getElementById('asset-search-submit');
+  if (progress && label) {
+    label.textContent = message;
+    progress.hidden = !message;
+    progress.dataset.phase = phase;
+  }
+  if (submit) submit.setAttribute('aria-busy', String(Boolean(message) && phase === 'active'));
+}
+
+function assetIdentityHtml(asset, { snapshot = null, overview = null, publicFact = null, loading = false } = {}) {
+  const fact = assetIdentityBrief(asset, { snapshot, overview, publicFact, lang: __uiLang });
+  let meaning;
+  let evidence = '';
+  if (fact.kind === 'stock') {
+    meaning = tCh('assetIdentityStock', __uiLang, fact.name);
+    evidence = fact.sector
+      ? `${fact.activity ? `${tCh('assetIdentityPlainActivity', __uiLang, tCh('assetIdentityActivities', __uiLang)[fact.activity])} ` : ''}${tCh('assetIdentitySecSector', __uiLang, fact.sector, fact.sectorYear)}`
+      : fact.summary ? tCh('assetIdentityPublicSource', __uiLang, fact.source || '') : tCh(loading ? 'assetIdentityLoading' : 'assetIdentityStockUnknown', __uiLang);
+    if (fact.sector && loading && !fact.summary) evidence += ` · ${tCh('assetIdentityLoading', __uiLang)}`;
+  } else if (fact.kind === 'etf' || fact.kind === 'bitcoin-etp' || fact.kind === 'gold-etp') {
+    meaning = tCh(fact.kind === 'bitcoin-etp' ? 'assetIdentityBitcoinEtp' : fact.kind === 'gold-etp' ? 'assetIdentityGoldEtp' : 'assetIdentityEtf', __uiLang);
+    evidence = fact.focus
+      ? ''
+      : fact.summary ? tCh('assetIdentityPublicSource', __uiLang, fact.source || '') : tCh(loading ? 'assetIdentityLoading' : 'assetIdentityFundUnknown', __uiLang);
+  } else {
+    meaning = tCh(fact.kind === 'tokenized-stock' ? 'assetIdentityTokenizedStock' : 'assetIdentityCrypto', __uiLang);
+    evidence = fact.summary
+      ? fact.source === 'CoinGecko' ? tCh('assetIdentityCryptoSource', __uiLang) : tCh('assetIdentityPublicSource', __uiLang, fact.source || '')
+      : tCh(loading ? 'assetIdentityLoading' : 'assetIdentityCryptoUnknown', __uiLang);
+  }
+  const sourceLink = fact.sourceUrl
+    ? `<a href="${escapeHtml(fact.sourceUrl)}" target="_blank" rel="noopener noreferrer">${fact.source === 'Wikidata' || fact.source === 'Wikipedia' ? fact.source : fact.kind === 'stock' ? tCh('assetIdentityCompanySource', __uiLang) : fact.source === 'CoinGecko' ? 'CoinGecko' : tCh('assetIdentityIssuer', __uiLang)} ↗</a>` : '';
+  const licenseLink = fact.license === 'CC BY-SA 4.0' ? '<a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0 ↗</a>' : '';
+  const lead = fact.summary || (fact.focus ? tCh('assetIdentityFundFocus', __uiLang, fact.focus) : meaning);
+  const context = fact.summary || fact.focus ? `<p class="market-identity-context">${escapeHtml(meaning)}</p>` : '';
+  return `<section class="market-identity-brief" aria-label="${tCh('assetIdentityTitle', __uiLang)}"><div class="market-identity-mark" aria-hidden="true"></div><div><h5>${tCh('assetIdentityTitle', __uiLang)}</h5><p class="market-identity-lead">${escapeHtml(lead)}</p>${context}${evidence ? `<small>${escapeHtml(evidence)}</small>` : ''}<div class="market-identity-sources">${sourceLink}${licenseLink}</div></div></section>`;
+}
 
 // Modalità privacy (richiesta esplicita utente: "non mostrare i dati
 // sensibili ad altre persone"): sfoca l'intero <main> con un tocco — nessun
@@ -9103,58 +9193,211 @@ window.quickAssetSearch = (label) => {
   input.value = label;
   window.runAssetSearch();
 };
+let marketMemoryData = null;
+let marketMemorySelected = 'azioni';
+function renderMarketMemory() {
+  const panel = document.getElementById('market-memory-panel');
+  if (!panel || !marketMemoryData) return;
+  const names = tCh('marketMemoryNames', __uiLang);
+  const { coverage, episodes } = marketMemoryData;
+  const chosen = coverage.find(row => row.chiave === marketMemorySelected) || coverage[0];
+  const matching = episodes.filter(row => row.mercato === chosen.chiave).slice(-3).reverse();
+  panel.innerHTML = `<h4>${tCh('marketMemoryTitle', __uiLang)}</h4>
+    <p>${tCh('marketMemoryIntro', __uiLang)}</p>
+    <div class="market-memory-markets" role="group" aria-label="${tCh('marketMemoryChoose', __uiLang)}">${coverage.map(row =>
+      `<button type="button" aria-pressed="${row.chiave === chosen.chiave}" onclick="window.selectMarketMemory('${row.chiave}')">${escapeHtml(names[row.chiave] || row.nome)}</button>`).join('')}</div>
+    <div class="market-memory-insight"><strong>${escapeHtml(names[chosen.chiave] || chosen.nome)}</strong><span>${escapeHtml(tCh('marketMemoryCoverage', __uiLang, chosen.da, chosen.a, chosen.anni))}</span></div>
+    <p class="market-memory-episode-title">${tCh('marketMemoryEpisodes', __uiLang)}</p>
+    ${matching.length ? `<ol>${matching.map(row => `<li>${escapeHtml(tCh('marketMemoryEpisode', __uiLang, row.annoPicco, Math.abs(Math.round(row.caduta * 100)), row.annoFondo))}</li>`).join('')}</ol>` : `<p>${tCh('marketMemoryNoEpisode', __uiLang)}</p>`}
+    <p class="market-memory-limit">${tCh('marketMemoryLimit', __uiLang)}</p>`;
+}
+window.selectMarketMemory = key => {
+  if (!marketMemoryData?.coverage.some(row => row.chiave === key)) return;
+  marketMemorySelected = key;
+  renderMarketMemory();
+};
+window.toggleMarketMemory = async () => {
+  const panel = document.getElementById('market-memory-panel');
+  const button = document.getElementById('market-memory-toggle');
+  if (!panel || !button) return;
+  panel.hidden = !panel.hidden;
+  button.setAttribute('aria-expanded', String(!panel.hidden));
+  if (panel.hidden) return;
+  if (!marketMemoryData) {
+    panel.textContent = tCh('assetDetailsLoading', __uiLang);
+    try {
+      const { copertura, episodi } = await import('./alpha/cicli.js');
+      marketMemoryData = { coverage: copertura(), episodes: episodi().episodi };
+    } catch (_) {
+      panel.textContent = tCh('marketMemoryUnavailable', __uiLang);
+      return;
+    }
+  }
+  if (!panel.hidden) renderMarketMemory();
+};
 window.runAssetSearch = async () => {
   const input = document.getElementById('asset-search-input');
   const resultsEl = document.getElementById('asset-search-results');
+  const detailEl = document.getElementById('asset-detail');
   const query = (input?.value || '').trim();
-  if (!query) return;
-  resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Cerco...</p>`;
+  if (!query) {
+    assetSearchRequest++;
+    assetSelectionRequest++;
+    lastSearchResults = [];
+    resultsEl?.replaceChildren();
+    detailEl?.replaceChildren();
+    input?.focus();
+    setAssetSearchProgress(tCh('assetSearchNeedsQuery', __uiLang), 'hint');
+    return;
+  }
+  const requestId = ++assetSearchRequest;
+  assetSelectionRequest++;
+  resultsEl.hidden = false;
+  if (detailEl) detailEl.replaceChildren();
+  setAssetSearchProgress(tCh('assetSearchLoading', __uiLang));
+  const renderResults = (results, { stale = false, stockWarning = null } = {}) => {
+    lastSearchResults = results;
+    const button = (r, i) => `<button type="button" onclick="window.selectAsset(${i})" class="market-asset-result-button"><span class="market-asset-result-symbol">${escapeHtml(r.symbol || '')}</span><span class="market-asset-result-name">${escapeHtml(r.name || '')}</span><small>${escapeHtml(r.instrumentType === 'etf' ? tCh('marketEtfType', __uiLang) : r.kind === 'stock' ? tCh('assetKindStock', __uiLang) : tCh('assetKindCrypto', __uiLang))}</small></button>`;
+    const rest = results.slice(1);
+    resultsEl.innerHTML = (stale ? `<p class="market-asset-search-note">${tCh('assetSearchCached', __uiLang)}</p>` : '') + (stockWarning ? `<p class="market-asset-search-note">${escapeHtml(stockWarning)}</p>` : '') +
+      (results.length ? `<p class="market-asset-search-label">${tCh('assetSearchFirstResult', __uiLang)}</p>${button(results[0], 0)}` : '') +
+      (rest.length ? `<details class="market-asset-more-results"><summary>${tCh('assetSearchOtherResults', __uiLang, rest.length)}</summary><div>${rest.map((r, i) => button(r, i + 1)).join('')}</div></details>` : '');
+  };
+  resultsEl.replaceChildren();
+  let localResults = [];
   try {
-    const { searchAsset } = await import('./alpha/asset-search.js');
+    const { searchAsset, searchAssetLocal } = await import('./alpha/asset-search.js');
+    localResults = await searchAssetLocal(query);
+    if (requestId !== assetSearchRequest) return;
+    if (localResults.length) {
+      renderResults(localResults);
+      setAssetSearchProgress(tCh('assetSearchPartialReady', __uiLang));
+    }
     const keys = VaultDAO.state.liveDataKeys || {};
     const { results, stale, stockWarning } = await searchAsset(query, { apiKey: keys.alphavantage, twelvedataKey: keys.twelvedata, fmpKey: keys.fmp, fetchImpl: fetch.bind(window), cache: assetSearchCache });
-    lastSearchResults = results;
-    if (!results.length) { resultsEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(stockWarning || tCh('assetSearchEmpty', __uiLang))}</p>`; return; }
-    resultsEl.innerHTML = (stale ? `<p class="text-[11px] text-amber-300 mb-1">${tCh('assetSearchCached', __uiLang)}</p>` : '') + (stockWarning ? `<p class="text-[11px] text-amber-300 mb-1">${escapeHtml(stockWarning)}</p>` : '') + results.map((r, i) =>
-      `<button onclick="window.selectAsset(${i})" class="text-left text-[11px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.04)"><b>${escapeHtml(r.symbol || '')}</b> · ${escapeHtml(r.name || '')}${r.kind === 'stock' ? ` (${escapeHtml(translateRegionLabel(r.region) || 'azione/ETF')})` : ' (cripto)'}</button>`
-    ).join('');
+    if (requestId !== assetSearchRequest) return;
+    if (!results.length) { resultsEl.innerHTML = `<div class="market-data-state" role="status"><strong>${tCh('assetSearchNoResultTitle', __uiLang)}</strong><p>${escapeHtml(stockWarning || tCh('assetSearchEmpty', __uiLang))}</p><button type="button" onclick="window.runAssetSearch()">${tCh('assetSearchRetry', __uiLang)}</button></div>`; setAssetSearchProgress(); return; }
+    renderResults(results, { stale, stockWarning });
+    setAssetSearchProgress();
   } catch (e) {
-    resultsEl.innerHTML = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
+    if (requestId === assetSearchRequest) {
+      if (localResults.length) renderResults(localResults, { stockWarning: tCh('assetSearchOtherSourcesUnavailable', __uiLang) });
+      else resultsEl.innerHTML = `<div class="market-data-state" role="alert"><strong>${tCh('assetSearchFailedTitle', __uiLang)}</strong><p>${escapeHtml(e.message)}</p><button type="button" onclick="window.runAssetSearch()">${tCh('assetSearchRetry', __uiLang)}</button></div>`;
+      setAssetSearchProgress();
+    }
   }
+};
+
+window.showAssetSearchResults = () => {
+  const results = document.getElementById('asset-search-results');
+  if (!results) return;
+  results.hidden = false;
+  results.querySelector('button')?.focus();
 };
 
 window.selectAsset = async (idx) => {
   const asset = lastSearchResults[idx];
+  assetSearchRequest++;
+  const selectionId = ++assetSelectionRequest;
+  setAssetSearchProgress();
   const detailEl = document.getElementById('asset-detail');
   if (!asset || !detailEl) return;
   if (!/^[A-Za-z0-9._^:-]{1,24}$/.test(asset.symbol || '')) {
     detailEl.textContent = tCh('assetSearchEmpty', __uiLang);
     return;
   }
-  detailEl.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Carico prezzo e notizie...</p>`;
+  const resultsEl = document.getElementById('asset-search-results');
+  if (resultsEl) resultsEl.hidden = true;
+  const assetHeaderHtml = `<header class="market-asset-identity"><div><span>${escapeHtml(asset.symbol)}</span><h4>${escapeHtml(asset.name || asset.symbol)}</h4><small>${escapeHtml(asset.instrumentType === 'etf' ? tCh('marketEtfType', __uiLang) : asset.kind === 'stock' ? tCh('assetKindStock', __uiLang) : tCh('assetKindCrypto', __uiLang))}</small></div><button type="button" onclick="window.showAssetSearchResults()">${tCh('assetChangeResult', __uiLang)}</button></header>`;
+  detailEl.innerHTML = `<div class="market-asset-workspace">${assetHeaderHtml}<div id="asset-identity-brief">${assetIdentityHtml(asset, { loading: true })}</div><div class="market-search-progress" role="status"><span class="market-search-orbit" aria-hidden="true"></span><span>${tCh('assetDetailsLoading', __uiLang)}</span></div></div>`;
+  const publicDescriptionPromise = asset.kind === 'stock' || asset.kind === 'crypto'
+    ? import('./alpha/asset-public-description.js').then(({ fetchPublicDescription }) => fetchPublicDescription(asset, { lang: __uiLang, fetchImpl: fetch.bind(window) })).catch(() => null)
+    : Promise.resolve(null);
   let priceHtml = '';
+  let quoteEvidence = null;
   try {
     const { fetchLiveCryptoPrice, fetchConfiguredStockPrice } = await import('./alpha/live-price.js');
     if (asset.kind === 'crypto') {
-      const { price, asOf } = await fetchLiveCryptoPrice(asset.id);
+      const { price, asOf, marketAsOf, freshness } = await fetchLiveCryptoPrice(asset.id);
+      quoteEvidence = { price, marketAsOf, source: 'CoinGecko' };
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Live · CoinGecko · ${new Date(asOf).toLocaleTimeString('it-IT')}</p>`;
-    } else if (VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
+      const quoteTime = marketAsOf
+        ? tCh('assetQuoteMarketTime', __uiLang, new Date(marketAsOf).toLocaleString(__uiLocale, { dateStyle: 'short', timeStyle: 'short' }))
+        : tCh('assetQuoteReceived', __uiLang, new Date(asOf).toLocaleTimeString(__uiLocale));
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${formatMoney(price)}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">Powered by CoinGecko · ${escapeHtml(quoteTime)}${freshness === 'stale' ? ` · <span class="text-amber-300">${tCh('assetQuoteStale', __uiLang)}</span>` : ''}</p>`;
+    } else if (VaultDAO.state.liveDataKeys?.finnhub || VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
       const { price, asOf, marketAsOf, source } = await fetchConfiguredStockPrice(asset.symbol, { keys: VaultDAO.state.liveDataKeys });
+      quoteEvidence = { price, marketAsOf, source };
       (window.__livePrices = window.__livePrices || {})[asset.symbol] = price;
       const quote = new Intl.NumberFormat(__uiLocale, { maximumFractionDigits: 5 }).format(price);
-      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${quote}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(source)} · ${marketAsOf ? tCh('assetQuoteMarketDay', __uiLang, escapeHtml(marketAsOf)) : tCh('assetQuoteReceived', __uiLang, new Date(asOf).toLocaleTimeString(__uiLocale))} · ${tCh('assetQuoteCurrencyNote', __uiLang)}</p>`;
+      const quoteTime = source === 'Finnhub' && marketAsOf
+        ? tCh('assetQuoteMarketTime', __uiLang, new Date(marketAsOf).toLocaleString(__uiLocale, { dateStyle: 'short', timeStyle: 'short' }))
+        : marketAsOf ? tCh('assetQuoteMarketDay', __uiLang, marketAsOf)
+          : tCh('assetQuoteReceived', __uiLang, new Date(asOf).toLocaleTimeString(__uiLocale));
+      priceHtml = `<p class="text-xl font-black font-mono text-[var(--gold)]">${quote}</p><p class="text-[11px] text-[var(--on-surface-secondary)]">${escapeHtml(source)} · ${escapeHtml(quoteTime)} · ${tCh('assetQuoteCurrencyNote', __uiLang)}</p>`;
     } else {
-      priceHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('assetQuoteKeyNeeded', __uiLang)}</p>`;
+      priceHtml = `<div class="market-public-data"><p>${tCh('marketPublicQuoteIntro', __uiLang)}</p><div id="market-public-quote" class="market-public-widget" role="region" aria-label="${tCh('marketPublicQuoteLabel', __uiLang)}"></div><p class="market-public-limit">${tCh('marketPublicQuoteLimit', __uiLang)}</p></div>`;
     }
   } catch (e) {
-    priceHtml = `<p class="text-[10px] text-rose-300">${e.message}</p>`;
+    priceHtml = asset.kind === 'stock'
+      ? `<div class="market-public-data"><p class="text-[11px] text-amber-300">${escapeHtml(e.message)}</p><p>${tCh('marketPublicQuoteIntro', __uiLang)}</p><div id="market-public-quote" class="market-public-widget" role="region" aria-label="${tCh('marketPublicQuoteLabel', __uiLang)}"></div><p class="market-public-limit">${tCh('marketPublicQuoteLimit', __uiLang)}</p></div>`
+      : `<div class="market-data-state" role="status"><strong>${tCh('assetQuoteUnavailableTitle', __uiLang)}</strong><p>${tCh('assetQuoteUnavailableHelp', __uiLang)}</p><button type="button" onclick="window.selectAsset(${idx})">${tCh('assetSearchRetry', __uiLang)}</button></div>`;
   }
+  if (selectionId !== assetSelectionRequest) return;
+  let secHtml = '', secCik = null, snapshotEvidence = null;
+  if (asset.kind === 'stock') {
+    try {
+      const { secCompanySnapshot } = await import('./alpha/sec-catalog.js');
+      const snapshot = await secCompanySnapshot(asset.symbol);
+      if (snapshot) {
+        snapshotEvidence = snapshot;
+        secCik = snapshot.cik;
+        const compactUsd = (value) => Number.isFinite(value) ? new Intl.NumberFormat(__uiLocale, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(value) : null;
+        const primaryMetrics = [
+          [tCh('marketSecRevenue', __uiLang), compactUsd(snapshot.revenue)],
+          [tCh('marketSecProfit', __uiLang), compactUsd(snapshot.netIncome)],
+          [tCh('marketSecMargin', __uiLang), Number.isFinite(snapshot.margin) ? new Intl.NumberFormat(__uiLocale, { style: 'percent', maximumFractionDigits: 1 }).format(snapshot.margin) : null],
+        ].filter(([, value]) => value !== null);
+        const detailMetrics = [
+          [tCh('marketSecGrowth', __uiLang), Number.isFinite(snapshot.revenueGrowth) ? new Intl.NumberFormat(__uiLocale, { style: 'percent', signDisplay: 'always', maximumFractionDigits: 1 }).format(snapshot.revenueGrowth) : null],
+          [tCh('marketSecCashFlow', __uiLang), compactUsd(snapshot.operatingCashFlow)],
+          ['ROE', Number.isFinite(snapshot.roe) ? new Intl.NumberFormat(__uiLocale, { style: 'percent', maximumFractionDigits: 1 }).format(snapshot.roe) : null],
+          [tCh('marketSecPeer', __uiLang), Number.isFinite(snapshot.marginPercentile) ? tCh('marketSecPeerValue', __uiLang, snapshot.marginPercentile) : null],
+        ].filter(([, value]) => value !== null);
+        const metricHtml = (metrics) => `<div class="market-sec-metrics">${metrics.map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>`;
+        secHtml = `<section class="market-sec-snapshot"><div class="market-sec-head"><strong>${tCh('marketSecTitle', __uiLang)}</strong><span>${snapshot.year}</span></div>${metricHtml(primaryMetrics)}${detailMetrics.length ? `<details class="market-sec-more"><summary>${tCh('marketSecMore', __uiLang)}</summary>${metricHtml(detailMetrics)}</details>` : ''}<p>${tCh('marketSecAsOf', __uiLang, snapshot.snapshotAt)}</p><a href="https://www.sec.gov/edgar/browse/?CIK=${encodeURIComponent(snapshot.cik)}" target="_blank" rel="noopener noreferrer">${tCh('marketSecOfficial', __uiLang)} ↗</a></section>`;
+      }
+    } catch (_) { /* no local SEC record: never invent one */ }
+  }
+  const filingsPromise = secCik
+    ? import('./alpha/sec-live-filings.js').then(({ fetchRecentSecFilings }) => fetchRecentSecFilings(secCik)).catch(() => null)
+    : Promise.resolve(null);
+  const quarterPromise = secCik
+    ? import('./alpha/sec-live-quarter.js').then(({ fetchRecentSecQuarter }) => fetchRecentSecQuarter(secCik)).catch(() => null)
+    : Promise.resolve(null);
+  // The official macro context is independent of a company's headlines. Reuse
+  // the session feed when available; otherwise ask only the Fed and ECB while
+  // the other asset details load. Never label it as company-specific news.
+  const macroPromise = window.__regulatoryNews?.length
+    ? Promise.resolve(window.__regulatoryNews)
+    : prendiNotizie({ fonti: FONTI_NOTIZIE.filter(f => f.chiave === 'fed' || f.chiave === 'bce'), quante: 5, timeoutMs: 3500 })
+      .then(result => result.voci || []).catch(() => []);
+  // News and history are independent. Starting both before rendering avoids
+  // serial network waits when a public source is slow or unavailable.
+  const assetNewsPromise = Promise.resolve().then(() => window.fetchAssetNewsCascade(asset)).catch(() => ({ items: [], stale: false }));
+  const assetHistoryPromise = Promise.resolve().then(() => window.fetchAssetHistoryData(asset)).catch(() => ({}));
+  const promptly = (task, ms) => {
+    let timer;
+    return Promise.race([task, new Promise(resolve => { timer = setTimeout(() => resolve(null), ms); })])
+      .finally(() => clearTimeout(timer));
+  };
+  if (selectionId !== assetSelectionRequest) return;
+  detailEl.innerHTML = `<div class="market-asset-workspace">${assetHeaderHtml}<div id="asset-identity-brief">${assetIdentityHtml(asset, { snapshot: snapshotEvidence, loading: true })}</div><div class="market-asset-primary">${priceHtml}${secHtml}<p class="market-detail-pending" role="status">${tCh('assetNewsLoading', __uiLang)}</p></div></div>`;
   // Riassunto REALE dell'azienda/cripto (src/alpha/asset-overview.js): cosa
   // fa, settore/categoria — in linguaggio semplice, mai un giudizio di
   // "innovazione" inventato (quello lo dicono le notizie reali qui sotto).
-  let overviewHtml = '';
-  if (asset.kind === 'crypto' || VaultDAO.state.liveDataKeys?.alphavantage) {
+  const overviewPromise = (async () => {
+    if (asset.kind !== 'crypto' && !VaultDAO.state.liveDataKeys?.alphavantage) return null;
     try {
       const { fetchAssetOverview } = await import('./alpha/asset-overview.js');
       const ov = await fetchAssetOverview(asset, { apiKey: VaultDAO.state.liveDataKeys?.alphavantage, fetchImpl: fetch.bind(window) });
@@ -9163,7 +9406,7 @@ window.selectAsset = async (idx) => {
       // pannello storico dei nove settori. È crescita vera con l'uso — più
       // schede si aprono, più parti del portafoglio diventano misurabili —
       // e il dato è quello della fonte, mai indovinato da noi.
-      if (ov.kind === 'stock' && ov.sector && asset.symbol) {
+      if (selectionId === assetSelectionRequest && ov.kind === 'stock' && ov.sector && asset.symbol) {
         VaultDAO.state.sectorByTicker = { ...(VaultDAO.state.sectorByTicker || {}), [asset.symbol.toUpperCase()]: ov.sector };
         VaultDAO.save();
       }
@@ -9175,7 +9418,7 @@ window.selectAsset = async (idx) => {
       // esiste nello schema ma è vuoto) — si traduce il testo VERO con un
       // servizio reale (MyMemory), mai testo inventato, sempre etichettato.
       const { translateText } = await import('./alpha/translate.js');
-      if (isItalianDevice()) {
+      if (__uiLang === 'it') {
         try { summary = await translateText(ov.summary, { fetchImpl: fetch.bind(window) }); translatedTag = ' <span class="text-slate-600">(traduzione automatica)</span>'; } catch (_) { /* fallback: resta in inglese, mai bloccante */ }
       }
       // Metriche di mercato (2026-09-04): P/E, capitalizzazione, EPS, dividend
@@ -9201,18 +9444,17 @@ window.selectAsset = async (idx) => {
         ].filter(Boolean);
         if (voci.length) metricsHtml = `<p class="text-[11px] text-slate-500 mt-0.5 font-mono">${voci.join(' · ')}</p>`;
       }
-      overviewHtml = `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${summary}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${meta}</p>` : ''}${metricsHtml}`;
-    } catch (_) { /* riassunto opzionale: nessun errore bloccante se manca */ }
-  }
+      return { overview: { ...ov, summary }, html: `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${escapeHtml(summary)}${translatedTag}</p>${meta ? `<p class="text-[11px] text-slate-500 mt-0.5">${escapeHtml(meta)}</p>` : ''}${metricsHtml}` };
+    } catch (_) { return null; }
+  })();
   // ARCHITETTURA UNIFICATA (richiesto esplicitamente: prima questa vista
   // aveva una propria cascata SEPARATA e meno capace — solo Alpha Vantage,
   // nessun grafico storico con selettore periodo — rispetto a "Chiedi a
   // Momentum". Stessa domanda su Apple dava risultati diversi nei due
   // punti). Ora usa le STESSE due funzioni condivise: mai due motori
   // isolati per la stessa cosa.
-  let newsHtml = '', historyChart = '', trackRecordHtml = '';
-  try {
-    const { items, stale } = await window.fetchAssetNewsCascade(asset);
+  const newsHtmlFor = ({ items = [], stale = false } = {}) => {
+    let html = '';
     if (items.length) {
       // Riassunto via LLM esterno, OPT-IN (bottone, mai automatico): manda
       // SOLO titoli/riassunti già pubblici delle notizie, MAI dati
@@ -9228,14 +9470,41 @@ window.selectAsset = async (idx) => {
       const aiSummaryBtn = hasCloudKey
         ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Riassumi con la tua AI →</button>${pastCount > 0 ? `<span class="text-[10px] text-[var(--on-surface-secondary)] ml-2">${pastCount} lettura/e precedente/i salvata/e</span>` : ''}`
         : '';
-      newsHtml = `<div class="mt-2">${stale ? '<p class="text-[11px] text-amber-300">Offline: ultime notizie salvate.</p>' : ''}${window.buildNewsItemsHtml(items)}${aiSummaryBtn}<div id="news-ai-summary-${asset.symbol}" class="mt-1.5"></div></div>`;
+      html = `<div class="mt-2">${stale ? `<p class="text-[11px] text-amber-300">${tCh('assetNewsCached', __uiLang)}</p>` : ''}${window.buildNewsItemsHtml(items)}${aiSummaryBtn}<div id="news-ai-summary-${asset.symbol}" class="mt-1.5"></div></div>`;
     }
-  } catch (_) { /* notizie opzionali: nessun errore bloccante se mancano */ }
-  try {
-    const { historyChart: chart, trackRecordHtml: tr } = await window.fetchAssetHistoryData(asset);
-    historyChart = chart || '';
-    trackRecordHtml = tr || '';
-  } catch (_) { /* grafico opzionale: nessun errore bloccante se manca */ }
+    if (!html && asset.kind === 'stock') html = `<div class="market-public-data"><p>${tCh('marketPublicNewsIntro', __uiLang)}</p><div id="market-public-news" class="market-public-widget market-public-news" role="region" aria-label="${tCh('marketPublicNewsLabel', __uiLang)}"></div><p class="market-public-limit">${tCh('marketPublicNewsLimit', __uiLang)}</p></div>`;
+    else if (!html) html = `<div class="market-data-state"><p>${tCh('assetNewsUnavailable', __uiLang)}</p><button type="button" onclick="window.retrySelectedAssetNews?.()">${tCh('assetNewsRetry', __uiLang)}</button></div>`;
+    return html;
+  };
+  // Public feeds may take much longer than the information already on hand.
+  // Reveal the usable asset card first and fill independent sections later.
+  const earlyOverview = await promptly(overviewPromise, 250);
+  const earlyPublicFact = await promptly(publicDescriptionPromise, 150);
+  const overviewHtml = earlyOverview?.html || '';
+  const earlyNews = await promptly(assetNewsPromise, 3000);
+  if (selectionId !== assetSelectionRequest) return;
+  let newsEvidence = earlyNews;
+  const newsHtml = earlyNews === null ? `<p role="status" class="market-detail-pending">${tCh('assetNewsLoading', __uiLang)}</p>` : newsHtmlFor(earlyNews);
+  const earlyHistory = await promptly(assetHistoryPromise, 800);
+  if (selectionId !== assetSelectionRequest) return;
+  const historyHtmlFor = result => {
+    if (result === null) return `<p class="market-data-state-note" role="status">${tCh('assetHistoryLoading', __uiLang)}</p>`;
+    if (result?.historyChart) {
+      const meta = result.historyMeta;
+      const coverage = meta ? `<div class="market-history-coverage"><strong>${tCh('assetHistoryCoverageTitle', __uiLang)}</strong><span>${escapeHtml(meta.first)} → ${escapeHtml(meta.last)}</span><small>${escapeHtml(meta.source)}${meta.currency ? ` · ${escapeHtml(meta.currency)}` : ''}</small>${meta.stale ? `<p class="market-history-coverage-alert">${tCh('assetHistoryStale', __uiLang)}</p>` : ''}${meta.gaps ? `<p class="market-history-coverage-alert">${tCh('assetHistoryGaps', __uiLang, meta.gaps)}</p>` : ''}${meta.provisional ? `<p class="market-history-coverage-alert">${tCh('assetHistoryProvisional', __uiLang)}</p>` : ''}${meta.currency === 'USDT' ? `<p class="market-history-coverage-alert">${tCh('assetHistoryUsdtNote', __uiLang)}</p>` : ''}${meta.currency === 'USD' ? `<p class="market-history-coverage-alert">${tCh('assetHistoryUsdNote', __uiLang)}</p>` : ''}${meta.rawClose ? `<p class="market-history-coverage-alert">${tCh('assetHistoryRawClose', __uiLang)}</p>` : ''}<p>${tCh('assetHistoryCoverageLimit', __uiLang)}</p></div>` : '';
+      const external = asset.kind === 'stock' ? `<details class="market-history-external"><summary>${tCh('assetHistoryExternalLabel', __uiLang)}</summary><div id="market-public-history" class="market-public-widget market-public-chart" role="region" aria-label="${tCh('assetHistoryExternalLabel', __uiLang)}"></div><p class="market-public-limit">${tCh('assetHistoryExternalLimit', __uiLang)}</p></details>` : '';
+      return `${result.proxySource ? `<p class="market-history-proxy-note">${escapeHtml(tCh('marketHistoryTokenProxy', __uiLang, result.proxySource, asset.symbol))}</p>` : ''}${coverage}${result.historyChart}${external}${result.trackRecordHtml || ''}`;
+    }
+    return `<div class="market-data-state" role="status"><strong>${tCh('assetHistoryMissingTitle', __uiLang)}</strong><p>${tCh(asset.kind === 'stock' ? 'assetHistoryMissingStock' : 'assetHistoryMissingCrypto', __uiLang)}</p><div class="market-data-state-actions"><button type="button" onclick="window.retrySelectedAssetHistory?.()">${tCh('assetHistoryRetry', __uiLang)}</button>${asset.kind === 'stock' ? `<button type="button" onclick="window.openMarketSources()">${tCh('marketSourcesAction', __uiLang)}</button>` : `<a href="https://www.coingecko.com/en/coins/${encodeURIComponent(asset.id || '')}" target="_blank" rel="noopener noreferrer">${tCh('marketPublicOpenSource', __uiLang)} ↗</a>`}</div>${asset.kind === 'stock' ? `<div id="market-public-history" class="market-public-widget market-public-chart" role="region" aria-label="${tCh('assetHistoryExternalLabel', __uiLang)}"></div><p class="market-public-limit">${tCh('assetHistoryExternalLimit', __uiLang)}</p>` : ''}</div>`;
+  };
+  const mountHistoryPreview = () => {
+    const external = detailEl.querySelector('#market-public-history');
+    if (!external) return;
+    import('./alpha/public-market-widget.js').then(({ mountPublicMarketWidget }) => {
+      if (selectionId === assetSelectionRequest) mountPublicMarketWidget(external, asset.symbol, { kind: 'chart', language: __uiLang, dark: document.documentElement.classList.contains('dark'), unavailable: tCh('marketPublicUnavailable', __uiLang), sourceLink: tCh('marketPublicOpenSource', __uiLang), previewLabel: tCh('marketPublicPreview', __uiLang), hidePreviewLabel: tCh('marketPublicHidePreview', __uiLang) });
+    }).catch(() => { external.textContent = tCh('marketPublicUnavailable', __uiLang); });
+  };
+  const historyHtml = historyHtmlFor(earlyHistory);
   // "Confronta con i pari" (comps, 2026-08-30): solo azioni (serve il
   // settore SEC del pannello, screener-settore.js) — i pari veri richiedono
   // una chiave Alpha Vantage personale (ogni pari in più è una richiesta
@@ -9245,24 +9514,171 @@ window.selectAsset = async (idx) => {
   // segnalato dal vivo dall'utente ("non mi sembrano collegate lato UI").
   // showAssetComps gestisce l'assenza di chiave con un messaggio onesto e
   // azionabile, non un silenzio.
-  const compsBtn = asset.kind === 'stock'
-    ? `<button onclick="window.showAssetComps('${asset.symbol}')" id="comps-btn-${asset.symbol}" class="text-[10px] font-bold text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Confronta con i pari →</button><div id="comps-result-${asset.symbol}" class="mt-1.5"></div>`
+  const compsBtn = asset.kind === 'stock' && asset.instrumentType !== 'etf'
+    ? `<button onclick="window.showAssetComps('${asset.symbol}')" id="comps-btn-${asset.symbol}" class="market-asset-secondary-action">${tCh('assetComparePeers', __uiLang)} →</button><div id="comps-result-${asset.symbol}" class="mt-1.5"></div>`
     : '';
   // Posizionamento derivati crypto (funding rate + open interest + long/short,
   // src/alpha/crypto-derivati.js) — solo per i perpetui Binance realmente
   // quotati, nessuna chiave richiesta (endpoint pubblico CORS-aperto).
   const derivatiBtn = asset.kind === 'crypto'
-    ? `<button onclick="window.showCryptoPosizionamento('${asset.symbol}')" id="deriv-btn-${asset.symbol}" class="text-[10px] font-bold text-violet-300 bg-violet-500/10 hover:bg-violet-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5 ml-1.5">Posizionamento derivati →</button><div id="deriv-result-${asset.symbol}" class="mt-1.5"></div>`
+    ? `<button onclick="window.showCryptoPosizionamento('${asset.symbol}')" id="deriv-btn-${asset.symbol}" class="market-asset-secondary-action">${tCh('assetCryptoPositioning', __uiLang)} →</button><div id="deriv-result-${asset.symbol}" class="mt-1.5"></div>`
     : '';
   window.addSelectedAssetToWatchlist = () => window.addToWatchlist(asset.symbol, asset.kind, asset.id, asset.name);
-  detailEl.innerHTML = `<div class="p-3 rounded-xl" style="background:rgba(255,255,255,0.03)"><p class="text-[11px] text-[var(--on-surface-secondary)] mb-1"><b>${escapeHtml(asset.symbol)}</b> · ${escapeHtml(asset.name || '')}</p>${priceHtml}${overviewHtml}${newsHtml}${historyChart}${trackRecordHtml}${compsBtn}${derivatiBtn}
-    <div class="flex gap-1.5 mt-2">
-      <select id="alert-direction" class="bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1 text-[10px]" name="alert-direction"><option value="above">sale sopra</option><option value="below">scende sotto</option></select>
-      <input type="number" id="alert-threshold" class="modal-input !mb-0 py-1 text-[10px] flex-1" placeholder="${asset.kind === 'crypto' ? 'Soglia €' : 'Soglia nel listino'}" name="alert-threshold" aria-label="${asset.kind === 'crypto' ? 'Soglia €' : 'Soglia nel listino'}" />
-      <button onclick="window.addPriceAlert('${asset.symbol}','${asset.kind}')" class="px-2.5 bg-indigo-600 rounded-lg text-[10px] font-bold whitespace-nowrap">Avvisami</button>
-    </div>
-    <button onclick="window.addSelectedAssetToWatchlist()" class="mt-1.5 text-[10px] text-[var(--primary)] underline">Segui questo asset (aggiorna il prezzo da solo, senza rifare la ricerca)</button>
+  if (selectionId !== assetSelectionRequest) return;
+  const officialFilings = await filingsPromise;
+  if (selectionId !== assetSelectionRequest) return;
+  const macroRows = await promptly(macroPromise, 800);
+  if (selectionId !== assetSelectionRequest) return;
+  const { selectOfficialMacroBrief } = await import('./alpha/market-macro-brief.js');
+  const macroHtmlFor = rows => {
+    const macroBrief = selectOfficialMacroBrief(rows);
+    return macroBrief.length
+      ? `<details class="market-macro-brief"><summary>${tCh('marketMacroTitle', __uiLang)}<span>Fed · BCE</span></summary><p>${tCh('marketMacroContextNote', __uiLang)}</p><div class="market-macro-links">${macroBrief.map(row => `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer"><b>${escapeHtml(row.source)}</b><span>${escapeHtml(row.title)}</span><time datetime="${escapeHtml(row.date)}">${escapeHtml(row.date)}</time>${row.viaRelay ? `<small>${tCh('marketMacroViaRelay', __uiLang)}</small>` : ''}</a>`).join('')}</div></details>`
+      : '';
+  };
+  const macroHtml = macroRows === null ? '' : macroHtmlFor(macroRows);
+  const filingName = { '8-K': 'marketSecEvent', '10-Q': 'marketSecQuarter', '10-K': 'marketSecYear' };
+  const filingsHtml = officialFilings?.filings?.length
+    ? `<section class="market-sec-filings"><div class="market-sec-head"><strong>${tCh('marketSecFilingsTitle', __uiLang)}</strong><span>SEC EDGAR</span></div><p>${tCh('marketSecFilingsNote', __uiLang)}</p><div class="market-sec-filings-list">${officialFilings.filings.map(row => `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer"><b>${escapeHtml(row.form)}${filingName[row.form] ? `<small>${tCh(filingName[row.form], __uiLang)}</small>` : ''}</b><time datetime="${escapeHtml(row.filedAt)}">${escapeHtml(row.filedAt)}</time><span aria-hidden="true">↗</span></a>`).join('')}</div><p>${tCh('marketSecFilingsChecked', __uiLang)} ${escapeHtml(new Date(officialFilings.receivedAt).toLocaleString(__uiLocale, { dateStyle: 'short', timeStyle: 'short' }))}</p></section>`
+    : '';
+  const quarterHtmlFor = result => {
+    const q = result?.quarter;
+    if (!q) return '';
+    const money = value => new Intl.NumberFormat(__uiLocale, { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(value);
+    const rows = [
+      [tCh('marketSecRevenue', __uiLang), q.metrics?.revenue?.value],
+      [tCh('marketSecProfit', __uiLang), q.metrics?.netIncome?.value],
+    ].filter(([, value]) => Number.isFinite(value));
+    if (!rows.length) return '';
+    return `<section class="market-sec-quarter"><div class="market-sec-head"><strong>${tCh('researchQuarterTitle', __uiLang)}</strong><span>SEC · ${escapeHtml(q.form)}</span></div><p>${tCh('researchQuarterPeriod', __uiLang, q.start, q.end)} · ${tCh('researchQuarterFiled', __uiLang, q.filedAt)}</p><div class="market-sec-metrics">${rows.map(([label, value]) => `<div><span>${label}</span><strong>${escapeHtml(money(value))}</strong></div>`).join('')}</div><p>${tCh('researchQuarterLimit', __uiLang)}</p><a href="${escapeHtml(q.url)}" target="_blank" rel="noopener noreferrer">${tCh('researchOpenFiling', __uiLang)} ↗</a></section>`;
+  };
+  const earlyQuarter = await promptly(quarterPromise, 500);
+  if (selectionId !== assetSelectionRequest) return;
+  let quarterEvidence = earlyQuarter;
+  const { buildInvestmentResearchBrief } = await import('./alpha/investment-research-brief.js');
+  if (selectionId !== assetSelectionRequest) return;
+  const researchHtmlFor = newsResult => {
+    const brief = buildInvestmentResearchBrief({ asset, snapshot: snapshotEvidence, filings: officialFilings, quarter: quarterEvidence, quote: quoteEvidence, news: newsResult });
+    const companyText = brief.company.status === 'annual'
+      ? tCh('researchAnnual', __uiLang, brief.company.year)
+      : brief.company.status === 'not-applicable' ? tCh('researchNotCompany', __uiLang) : tCh('researchNoAccounts', __uiLang);
+    const quoteText = brief.quote.status === 'dated'
+      ? tCh('researchQuoteDated', __uiLang, new Date(brief.quote.marketAsOf).toLocaleString(__uiLocale, {
+          dateStyle: 'short', ...(brief.quote.marketAsOf.includes('T') ? { timeStyle: 'short' } : {}),
+        }))
+      : tCh({ old: 'researchQuoteOld', unverified: 'researchQuoteUnverified', unavailable: 'researchQuoteMissing' }[brief.quote.status], __uiLang);
+    const newsText = brief.news.status === 'recent'
+      ? tCh('researchNewsRecent', __uiLang, brief.news.currentCount)
+      : tCh(brief.news.status === 'community-only' ? 'researchNewsCommunity' : 'researchNewsMissing', __uiLang);
+    const nextKeys = { 'compare-filing': 'researchNextFiling', 'read-filing': 'researchNextReadFiling', 'find-accounts': 'researchNextAccounts', 'check-quote': 'researchNextQuote', 'check-risk': 'researchNextRisk', 'check-fund': 'researchNextFund', 'check-crypto': 'researchNextCrypto' };
+    const nextText = brief.next.code === 'compare-filing' || brief.next.code === 'read-filing'
+      ? tCh(nextKeys[brief.next.code], __uiLang, brief.next.form, brief.next.date, brief.company.year)
+      : tCh(nextKeys[brief.next.code], __uiLang);
+    const nextLink = brief.next.code === 'compare-filing' || brief.next.code === 'read-filing'
+      ? `<a href="${escapeHtml(brief.next.url)}" target="_blank" rel="noopener noreferrer">${tCh('researchOpenFiling', __uiLang)} ↗</a>`
+      : brief.next.code === 'check-quote'
+        ? `<button type="button" onclick="window.openMarketSources()">${tCh('marketSourcesAction', __uiLang)}</button>` : '';
+    return `<section class="market-research-brief" aria-label="${tCh('researchTitle', __uiLang)}"><div class="market-research-head"><strong>${tCh('researchTitle', __uiLang)}</strong><span>${tCh('researchNoSignal', __uiLang)}</span></div><div class="market-research-checks"><div data-state="${brief.company.status}"><small>${tCh('researchCompanyLabel', __uiLang)}</small><b>${escapeHtml(companyText)}</b></div><div data-state="${brief.quote.status}"><small>${tCh('researchQuoteLabel', __uiLang)}</small><b>${escapeHtml(quoteText)}</b></div><div data-state="${brief.news.status}"><small>${tCh('researchNewsLabel', __uiLang)}</small><b>${escapeHtml(newsText)}</b></div></div><div class="market-research-next"><small>${tCh('researchNextLabel', __uiLang)}</small><p>${escapeHtml(nextText)}</p>${nextLink}</div></section>`;
+  };
+  const researchHtml = researchHtmlFor(earlyNews);
+  const canCheckPriceAlerts = asset.kind === 'crypto' || Boolean(VaultDAO.state.liveDataKeys?.finnhub || VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata);
+  const alertFormHtml = canCheckPriceAlerts ? `<div class="market-alert-form">
+      <select id="alert-direction" name="alert-direction" aria-label="${tCh('assetAlertDirection', __uiLang)}"><option value="above">${tCh('assetAlertAbove', __uiLang)}</option><option value="below">${tCh('assetAlertBelow', __uiLang)}</option></select>
+      <input type="number" inputmode="decimal" min="0" step="any" id="alert-threshold" placeholder="${tCh('assetAlertThreshold', __uiLang)}" name="alert-threshold" aria-label="${tCh('assetAlertThreshold', __uiLang)}" />
+      <button type="button" onclick="window.addPriceAlert('${asset.symbol}','${asset.kind}')">${tCh('assetAlertAction', __uiLang)}</button>
+    </div>` : `<div class="market-alert-needs-source"><p>${tCh('marketAlertNeedsSource', __uiLang)}</p><button type="button" onclick="window.openMarketSources()">${tCh('marketSourcesAction', __uiLang)}</button></div>`;
+  detailEl.innerHTML = `<div class="market-asset-workspace">${assetHeaderHtml}<div id="asset-identity-brief">${assetIdentityHtml(asset, { snapshot: snapshotEvidence, overview: earlyOverview?.overview, publicFact: earlyPublicFact, loading: earlyPublicFact === null || earlyOverview === null })}</div><div class="market-asset-primary">${priceHtml}<div id="asset-research-slot">${researchHtml}</div><div id="asset-quarter-slot">${quarterHtmlFor(earlyQuarter)}</div></div>
+    <section class="market-asset-history" aria-label="${tCh('assetExploreHistory', __uiLang)}"><h5>${tCh('assetExploreHistory', __uiLang)}</h5><div id="asset-history-slot" aria-live="polite">${historyHtml}</div></section>
+    <details class="market-asset-disclosure"><summary>${asset.kind === 'crypto' ? tCh('assetExploreCryptoProfile', __uiLang) : tCh('assetExploreAccounts', __uiLang)}</summary><div class="market-asset-disclosure-body">${secHtml}${filingsHtml}<div id="asset-overview-slot">${overviewHtml || (!secHtml && !filingsHtml ? `<p class="market-data-state-note">${tCh(asset.kind === 'crypto' ? 'assetCryptoProfileMissing' : 'assetAccountsMissing', __uiLang)}</p>` : '')}</div></div></details>
+    <details class="market-asset-disclosure"><summary>${tCh('assetExploreNews', __uiLang)}</summary><div class="market-asset-disclosure-body"><div id="asset-news-slot">${newsHtml}</div><div id="asset-macro-slot">${macroHtml}</div></div></details>
+    ${compsBtn || derivatiBtn ? `<details class="market-asset-disclosure"><summary>${tCh('assetExploreComparisons', __uiLang)}</summary><div class="market-asset-disclosure-body">${compsBtn}${derivatiBtn}</div></details>` : ''}
+    <details class="market-asset-disclosure"><summary>${tCh('assetExploreAlerts', __uiLang)}</summary><div class="market-asset-disclosure-body">${alertFormHtml}<button type="button" onclick="window.addSelectedAssetToWatchlist()" class="market-watch-action">${tCh('assetFollowAction', __uiLang)}</button><p class="market-asset-alert-limit">${tCh('alphaAlertsDisclaimer', __uiLang)}</p></div></details>
   </div>`;
+  let latestOverview = earlyOverview?.overview || null;
+  let latestPublicFact = earlyPublicFact;
+  let publicPending = earlyPublicFact === null;
+  let overviewPending = earlyOverview === null;
+  const refreshIdentity = () => {
+    if (selectionId !== assetSelectionRequest) return;
+    const brief = detailEl.querySelector('#asset-identity-brief');
+    if (brief) brief.innerHTML = assetIdentityHtml(asset, { snapshot: snapshotEvidence, overview: latestOverview, publicFact: latestPublicFact, loading: publicPending || overviewPending });
+  };
+  if (earlyPublicFact === null) publicDescriptionPromise.then(result => { latestPublicFact = result; publicPending = false; refreshIdentity(); });
+  if (earlyOverview === null) overviewPromise.then(result => {
+    overviewPending = false;
+    if (!result) { refreshIdentity(); return; }
+    if (selectionId !== assetSelectionRequest) return;
+    const profile = detailEl.querySelector('#asset-overview-slot');
+    latestOverview = result.overview;
+    refreshIdentity();
+    if (profile) profile.innerHTML = result.html;
+  });
+  mountHistoryPreview();
+  window.retrySelectedAssetNews = async () => {
+    if (selectionId !== assetSelectionRequest) return;
+    const slot = detailEl.querySelector('#asset-news-slot');
+    if (!slot) return;
+    slot.innerHTML = `<p class="market-data-state-note" role="status">${tCh('assetNewsLoading', __uiLang)}</p>`;
+    const result = await window.fetchAssetNewsCascade(asset).catch(() => ({ items: [], stale: false }));
+    if (selectionId !== assetSelectionRequest || !slot.isConnected) return;
+    newsEvidence = result;
+    slot.innerHTML = newsHtmlFor(result);
+    const researchSlot = detailEl.querySelector('#asset-research-slot');
+    if (researchSlot) researchSlot.innerHTML = researchHtmlFor(result);
+  };
+  window.retrySelectedAssetHistory = async () => {
+    if (selectionId !== assetSelectionRequest) return;
+    const slot = detailEl.querySelector('#asset-history-slot');
+    if (!slot) return;
+    slot.innerHTML = historyHtmlFor(null);
+    const result = await window.fetchAssetHistoryData(asset).catch(() => ({}));
+    if (selectionId !== assetSelectionRequest || !slot.isConnected) return;
+    slot.innerHTML = historyHtmlFor(result);
+    mountHistoryPreview();
+  };
+  if (earlyNews === null) assetNewsPromise.then(result => {
+    if (selectionId !== assetSelectionRequest) return;
+    newsEvidence = result;
+    const slot = detailEl.querySelector('#asset-news-slot');
+    if (!slot) return;
+    slot.innerHTML = newsHtmlFor(result);
+    const researchSlot = detailEl.querySelector('#asset-research-slot');
+    if (researchSlot) researchSlot.innerHTML = researchHtmlFor(result);
+    const external = slot.querySelector('#market-public-news');
+    if (external) import('./alpha/public-market-widget.js').then(({ mountPublicMarketWidget }) => {
+      if (selectionId === assetSelectionRequest) mountPublicMarketWidget(external, asset.symbol, { kind: 'news', language: __uiLang, dark: document.documentElement.classList.contains('dark'), unavailable: tCh('marketPublicUnavailable', __uiLang), sourceLink: tCh('marketPublicOpenSource', __uiLang), previewLabel: tCh('marketPublicPreview', __uiLang), hidePreviewLabel: tCh('marketPublicHidePreview', __uiLang) });
+    }).catch(() => { external.textContent = tCh('marketPublicUnavailable', __uiLang); });
+  }).catch(() => {});
+  if (earlyQuarter === null && secCik) quarterPromise.then(result => {
+    if (selectionId !== assetSelectionRequest) return;
+    quarterEvidence = result;
+    const slot = detailEl.querySelector('#asset-quarter-slot');
+    if (slot) slot.innerHTML = quarterHtmlFor(result);
+    const researchSlot = detailEl.querySelector('#asset-research-slot');
+    if (researchSlot) researchSlot.innerHTML = researchHtmlFor(newsEvidence);
+  }).catch(() => {});
+  if (earlyHistory === null) assetHistoryPromise.then(result => {
+    if (selectionId !== assetSelectionRequest) return;
+    const slot = detailEl.querySelector('#asset-history-slot');
+    if (slot) { slot.innerHTML = historyHtmlFor(result); mountHistoryPreview(); }
+  }).catch(() => {});
+  if (macroRows === null) macroPromise.then(rows => {
+    if (selectionId !== assetSelectionRequest) return;
+    const slot = detailEl.querySelector('#asset-macro-slot');
+    if (slot) slot.innerHTML = macroHtmlFor(rows);
+  }).catch(() => {});
+  if (asset.kind === 'stock' && (detailEl.querySelector('#market-public-quote') || detailEl.querySelector('#market-public-news'))) {
+    // An explicit asset selection starts the third-party display. The embed
+    // shows the provider's own symbol/venue and remains outside our models.
+    import('./alpha/public-market-widget.js').then(({ mountPublicMarketWidget }) => {
+      if (selectionId !== assetSelectionRequest) return;
+      const config = { language: __uiLang, dark: document.documentElement.classList.contains('dark'), unavailable: tCh('marketPublicUnavailable', __uiLang), sourceLink: tCh('marketPublicOpenSource', __uiLang), previewLabel: tCh('marketPublicPreview', __uiLang), hidePreviewLabel: tCh('marketPublicHidePreview', __uiLang) };
+      mountPublicMarketWidget(detailEl.querySelector('#market-public-quote'), asset.symbol, { ...config, kind: 'quote' });
+      mountPublicMarketWidget(detailEl.querySelector('#market-public-news'), asset.symbol, { ...config, kind: 'news' });
+    }).catch(() => {
+      detailEl.querySelectorAll('.market-public-widget').forEach(box => { box.textContent = tCh('marketPublicUnavailable', __uiLang); });
+    });
+  }
 };
 
 // "Comparable company analysis" (comps) da investment banker, con dati
@@ -9732,6 +10148,10 @@ window.dismissTaxNotifyPrompt = () => {
 };
 
 window.addPriceAlert = async (symbol, kind) => {
+  if (kind === 'stock' && !(VaultDAO.state.liveDataKeys?.finnhub || VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata)) {
+    showToast(tCh('marketAlertNeedsSource', __uiLang), 'info');
+    return;
+  }
   const direction = document.getElementById('alert-direction')?.value;
   const threshold = parseFloat(document.getElementById('alert-threshold')?.value);
   try {
@@ -15372,6 +15792,11 @@ function renderInvestments() {
   // Preferenze dal profilo di onboarding (le domande iniziali che ora servono):
   const prefs = VaultDAO.state.investmentPrefs || {};
   const emergencyFund = VaultDAO.state.emergencyFund;
+  const fundAction = $('#invest-next-action');
+  if (fundAction) {
+    fundAction.textContent = tCh(Number.isFinite(emergencyFund) ? 'investEditReserve' : 'investSetReserve', __uiLang);
+    fundAction.hidden = false;
+  }
   const r = investableSurplus({ netMonthlyFlow: cur.inc - cur.out, avgMonthlyExpense: avgExp, currentEmergencyFund: emergencyFund, emergencyMonths: prefs.emergencyMonths ?? 6, investFraction: prefs.investFraction ?? 0.7, lang: __uiLang });
   surplusEl.textContent = r.reason === 'insufficient-data' ? '—' : formatMoney(r.investable);
   // Uscita esplicita "non investo" (onboarding, domanda 2): investFraction è
@@ -15380,7 +15805,11 @@ function renderInvestments() {
   // mai il numero (che resta quello reale calcolato sopra).
   noteEl.textContent = (prefs.invests === false && r.reason === 'ok')
     ? 'Hai detto di non voler investire: qui non ti propongo nulla, il fondo d\'emergenza è già pieno.'
-    : r.note;
+    : r.reason === 'insufficient-data' && !(avgExp > 0)
+      ? tCh('investNeedExpenses', __uiLang)
+      : r.note;
+  const addExpense = $('#invest-add-expense');
+  if (addExpense) addExpense.hidden = r.reason === 'ok' || avgExp > 0;
   regimeEl.textContent = '';
   // Fondo d'emergenza: barra (non un secondo numero da leggere) — il vero
   // "perché" dietro il testo, pieno = puoi investire, altrimenti quanto manca.
@@ -15426,6 +15855,8 @@ function renderNetWorth() {
   const totalEl = $('#net-worth-total'), breakEl = $('#net-worth-breakdown'), projEl = $('#net-worth-projection');
   if (!totalEl) return;
   const positions = VaultDAO.state.positions || [];
+  const hasPersonalEvidence = Object.values(VaultDAO.state.transactions || {}).some(month => Array.isArray(month) && month.length > 0)
+    || positions.length > 0 || (VaultDAO.state.manualAssets || []).length > 0 || Number(VaultDAO.state.liabilities) > 0;
   const n = computeNetWorth({
     transactions: VaultDAO.state.transactions || {},
     positions,
@@ -15434,14 +15865,18 @@ function renderNetWorth() {
     manualAssets: VaultDAO.state.manualAssets || [],
     liabilities: VaultDAO.state.liabilities || 0,
   });
-  totalEl.textContent = formatMoney(n.total);
+  totalEl.textContent = hasPersonalEvidence ? formatMoney(n.total) : '—';
+  const emptyEl = $('#net-worth-empty');
+  if (emptyEl) emptyEl.hidden = hasPersonalEvidence;
+  const disclaimer = $('#net-worth-disclaimer');
+  if (disclaimer) disclaimer.hidden = !hasPersonalEvidence;
   const parts = [tCh('nwCashLine', __uiLang, formatMoney(n.cash))];
   const nowcasted = n.positions?.some(p => p.stale && p.nowcast);
   const atCost = n.positions?.some(p => p.stale && !p.nowcast);
   const staleLabel = nowcasted && atCost ? tCh('nwStaleBothLabel', __uiLang) : nowcasted ? tCh('nwStaleNowcastLabel', __uiLang) : atCost ? tCh('nwStaleCostLabel', __uiLang) : '';
   if (n.invested > 0) parts.push(`${tCh('nwInvestedLine', __uiLang, formatMoney(n.invested))}${staleLabel}`);
   if (n.liabilities > 0) parts.push(tCh('nwLiabilitiesLine', __uiLang, formatMoney(n.liabilities)));
-  breakEl.textContent = parts.join(' · ');
+  breakEl.textContent = hasPersonalEvidence ? parts.join(' · ') : '';
   // Proiezione per strategia: parte dal patrimonio investibile attuale, con il
   // risparmio medio mensile come contributo. Tabella minima p5/p50/p95.
   if (projEl) {
@@ -15527,17 +15962,19 @@ function renderNetWorth() {
       // invece di una colonna testuale da leggere riga per riga.
       const maxSharpe = Math.max(0.01, ...rows.map(r => r.sharpe));
       const regimeColor = (r) => r === 'risk-on' ? 'bg-emerald-400' : r === 'risk-off' ? 'bg-rose-400' : 'bg-amber-300';
-      sectorEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('nwSectorRankingHeader', __uiLang, yearsCovered)}</p>
-        <div class="space-y-2">${rows.map(r => {
+      const sectorRow = r => {
           const pct = Math.max(4, Math.round((r.sharpe / maxSharpe) * 100));
-          return `<div class="text-[10px]">
-            <div class="flex items-center justify-between mb-0.5">
-              <span class="flex items-center gap-1.5 text-[var(--on-surface-secondary)]"><span class="inline-block w-1.5 h-1.5 rounded-full ${regimeColor(r.regime)}" title="${escapeHtml(tCh('nwRegimeNowTitle', __uiLang, r.regime || '—'))}"></span>${r.label}</span>
-              <span class="font-mono text-[var(--gold)]">${r.sharpe.toFixed(2)}</span>
+          return `<div class="market-sector-row">
+            <div class="market-sector-line">
+              <span class="market-sector-name"><span class="market-sector-dot ${regimeColor(r.regime)}" title="${escapeHtml(tCh('nwRegimeNowTitle', __uiLang, r.regime || '—'))}"></span>${escapeHtml(r.label)}</span>
+              <span class="market-sector-score">${r.sharpe.toFixed(2)}</span>
             </div>
-            <div class="h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full bg-[color-mix(in_srgb,var(--gold)_70%,transparent)]" style="width:${pct}%"></div></div>
+            <div class="market-sector-track"><div style="width:${pct}%"></div></div>
           </div>`;
-        }).join('')}</div>`;
+      };
+      sectorEl.innerHTML = `<p class="market-sector-explain">${tCh('nwSectorRankingHeader', __uiLang, yearsCovered)} · ${tCh('investSectorMeasure', __uiLang)}</p>
+        <div class="market-sector-list">${rows.slice(0, 3).map(sectorRow).join('')}</div>
+        ${rows.length > 3 ? `<details class="market-sector-extra"><summary>${tCh('investMoreSectors', __uiLang, rows.length - 3)}</summary><div class="market-sector-list">${rows.slice(3).map(sectorRow).join('')}</div></details>` : ''}`;
     } else sectorEl.innerHTML = '';
   }
   // Tassi a lungo termine di 12 Paesi (src/alpha/tassi-mondo.js): la scoperta
@@ -16041,11 +16478,11 @@ function renderRegulatoryNews() {
   if (!el) return;
   const voci = window.__regulatoryNews || [];
   if (!voci.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Fed, BCE e Registro Federale — fonti ufficiali</p>` +
+  el.innerHTML = `<p class="market-official-intro">${tCh('investmentOfficialSources', __uiLang)}</p>` +
     voci.slice(0, 5).map(v => `
       <a href="${v.link || '#'}" target="_blank" rel="noopener" class="momentum-news-item block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="font-semibold leading-snug text-[11px]">${escapeHtml(v.titolo)}</div>
-        <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}${v.viaRelay ? ' · via relay pubblico (CORS)' : ''}</div>
+        <div class="text-slate-500 text-[10px] mt-0.5">${escapeHtml(v.ente || v.nomeFonte || '')}${v.data ? ' · ' + escapeHtml(v.data) : ''}${v.viaRelay ? ' · ' + tCh('investmentPublicRelay', __uiLang) : ''}</div>
       </a>`).join('');
 }
 
@@ -16098,6 +16535,16 @@ window.renderMonthCalendarInto = function renderMonthCalendarInto(gridId) {
       (__heatmapDayTx[d] = __heatmapDayTx[d] || []).push(t);
     }
   });
+  if (gridId === 'heatmap-grid') {
+    const summary = document.getElementById('heatmap-summary');
+    if (summary) {
+      const active = Object.entries(spends).filter(([, amount]) => amount > 0);
+      const peak = active.reduce((best, entry) => !best || entry[1] > best[1] ? entry : best, null);
+      summary.innerHTML = peak
+        ? `<span>${tCh('analysisDaysWithExpenses', __uiLang, active.length)}</span><strong>${tCh('analysisHighestDay', __uiLang, peak[0], formatMoney(peak[1]))}</strong>`
+        : `<span>${tCh('analysisNoExpenseDays', __uiLang)}</span>`;
+    }
+  }
   __heatmapMonthLabel = VaultDAO.state.currentDate.toLocaleDateString(__uiLocale, { month: 'long' });
 
   let html = ''; // 1 gennaio 2024 era un lunedì: base per i nomi dei giorni
@@ -19657,6 +20104,34 @@ function updateLivePricesCardVisibility() {
   const c = document.getElementById('live-prices-card');
   if (c) c.style.display = shouldShowAnalysisTensor(VaultDAO.state.investmentPrefs) ? '' : 'none';
 }
+
+window.openEmergencyFundEditor = () => {
+  const current = VaultDAO.state.emergencyFund;
+  openModal(`<form class="money-editor investment-reserve-editor" onsubmit="return false">
+    <header class="money-editor-heading"><div class="money-editor-planet" aria-hidden="true"></div><h3>${tCh('investReserveTitle', __uiLang)}</h3><p>${tCh('investReserveHint', __uiLang)}</p></header>
+    <label class="cosmos-form-field"><span>${tCh('investReserveLabel', __uiLang)}</span><input type="text" id="invest-reserve-amount" inputmode="decimal" autocomplete="off" value="${Number.isFinite(current) ? new Intl.NumberFormat(__uiLocale, { useGrouping: false, maximumFractionDigits: 2 }).format(current) : ''}" placeholder="0" aria-describedby="invest-reserve-error" /></label>
+    <p id="invest-reserve-error" class="money-editor-error" role="alert" hidden></p>
+    <p class="money-editor-note">${tCh('investReserveLocal', __uiLang)}</p>
+  </form>`, `<button type="button" class="btn-action orbit-confirm w-full" id="invest-reserve-save">${tCh('vaultSave', __uiLang)}</button>`);
+  const field = $('#invest-reserve-amount');
+  field?.addEventListener('input', () => { field.removeAttribute('aria-invalid'); $('#invest-reserve-error').hidden = true; });
+  $('#invest-reserve-save')?.addEventListener('click', () => {
+    const parsed = parseEmergencyFundAmount(field?.value);
+    if (parsed.error) {
+      const error = $('#invest-reserve-error');
+      error.textContent = tCh('investReserveInvalid', __uiLang);
+      error.hidden = false;
+      field?.setAttribute('aria-invalid', 'true');
+      field?.focus();
+      return;
+    }
+    VaultDAO.state.emergencyFund = parsed.amount;
+    VaultDAO.save();
+    renderInvestments();
+    closeModal();
+    showToast(tCh('investReserveSaved', __uiLang), 'success');
+  });
+};
 const motionMediaOriginals = new WeakMap();
 function motionIsReduced() {
   return VaultDAO.state.uiMotion === 'reduced' || (VaultDAO.state.uiMotion !== 'full' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -19735,7 +20210,8 @@ function setActivityLocked(key, isLocked, label) {
   if (!lista.length) return;
   teaser.innerHTML = `
     <h3 class="eyebrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>${tCh('activityLockedTitle', __uiLang)}</span></h3>
-    <p class="card-sub">${tCh('activityLockedSub', __uiLang, lista.join(', '))}</p>`;
+    <p class="card-sub">${tCh('activityLockedSub', __uiLang, lista.join(', '))}</p>
+    <button type="button" class="workspace-empty-action" onclick="window.openPrefilledAdd({type:'uscita'})">${tCh('activityAddMovement', __uiLang)}</button>`;
 }
 
 // Spiegazione del "+" ai primi avvii (richiesto esplicitamente, 2026-08-30:
@@ -19791,7 +20267,7 @@ function initCalmWorkspace(view) {
     let group;
     if (view === 'analysis') {
       if (has('alphaBudgetTitle') || has('alphaWhereGoesTitle')) { primary.push(card); continue; }
-      group = card.classList.contains('advanced-card') || ['net-worth-card','invest-card','asset-search-card','divario-comportamento-card'].includes(card.id)
+      group = card.classList.contains('advanced-card') || ['net-worth-card','invest-card','asset-search-card','market-context-card','divario-comportamento-card','wealth-growth-card','portfolio-locked-teaser'].includes(card.id)
         ? 'workspaceMarkets' : has('alphaGoalsTitle') || has('alphaTogetherTitle') || card.classList.contains('analysis-tools')
           ? 'workspacePlans' : 'workspacePatterns';
     } else {
@@ -19820,7 +20296,15 @@ function initCalmWorkspace(view) {
     section.dataset.workspaceSection = key;
     section.innerHTML = `<summary><span class="workspace-planet" aria-hidden="true"></span><span class="workspace-section-copy"><strong data-i18n-key="${key}">${tCh(key, __uiLang)}</strong><small data-i18n-key="${key}Sub">${tCh(key + 'Sub', __uiLang)}</small></span><svg class="workspace-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m8 10 4 4 4-4"/></svg></summary><div class="workspace-section-body"></div>`;
     const body = section.lastElementChild;
-    body.append(...items);
+    const preferred = key === 'workspacePatterns'
+      ? ['spending-heatmap-card','period-compare-card','subscriptions-card','simulation-studio','activity-locked-teaser']
+      : key === 'workspaceMarkets'
+        ? ['invest-card','net-worth-card','asset-search-card','market-context-card','wealth-growth-card','divario-comportamento-card','portfolio-locked-teaser']
+        : [];
+    body.append(...[...items].sort((a, b) => {
+      const left = preferred.indexOf(a.id), right = preferred.indexOf(b.id);
+      return (left < 0 ? preferred.length : left) - (right < 0 ? preferred.length : right);
+    }));
     grid.append(section);
     // Never show an empty group or make a profile/Pro-hidden card visible.
     const sync = () => { section.hidden = !items.some(card => !card.hidden && !card.classList.contains('hidden') && card.style.display !== 'none'); };
@@ -22184,78 +22668,64 @@ const initApp = () => {
   // esserci sempre", non solo il numero a parole). Riusa catmullRomPath
   // (curva morbida) già esistente in main.js, stessa identità visiva della
   // Cassa Unica — non un grafico isolato con uno stile a parte. I marcatori
-  // sono il massimo/minimo REALI per anno solare (yearlyExtremes) — MAI un
-  // "motivo" narrativo: non abbiamo un archivio di notizie storiche, quindi
-  // non fingiamo di sapere perché un picco di anni fa sia avvenuto.
+  // sono gli estremi REALI della serie visibile, mai un massimo di tutta la
+  // vita del titolo o un motivo narrativo attribuito a posteriori.
   // RIDISEGNATO (feedback esplicito dell'utente: "il grafico è troppo
   // difficile da comprendere in quel modo" — la vecchia versione elencava
   // OGNI anno in testo, es. 46 righe per Apple dal 1980: illeggibile,
   // contro il principio "comprensibile a un bambino di 8 anni"). Ora: solo
-  // 2 marcatori sul grafico (massimo/minimo storico ASSOLUTI, non uno per
-  // anno), grafico più grande, e un riepilogo "a colpo d'occhio" con 3
-  // numeri chiave invece di una lista — miglior/peggior anno restano MA
-  // come UNA riga sola, non 46.
-  function buildAssetHistoryChart(series, extremes) {
+  // 2 marcatori sul grafico (massimo/minimo della serie visibile), grafico
+  // più grande e 3 numeri leggibili. I confronti fra anni parziali erano
+  // fuorvianti e non vengono più presentati come "miglior/peggior anno".
+  function buildAssetHistoryChart(series) {
     if (!series.length) return '';
-    const W = 320, H = 130, PAD = 6;
-    const prices = series.map(p => p.price);
-    const minP = Math.min(...prices), maxP = Math.max(...prices);
-    const span = maxP - minP || 1;
-    const x = (i) => PAD + (i / (series.length - 1)) * (W - PAD * 2);
-    const y = (p) => H - PAD - ((p - minP) / span) * (H - PAD * 2);
-    const points = series.map((p, i) => ({ x: x(i), y: y(p.price) }));
-    const path = catmullRomPath(points);
+    const W = 320, H = 150, PAD = 7;
+    const plot = historyPlot(series, { width: W, height: H, pad: PAD });
+    if (!plot.path) return '';
+    const x = i => plot.points[i].x;
+    const y = i => plot.points[i].y;
+    const path = plot.path;
     // Solo i due estremi ASSOLUTI di tutta la serie (mai uno per anno): un
     // grafico con 46 pallini è rumore, non informazione.
     let hiIdx = 0, loIdx = 0;
     series.forEach((p, i) => { if (p.price > series[hiIdx].price) hiIdx = i; if (p.price < series[loIdx].price) loIdx = i; });
     const hi = series[hiIdx], lo = series[loIdx];
     const markersHtml = `
-      <circle cx="${x(hiIdx).toFixed(1)}" cy="${y(hi.price).toFixed(1)}" r="3" fill="#34d399"/>
-      <circle cx="${x(loIdx).toFixed(1)}" cy="${y(lo.price).toFixed(1)}" r="3" fill="#fb7185"/>`;
+      <circle cx="${x(hiIdx).toFixed(1)}" cy="${y(hiIdx).toFixed(1)}" r="3" fill="#34d399"/>
+      <circle cx="${x(loIdx).toFixed(1)}" cy="${y(loIdx).toFixed(1)}" r="3" fill="#fb7185"/>`;
     const last = series[series.length - 1];
     const fromPeakPct = hi.price > 0 ? ((last.price - hi.price) / hi.price) * 100 : null;
-    // Miglior/peggior anno: UNA riga sola (non una per anno) — sceglie i
-    // due estremi reali già calcolati da yearlyExtremes, mai un'invenzione.
-    const withPct = extremes.filter(e => Number.isFinite(e.changePct));
-    const best = withPct.length ? withPct.reduce((a, b) => b.changePct > a.changePct ? b : a) : null;
-    const worst = withPct.length ? withPct.reduce((a, b) => b.changePct < a.changePct ? b : a) : null;
-    const stat = (label, value, color) => `<div class="flex-1 min-w-0"><div class="text-[10px] text-slate-500 uppercase tracking-wide truncate">${label}</div><div class="text-[11px] font-bold truncate" style="color:${color}">${value}</div></div>`;
-    const stats = `<div class="flex gap-3 mt-2">
-      ${stat('Massimo storico', `${hi.price.toFixed(0)} (${hi.date.slice(0, 4)})`, '#34d399')}
-      ${stat('Minimo storico', `${lo.price.toFixed(0)} (${lo.date.slice(0, 4)})`, '#fb7185')}
-      ${fromPeakPct !== null ? stat('Oggi vs massimo', `${fromPeakPct >= 0 ? '+' : ''}${fromPeakPct.toFixed(0)}%`, fromPeakPct >= 0 ? '#34d399' : '#fbbf24') : ''}
+    const formatValue = value => formatHistoryPrice(value, __uiLocale);
+    const stat = (label, value, date, tone) => `<div class="market-history-stat" data-tone="${tone}"><span>${label}</span><strong>${value}</strong><small>${date}</small></div>`;
+    const stats = `<div class="market-history-stats" role="group" aria-label="${tCh('assetHistoryMeasured', __uiLang)}">
+      ${stat(tCh('assetHistoryVisibleHigh', __uiLang), formatValue(hi.price), hi.date, 'high')}
+      ${stat(tCh('assetHistoryVisibleLow', __uiLang), formatValue(lo.price), lo.date, 'low')}
+      ${fromPeakPct !== null ? stat(tCh('assetHistoryLastVsHigh', __uiLang), `${fromPeakPct >= 0 ? '+' : ''}${new Intl.NumberFormat(__uiLocale, { maximumFractionDigits:1 }).format(fromPeakPct)}%`, last.date, 'distance') : ''}
     </div>`;
-    const yearNote = (best && worst && best.year !== worst.year)
-      ? `<p class="text-[11px] text-slate-500 mt-1.5">Miglior anno: ${best.year} (${best.changePct >= 0 ? '+' : ''}${best.changePct.toFixed(0)}%) · Peggior anno: ${worst.year} (${worst.changePct >= 0 ? '+' : ''}${worst.changePct.toFixed(0)}%)</p>`
-      : '';
     // Hover/tocca il grafico per capire un punto esatto (richiesto
     // esplicitamente: "deve essere possibile navigarci sopra per capire e
     // confrontare periodi") — serie compatta incorporata nell'attributo
     // data-series (date+price VERI, mai un valore interpolato o inventato),
     // letta dal listener delegato in initApp per mostrare data/prezzo esatti
     // sotto il grafico e spostare un punto+linea guida sull'SVG.
-    const seriesData = encodeURIComponent(JSON.stringify(series.map(p => [p.date, Math.round(p.price * 100) / 100])));
+    const seriesData = encodeURIComponent(JSON.stringify(series.map(p => [p.date, Number(p.price.toPrecision(10))])));
     return `
-      <div class="qa-cloud-block mt-1.5">
+      <div class="qa-cloud-block market-history-summary mt-1.5">
         <div class="qa-hist-wrap" style="position:relative">
-          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="qa-hist-svg w-full h-24" style="touch-action:none;cursor:crosshair" data-series="${seriesData}" data-w="${W}" data-h="${H}" data-pad="${PAD}">
-            <path d="${path} L${x(series.length - 1).toFixed(1)},${H} L${x(0).toFixed(1)},${H} Z" fill="url(#qaHistGrad)" opacity="0.25"/>
+          <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="qa-hist-svg" role="img" tabindex="0" aria-label="${tCh('assetHistoryChartLabel', __uiLang)}" style="touch-action:none;cursor:crosshair" data-series="${seriesData}" data-w="${W}" data-h="${H}" data-pad="${PAD}">
             <path d="${path}" fill="none" stroke="#38bdf8" stroke-width="1.8" stroke-linecap="round"/>
             ${markersHtml}
             <line class="qa-hist-guide" x1="0" y1="0" x2="0" y2="${H}" stroke="#94a3b8" stroke-width="1" opacity="0"/>
             <circle class="qa-hist-dot" r="3.5" fill="#fbbf24" stroke="#0b0f1a" stroke-width="1" opacity="0"/>
-            <defs><linearGradient id="qaHistGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs>
           </svg>
-          <div class="flex justify-between text-[10px] text-slate-600 font-mono uppercase tracking-wide px-0.5 mt-0.5">
+          <div class="market-history-dates">
             <span>${series[0].date}</span>
             <span>${series[series.length - 1].date}</span>
           </div>
-          <p class="qa-hist-hover-label text-[11px] text-sky-200 text-center mt-1 font-mono font-semibold tracking-wide">${last.date} · ${last.price.toFixed(2)} <span class="text-slate-500 font-normal">— tocca per esplorare</span></p>
+          <p class="qa-hist-hover-label market-history-cursor" role="status">${last.date} · ${formatValue(last.price)} <span>— ${tCh('assetHistoryExplore', __uiLang)}</span></p>
         </div>
         ${stats}
-        ${yearNote}
-        <p class="text-[11px] text-slate-500 mt-1.5">Verde/rosso = massimo/minimo storico reale misurato. Ultimo anno: è il massimo storico che l'API pubblica e gratuita permette. Non sappiamo (e non inventiamo) il motivo di un picco passato: nessun archivio di notizie storiche.</p>
+        <details class="market-history-method"><summary>${tCh('assetHistoryHowToRead', __uiLang)}</summary><p>${tCh('assetHistoryMeasuredLimit', __uiLang)}</p></details>
       </div>`;
   }
   // Selettore di periodo (richiesta esplicita: "possibilità di scegliere i
@@ -22264,17 +22734,18 @@ const initApp = () => {
   // qui (mai un secondo fetch al click: la serie è già scaricata) e
   // scambiati mostra/nascondi da un listener delegato su qaAnswer, così
   // funziona anche dopo che il contenuto viene ri-renderizzato.
-  function buildAssetHistoryChartWithPeriods(series, yearlyExtremesFn) {
+  function buildAssetHistoryChartWithPeriods(series) {
     if (!series.length) return '';
     const variants = [
       { key: 'all', label: 'Tutto' },
-      { key: '5y', label: '5 anni', months: 60 },
-      { key: '1y', label: '1 anno', months: 12 },
+      { key: '5y', label: '5 anni', years: 5 },
+      { key: '1y', label: '1 anno', years: 1 },
     ];
-    const buttons = variants.map(v => `<button type="button" class="qa-period-btn text-[11px] px-2 py-0.5 rounded-full ${v.key === 'all' ? 'qa-period-active' : ''}" data-key="${v.key}">${v.label}</button>`).join('');
+    const labels = { all: 'assetPeriodAll', '5y': 'assetPeriodFiveYears', '1y': 'assetPeriodOneYear' };
+    const buttons = variants.map(v => `<button type="button" class="qa-period-btn text-[11px] px-2 py-0.5 rounded-full ${v.key === 'all' ? 'qa-period-active' : ''}" data-key="${v.key}">${tCh(labels[v.key], __uiLang)}</button>`).join('');
     const panels = variants.map(v => {
-      const sliced = v.months ? series.slice(-v.months) : series;
-      const chart = sliced.length > 1 ? buildAssetHistoryChart(sliced, yearlyExtremesFn(sliced)) : '<p class="text-[11px] text-slate-500 mt-1.5">Storico insufficiente per questo periodo.</p>';
+      const sliced = v.years ? historyWithinYears(series, v.years) : series;
+      const chart = sliced.length > 1 ? buildAssetHistoryChart(sliced) : `<p class="market-data-state-note">${tCh('assetPeriodInsufficient', __uiLang)}</p>`;
       return `<div class="qa-period-panel" data-key="${v.key}" ${v.key === 'all' ? '' : 'style="display:none"'}>${chart}</div>`;
     }).join('');
     return `<div class="flex gap-1.5 mt-1.5">${buttons}</div>${panels}`;
@@ -22299,27 +22770,37 @@ const initApp = () => {
   // il tocco su mobile. Trova il punto REALE più vicino al dito/cursore
   // (mai un valore interpolato) e lo mostra come testo + pallino + linea
   // guida sull'SVG.
-  function updateHistHover(svg, clientX) {
+  function updateHistPoint(svg, idx) {
     const series = svg.__qaSeries || (svg.__qaSeries = JSON.parse(decodeURIComponent(svg.dataset.series)));
     if (!series.length) return;
     const W = Number(svg.dataset.w), H = Number(svg.dataset.h), PAD = Number(svg.dataset.pad);
-    const rect = svg.getBoundingClientRect();
-    const scaleX = W / rect.width;
-    const localX = (clientX - rect.left) * scaleX;
-    const t = Math.max(0, Math.min(1, (localX - PAD) / (W - PAD * 2)));
-    const idx = Math.round(t * (series.length - 1));
+    idx = Math.max(0, Math.min(series.length - 1, idx));
+    svg.dataset.activeIndex = String(idx);
     const [date, price] = series[idx];
     const prices = series.map(p => p[1]);
     const minP = Math.min(...prices), maxP = Math.max(...prices);
     const span = maxP - minP || 1;
-    const px = PAD + (idx / (series.length - 1)) * (W - PAD * 2);
+    const firstTime = Date.parse(`${series[0][0]}T00:00:00Z`);
+    const lastTime = Date.parse(`${series[series.length - 1][0]}T00:00:00Z`);
+    const currentTime = Date.parse(`${date}T00:00:00Z`);
+    const px = PAD + ((currentTime - firstTime) / (lastTime - firstTime || 1)) * (W - PAD * 2);
     const py = H - PAD - ((price - minP) / span) * (H - PAD * 2);
     const guide = svg.querySelector('.qa-hist-guide');
     const dot = svg.querySelector('.qa-hist-dot');
     guide.setAttribute('x1', px.toFixed(1)); guide.setAttribute('x2', px.toFixed(1)); guide.setAttribute('opacity', '0.5');
     dot.setAttribute('cx', px.toFixed(1)); dot.setAttribute('cy', py.toFixed(1)); dot.setAttribute('opacity', '1');
     const label = svg.closest('.qa-hist-wrap')?.querySelector('.qa-hist-hover-label');
-    if (label) label.textContent = `${date} · ${price.toFixed(2)}`;
+    if (label) label.textContent = `${date} · ${formatHistoryPrice(price, __uiLocale)}`;
+  }
+  function updateHistHover(svg, clientX) {
+    const series = svg.__qaSeries || (svg.__qaSeries = JSON.parse(decodeURIComponent(svg.dataset.series)));
+    if (!series.length) return;
+    const W = Number(svg.dataset.w), PAD = Number(svg.dataset.pad);
+    const rect = svg.getBoundingClientRect();
+    const localX = (clientX - rect.left) * W / rect.width;
+    const t = Math.max(0, Math.min(1, (localX - PAD) / (W - PAD * 2)));
+    const dated = svg.__qaDated || (svg.__qaDated = series.map(([date, price]) => ({ date, price })));
+    updateHistPoint(svg, nearestHistoryIndex(dated, t));
   }
   document.addEventListener('pointermove', (e) => {
     const svg = e.target.closest('.qa-hist-svg');
@@ -22333,6 +22814,15 @@ const initApp = () => {
     svg.querySelector('.qa-hist-guide')?.setAttribute('opacity', '0');
     svg.querySelector('.qa-hist-dot')?.setAttribute('opacity', '0');
   }, true);
+  document.addEventListener('keydown', (e) => {
+    const svg = e.target.closest?.('.qa-hist-svg');
+    if (!svg || !['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+    const series = svg.__qaSeries || (svg.__qaSeries = JSON.parse(decodeURIComponent(svg.dataset.series)));
+    if (!series.length) return;
+    e.preventDefault();
+    const current = Number(svg.dataset.activeIndex ?? series.length - 1);
+    updateHistPoint(svg, e.key === 'Home' ? 0 : e.key === 'End' ? series.length - 1 : current + (e.key === 'ArrowLeft' ? -1 : 1));
+  });
   // Card notizie CONDIVISA (richiesto esplicitamente: unificare invece di
   // duplicare) — usata sia da "Chiedi a Momentum" sia da "Cerca un asset"
   // (Analisi Tensor), stessa identità visiva ovunque. Riassunto reale (mai
@@ -22341,24 +22831,16 @@ const initApp = () => {
   // "Digerire" le notizie invece di solo elencarle: una riga di sintesi
   // calcolata sui punteggi REALI già restituiti da Alpha Vantage (mai un
   // punteggio inventato o passato a un LLM esterno) — quanti articoli hanno
-  // un punteggio vero, la media, l'etichetta prevalente. Se nessun articolo
-  // ha un punteggio reale (Finnhub/Hacker News: 'sconosciuto'), non si mostra
+  // un punteggio fornito dalla fonte o stimato on-device, e su quanti siti.
+  // Se nessun articolo ha un punteggio, non si mostra
   // una sintesi finta.
   function summarizeNewsSentiment(items) {
-    const scored = (items || []).filter(n => Number.isFinite(n.sentimentScore));
-    if (!scored.length) return null;
-    const avg = scored.reduce((s, n) => s + n.sentimentScore, 0) / scored.length;
-    const label = avg >= 0.35 ? 'bullish' : avg >= 0.15 ? 'somewhat-bullish' : avg >= -0.15 ? 'neutral' : avg >= -0.35 ? 'somewhat-bearish' : 'bearish';
-    const labelText = tIntegration(`newsSentiment_${label.replaceAll('-', '_')}`, __uiLang);
-    // Onestà sulla PROVENIENZA: se anche un solo punteggio nella media viene
-    // dal modello on-device (sentimentSource:'on-device', src/ai/local-
-    // sentiment.js) invece che da Alpha Vantage, va detto — un punteggio
-    // stimato localmente da un titolo non ha la stessa affidabilità di un
-    // servizio dedicato con più segnali, e presentarli come indistinguibili
-    // sarebbe suonare più sicuri di quanto si sia.
-    const onDevice = scored.some(n => n.sentimentSource === 'on-device');
-    const nota = onDevice ? tIntegration('newsSentimentDeviceNote', __uiLang) : '';
-    return { avg: +avg.toFixed(3), label, n: scored.length, testo: `${tIntegration('newsSentimentSummary', __uiLang, labelText, avg.toFixed(2), scored.length)}${nota}` };
+    const result = aggregateNewsSentiment((items || []).filter(n => n.currentEvidence));
+    if (!result) return null;
+    const labelText = tIntegration(`newsSentiment_${result.label.replaceAll('-', '_')}`, __uiLang);
+    const nota = `${result.onDevice ? tIntegration('newsSentimentDeviceNote', __uiLang) : ''}${result.relayed ? tIntegration('newsSentimentRelayNote', __uiLang) : ''}`;
+    return { avg: result.score, label: result.label, n: result.n,
+      testo: `${tIntegration('newsSentimentSummary', __uiLang, labelText, result.score.toFixed(2), result.n, result.sourceCount)}${nota}` };
   }
   function buildNewsItemsHtml(items) {
     const labelColor = { bullish: 'text-emerald-300', 'somewhat-bullish': 'text-emerald-200', neutral: 'text-[var(--on-surface-secondary)]', 'somewhat-bearish': 'text-amber-300', bearish: 'text-rose-300', sconosciuto: 'text-slate-500' };
@@ -22366,20 +22848,30 @@ const initApp = () => {
     const safeNewsUrl = (raw) => { try { const u = new URL(raw); return /^https?:$/.test(u.protocol) ? escNews(u.href) : '#'; } catch (_) { return '#'; } };
     const synth = summarizeNewsSentiment(items);
     const synthHtml = synth ? `<p class="text-[11px] font-semibold ${labelColor[synth.label]} mb-1">${escNews(synth.testo)}</p>` : '';
-    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">${tIntegration('newsTitle', __uiLang)}</h5>${synthHtml}` : '';
+    const onlyCommunity = items.length && items.every(item => item.sourceType === 'community' || /^Hacker News\b/.test(item.source || ''));
+    const newsHeader = items.length ? `<h5 class="text-[11px] font-bold text-sky-400/80 uppercase tracking-widest mt-2 mb-1">${onlyCommunity ? tCh('marketNewsCommunityTitle', __uiLang) : tIntegration('newsTitle', __uiLang)}</h5>${synthHtml}` : '';
+    const newsDate = (item) => {
+      const raw = item.publishedAt || item.observedAt;
+      if (!raw || !Number.isFinite(Date.parse(raw))) return '';
+      const label = item.observedAt && !item.publishedAt ? 'assetNewsIndexedAt' : 'assetNewsPublishedAt';
+      const formatted = new Intl.DateTimeFormat(__uiLocale, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(raw));
+      return ` · ${tCh(label, __uiLang)} ${escNews(formatted)}`;
+    };
     const itemsHtml = items.map(n => `
       <a href="${safeNewsUrl(n.url)}" target="_blank" rel="noopener" class="block rounded-lg px-2.5 py-2 mb-1.5 hover:bg-white/5 transition-colors" style="background:rgba(255,255,255,0.03)">
         <div class="flex items-start gap-1.5">
           <span class="${labelColor[n.sentimentLabel] || 'text-[var(--on-surface-secondary)]'} mt-0.5 shrink-0">●</span>
           <div class="min-w-0">
             <div class="font-semibold leading-snug">${escNews(n.title)}</div>
-            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}${n.corroborationCount > 1 ? ` · ${tIntegration('newsOtherSources', __uiLang, n.corroborationCount - 1)}` : ''}${n.sentimentSource === 'on-device' ? ` · ${tIntegration('newsOnDevice', __uiLang)}` : ''}</div>
+            <div class="text-slate-500 text-[11px] mt-0.5">${escNews(n.source || '')}${newsDate(n)}${n.corroborationCount > 1 ? ` · ${tIntegration('newsOtherSources', __uiLang, n.corroborationCount - 1)}` : ''}${n.sentimentSource === 'on-device' ? ` · ${tIntegration('newsOnDevice', __uiLang)}` : ''}</div>
             ${n.summary ? `<div class="text-[var(--on-surface-secondary)] text-[10px] mt-1 leading-snug">${escNews(n.summary)}</div>` : ''}
           </div>
         </div>
       </a>`
     ).join('');
-    return newsHeader + itemsHtml;
+    const gdeltCredit = items.some((item) => item.sourceType === 'gdelt')
+      ? `<p class="market-news-credit">${tCh('assetNewsGdeltCredit', __uiLang)} <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener noreferrer">GDELT Project ↗</a></p>` : '';
+    return newsHeader + itemsHtml + gdeltCredit;
   }
   // Riassunto delle notizie via LLM esterno, OPT-IN (bottone, mai
   // automatico, mai in background): manda SOLO titoli/fonte/riassunto già
@@ -22529,10 +23021,35 @@ const initApp = () => {
         items = r.items || []; stale = r.stale;
       } catch (_) { /* onesto: niente notizie, il resto continua comunque */ }
     }
-    // Piano B SENZA ALCUNA CHIAVE (Hacker News) — funziona sempre, anche
-    // per chi non ha configurato nulla. Discussioni tech reali, non un
-    // sentiment (dichiarato onestamente "sconosciuto").
-    if (!items.length) {
+    // Crypto: publisher RSS, only linked headlines with a real timestamp.
+    if (!items.length && asset.kind === 'crypto') {
+      try {
+        const { fetchCoinDeskCryptoNews } = await import('./alpha/news.js');
+        const r = await fetchCoinDeskCryptoNews(asset.name || asset.id, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* GDELT and community fallback remain available */ }
+    }
+    // GDELT: notizie aziendali pubbliche senza chiave. Il pannello SEC
+    // risolve i ticker noti quando una posizione contiene solo il simbolo.
+    // Se il servizio non risponde, il percorso esistente continua.
+    // An ETF is a fund, not an operating company. A company-name query for
+    // its brand is slow and often returns unrelated issuer headlines; use
+    // the external fund source plus official macro context instead.
+    if (!items.length && asset.instrumentType !== 'etf') {
+      try {
+        let companyName = asset.name;
+        if (asset.kind === 'stock' && (!companyName || companyName.toUpperCase() === asset.symbol)) {
+          const { secCompanyNameForTicker } = await import('./alpha/sec-catalog.js');
+          companyName = secCompanyNameForTicker(asset.symbol) || companyName;
+        }
+        const { fetchGdeltCompanyNews } = await import('./alpha/news.js');
+        const r = await fetchGdeltCompanyNews(companyName, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
+        items = r.items || []; stale = r.stale;
+      } catch (_) { /* nessuna notizia inventata se la fonte manca */ }
+    }
+    // Ultimo piano senza chiave: discussioni Hacker News, mai chiamate
+    // articoli finanziari certificati.
+    if (!items.length && asset.instrumentType !== 'etf') {
       try {
         const { fetchHackerNewsMentions } = await import('./alpha/news.js');
         const r = await fetchHackerNewsMentions(asset.name || asset.symbol, { cache: assetSearchCache, limit: 4, fetchImpl: fetch.bind(window) });
@@ -22541,8 +23058,10 @@ const initApp = () => {
     }
     if (items.length) {
       try {
-        const { consolidateNewsItems } = await import('./alpha/news.js');
-        items = consolidateNewsItems(items, { limit: 6 });
+        const { consolidateNewsItems, isFreshNewsEvidence } = await import('./alpha/news.js');
+        items = consolidateNewsItems(items, { limit: 6 }).map((item) => ({
+          ...item, staleSource: Boolean(stale), currentEvidence: !stale && isFreshNewsEvidence(item),
+        }));
       } catch (_) { /* il feed originale resta utilizzabile */ }
     }
     // Ultimo fallback (grounding Gemini): se non ci sono notizie reali E
@@ -22575,14 +23094,14 @@ const initApp = () => {
     // locale: la mesh, non il download, diventa la porta d'accesso.
     if (items.length && VaultDAO.state.sentimentRelay) {
       try {
-        const { bestKnownSentiment } = await import('./mesh/sentiment-relay.js');
+        const { bestCorroboratedSentiment } = await import('./mesh/sentiment-relay.js');
         for (const item of items) {
-          if (Number.isFinite(item.sentimentScore) || !item.title) continue;
-          const trovato = bestKnownSentiment(VaultDAO.state.sentimentRelay, item.title);
+          if (!item.currentEvidence || Number.isFinite(item.sentimentScore) || !item.title) continue;
+          const trovato = bestCorroboratedSentiment(VaultDAO.state.sentimentRelay, item.title);
           if (trovato) {
             item.sentimentScore = trovato.score;
             item.sentimentLabel = trovato.label;
-            item.sentimentSource = trovato.affidabile ? 'relay-mesh' : 'relay-mesh (un solo peer, non ancora corroborato)';
+            item.sentimentSource = 'relay-mesh';
           }
         }
       } catch (_) { /* onesto: niente dalla mesh, il resto continua comunque */ }
@@ -22604,8 +23123,9 @@ const initApp = () => {
     if (items.length && VaultDAO.state.sentimentOptIn && window.momentumDeviceProfile?.simd) {
       try {
         const { arricchisciConSentimentLocale } = await import('./ai/local-sentiment.js');
-        const primaDiCalcolare = items.filter((i) => !Number.isFinite(i.sentimentScore) && i.title).map((i) => i.title);
-        items = await arricchisciConSentimentLocale(items, { limite: 6 });
+        const recentItems = items.filter((i) => i.currentEvidence);
+        const primaDiCalcolare = recentItems.filter((i) => !Number.isFinite(i.sentimentScore) && i.title).map((i) => i.title);
+        await arricchisciConSentimentLocale(recentItems, { limite: 6 });
         const neCalcolatiOra = items.filter((i) => i.sentimentSource === 'on-device' && primaDiCalcolare.includes(i.title)).length;
         if (neCalcolatiOra) { VaultDAO.state.sentimentLocaleCount = (VaultDAO.state.sentimentLocaleCount || 0) + neCalcolatiOra; controllaTraguardi(); }
         // Quello che ABBIAMO appena calcolato noi (non quello arrivato dalla
@@ -22633,7 +23153,7 @@ const initApp = () => {
   window.buildNewsItemsHtml = buildNewsItemsHtml;
   async function fetchAssetHistoryData(asset) {
     const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
-    let yoyNote = null, historyChart = '', multiYearNote = null, trackRecordHtml = '', priceSeries = null;
+    let yoyNote = null, historyChart = '', multiYearNote = null, trackRecordHtml = '', priceSeries = null, proxySource = null, historyMeta = null;
     // Sullo STESSO storico reale già scaricato (mai una serie a parte),
     // src/alpha/asset-track-record.js applica il vaglio scientifico
     // (Sharpe deflazionato + Munger): risponde a "questo rendimento è
@@ -22644,34 +23164,41 @@ const initApp = () => {
         const { assessTrackRecord } = await import('./alpha/asset-track-record.js');
         const r = assessTrackRecord(series, { label: asset.name || asset.symbol });
         if (!r.disponibile) return '';
-        const tono = r.verdetto === 'solido' ? 'text-emerald-300' : r.verdetto === 'probabile-fortuna' ? 'text-amber-300' : 'text-[var(--on-surface-secondary)]';
-        const conc = r.concentrazione ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-0.5">${escapeHtml(r.concentrazione.messaggio)}</p>` : '';
-        return `<div class="mt-1.5 p-2 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)]">
-          <p class="text-[10px] font-bold ${tono}">${escapeHtml(r.messaggio)}</p>${conc}
+        const reading = r.verdetto === 'solido' ? 'assetTrackSampleStrong'
+          : r.verdetto === 'probabile-fortuna' ? 'assetTrackSampleFragile' : 'assetTrackSampleUncertain';
+        const concentration = r.concentrazione?.evitandoIPeggiori > r.concentrazione?.mancandoIMigliori
+          ? 'assetTrackDownside' : 'assetTrackOutliers';
+        return `<div class="market-history-assessment" data-state="${r.verdetto === 'solido' ? 'strong' : r.verdetto === 'probabile-fortuna' ? 'fragile' : 'uncertain'}">
+          <span>${tCh('assetTrackReading', __uiLang)}</span>
+          <strong>${tCh(reading, __uiLang)}</strong>
+          <details><summary>${tCh('assetTrackWhy', __uiLang)}</summary><p>${tCh('assetTrackSampleLimit', __uiLang, r.periodi)}</p>${r.concentrazione ? `<p>${tCh(concentration, __uiLang)}</p>` : ''}</details>
         </div>`;
       } catch (_) { return ''; }
     };
     if (asset.kind === 'crypto') {
       try {
         const { fetchLiveCryptoPrice } = await import('./alpha/live-price.js');
-        const { fetchCryptoPriceYearsAgo, describeYoyChange, yearlyExtremes, fetchCryptoMultiYearComparison, fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
+        const { fetchCryptoPriceYearsAgo, describeYoyChange, fetchCryptoMultiYearComparison, fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
         // A CASCATA e SENZA CHIAVE (richiesto esplicitamente): Binance
         // (nessuna registrazione, storico reale di anni) prima, CoinGecko
         // (limitato a 365gg sul piano gratuito) come piano B se il
         // simbolo non è quotato su Binance.
-        const [live, past, { series }, multiYear] = await Promise.all([
-          fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
-          fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
-          fetchCryptoHistoryCascade(asset.id, asset.symbol, { fetchImpl: fetch.bind(window) }),
-          fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
-        ]);
+        const { collectCryptoHistoryEvidence } = await import('./alpha/independent-history.js');
+        const { live, past, series, multiYear, source, currency, pair } = await collectCryptoHistoryEvidence({
+          livePrice: () => fetchLiveCryptoPrice(asset.id, { fetchImpl: fetch.bind(window) }),
+          yearAgo: () => fetchCryptoPriceYearsAgo(asset.id, { yearsAgo: 1, fetchImpl: fetch.bind(window) }),
+          history: () => fetchCryptoHistoryCascade(asset.id, asset.symbol, { fetchImpl: fetch.bind(window) }),
+          multiYear: () => fetchCryptoMultiYearComparison(asset.id, { yearsList: [2, 3, 5], fetchImpl: fetch.bind(window) }),
+        });
         yoyNote = describeYoyChange(live?.price, past, { yearsAgo: 1 });
-        if (series.length > 1) historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+        if (series.length > 1) {
+          historyChart = buildAssetHistoryChartWithPeriods(series);
+          historyMeta = { ...historyCoverage(series), source: source === 'binance' ? `Binance ${pair}` : source === 'bitstamp' ? `Bitstamp ${pair}` : 'CoinGecko', currency, provisional: source === 'binance' && series.at(-1).date === new Date().toISOString().slice(0, 10) };
+        }
         trackRecordHtml = await buildTrackRecord(series);
         priceSeries = series;
-        // Punti reali a 2/3/5 anni (mai una linea continua fabbricata:
-        // CoinGecko gratuito limita la serie a 365gg, ma il singolo punto
-        // storico non ha questo limite — dati veri, non un grafico finto).
+        // Punti reali a 2/3/5 anni, solo se il piano CoinGecko li restituisce;
+        // mai una linea continua fabbricata fra osservazioni isolate.
         if (Number.isFinite(live?.price) && multiYear.length) {
           multiYearNote = multiYear.map(({ yearsAgo, point }) => {
             const pct = ((live.price - point.price) / point.price) * 100;
@@ -22687,13 +23214,14 @@ const initApp = () => {
       // singoli. Segnalato dall'utente: "non accade solo con Nvidia" —
       // vale per ogni azione/ETF. A CASCATA (richiesta esplicita): mai
       // dipendere da un solo provider, l'utente porta le proprie chiavi.
-      let series = [];
+      let series = [], historySource = null, historyCurrency = null;
       const keys = VaultDAO.state.liveDataKeys || {};
       if (apiKey || keys.twelvedata || keys.fmp) {
         try {
           const { fetchStockMonthlySeriesCascade } = await import('./alpha/stock-history.js');
           const r = await fetchStockMonthlySeriesCascade(asset.symbol, { keys, fetchImpl: fetch.bind(window) });
           series = r.series;
+          historySource = { alphavantage: 'Alpha Vantage', twelvedata: 'Twelve Data', fmp: 'Financial Modeling Prep' }[r.provider] || null;
         } catch (_) { /* onesto: prosegue sotto sul piano B senza chiave */ }
       }
       // PIANO B SENZA ALCUNA CHIAVE (trovato dal vivo 2026-08-30, richiesto
@@ -22712,32 +23240,39 @@ const initApp = () => {
           if (proxy) {
             const { fetchCryptoHistoryCascade } = await import('./alpha/year-over-year.js');
             const r = await fetchCryptoHistoryCascade(proxy.id, proxy.symbol, { fetchImpl: fetch.bind(window) });
-            if (r.series.length > 1) { series = r.series; fonteProxy = proxy; }
+            if (r.series.length > 1) {
+              series = r.series; fonteProxy = proxy;
+              historySource = r.source === 'binance' ? `Binance ${r.pair}` : r.source === 'bitstamp' ? `Bitstamp ${r.pair}` : 'CoinGecko';
+              historyCurrency = r.currency;
+            }
           }
         } catch (_) { /* onesto: niente storico, il resto continua comunque */ }
       }
       if (series.length > 1) {
         try {
           const { describeStockYearsAgo } = await import('./alpha/stock-history.js');
-          const { yearlyExtremes } = await import('./alpha/year-over-year.js');
           const current = series[series.length - 1].price;
           yoyNote = describeStockYearsAgo(series, 1, current);
-          historyChart = buildAssetHistoryChartWithPeriods(series, yearlyExtremes);
+          historyChart = buildAssetHistoryChartWithPeriods(series);
+          historyMeta = { ...historyCoverage(series), source: historySource || '', currency: historyCurrency, rawClose: !fonteProxy };
           trackRecordHtml = await buildTrackRecord(series);
           const points = [2, 3, 5].map(y => ({ y, note: describeStockYearsAgo(series, y, current) })).filter(p => p.note);
           if (points.length) multiYearNote = points.map(p => p.note).join(' ');
-          priceSeries = series;
+          // A tokenized proxy can illustrate history, but cannot validate
+          // a divergence between company news and its listed share price.
+          priceSeries = fonteProxy ? null : series;
           // ONESTÀ: un token tokenizzato traccia da vicino il titolo reale
           // ma non è il titolo quotato in borsa — dichiarato SEMPRE quando
           // questa è la fonte usata, mai spacciato per il prezzo esatto.
           if (fonteProxy) {
+            proxySource = fonteProxy.name;
             const nota = `Storico da un proxy tokenizzato (${fonteProxy.name}, nessuna chiave richiesta): traccia da vicino ${asset.symbol} ma non è il prezzo esatto del titolo in borsa.`;
             multiYearNote = multiYearNote ? `${multiYearNote} ${nota}` : nota;
           }
         } catch (_) { /* onesto: niente confronto storico, il resto continua comunque */ }
       }
     }
-    return { yoyNote, historyChart, multiYearNote, trackRecordHtml, priceSeries };
+    return { yoyNote, historyChart, multiYearNote, trackRecordHtml, priceSeries, proxySource, historyMeta };
   }
   window.fetchAssetHistoryData = fetchAssetHistoryData;
   // ── CRIPTO: quante scommesse hai davvero ──
@@ -22876,21 +23411,16 @@ const initApp = () => {
   // confronto-titoli.js...). Riusa SOLO dati già scaricati qui sopra: il
   // sentiment aggregato delle notizie (aggregateNewsSentiment, la stessa
   // funzione che alimenta investmentReadiness) e gli ultimi due punti della
-  // serie prezzi già in mano (mai una richiesta di rete in più). La finestra
-  // dichiarata è quella VERA tra le due date reali della serie — mensile per
-  // le azioni, giornaliera per le cripto — mai un numero assunto a caso.
+  // serie prezzi già in mano (mai una richiesta di rete in più). Mostra il
+  // confronto solo con prezzi recenti e notizie pubblicate nella medesima
+  // finestra; altrimenti si astiene, senza costruire una causalità fittizia.
   async function buildSentimentDivergenceHtml(items, priceSeries) {
     try {
-      if (!items?.length || !priceSeries || priceSeries.length < 2) return '';
-      const { aggregateNewsSentiment } = await import('./ai/reasoning-fusion.js');
-      const { divergenzaSentimentPrezzo } = await import('./alpha/sentiment-divergence.js');
-      const sentiment = aggregateNewsSentiment(items);
-      if (!sentiment) return '';
-      const prev = priceSeries[priceSeries.length - 2], last = priceSeries[priceSeries.length - 1];
-      if (!(prev.price > 0)) return '';
-      const variazionePrezzo = (last.price - prev.price) / prev.price;
-      const finestraGiorni = Math.max(1, Math.round((new Date(last.date) - new Date(prev.date)) / 86_400_000));
-      const r = divergenzaSentimentPrezzo({ sentiment, variazionePrezzo, finestraGiorni });
+      if (!items?.length) return '';
+      const { prepareSentimentPriceEvidence, divergenzaSentimentPrezzo } = await import('./alpha/sentiment-divergence.js');
+      const evidence = prepareSentimentPriceEvidence(items, priceSeries);
+      if (!evidence) return '';
+      const r = divergenzaSentimentPrezzo(evidence);
       if (!r.valido) return '';
       const tono = r.divergente ? 'border-amber-500/25 bg-amber-950/10 text-amber-200' : 'border-emerald-500/25 bg-emerald-950/10 text-emerald-200';
       return `<div class="mt-1.5 p-2 rounded-lg border ${tono}">
@@ -24482,7 +25012,7 @@ async function initMomentumRealAI() {
             if (kind === 'crypto') {
               const { price } = await fetchLiveCryptoPrice(symbol.toLowerCase());
               live[symbol] = price;
-            } else if (VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
+            } else if (VaultDAO.state.liveDataKeys?.finnhub || VaultDAO.state.liveDataKeys?.alphavantage || VaultDAO.state.liveDataKeys?.twelvedata) {
               const { price } = await fetchConfiguredStockPrice(symbol, { keys: VaultDAO.state.liveDataKeys });
               live[symbol] = price;
             }

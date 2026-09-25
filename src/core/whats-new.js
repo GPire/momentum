@@ -662,6 +662,40 @@ RELEASES.push({
   versione: '2026-09-24e',
   voci: [{ colore: 'primary', icona: '<path d="M3 17l6-6 4 3 8-9"/><path d="M3 21h18"/>', titolo: 'Investimenti senza passaggi inutili', testo: 'Il Vault distingue ciò che funziona subito dalle fonti facoltative. Nella ricerca titoli usa anche Twelve Data e FMP se li hai collegati; per le quotazioni prova Twelve Data quando Alpha Vantage non risponde.', titoloKey: 'marketKeysFixTitle', testoKey: 'marketKeysFixBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-24f',
+  voci: [{ colore: 'gold', icona: '<circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2 2 3 5 3 8s-1 6-3 8c-2-2-3-5-3-8s1-6 3-8Z"/>', titolo: 'Bilanci da esplorare senza chiavi', testo: 'Nella ricerca trovi più società dell’archivio SEC anche senza una chiave. Apri i conti annuali con anno e data visibili; le quotazioni recenti restano separate e le fonti facoltative si collegano nello stesso punto.', titoloKey: 'marketSecReleaseTitle', testoKey: 'marketSecReleaseBody' }],
+});
+RELEASES.push({
+  versione: '2026-09-25',
+  voci: [{ colore: 'primary', icona: '<path d="M4 6h16M4 12h16M4 18h10"/><circle cx="19" cy="18" r="2"/>', titolo: 'Fonti di mercato più chiare', testo: 'La ricerca riconosce ETF comuni e prova documenti SEC, articoli indicizzati e titoli editoriali cripto senza chiavi. Ogni fonte indica la propria data; le discussioni restano separate dalle notizie. Se una fonte non risponde, non inventiamo dati.', titoloKey: 'marketSourcesReleaseTitle', testoKey: 'marketSourcesReleaseBody' }],
+});
+RELEASES.push({
+  versione: '2026-09-25b',
+  voci: [
+    { colore: 'gold', icona: '<circle cx="12" cy="12" r="9"/><path d="M4 12h16M12 3c2 2 3 5 3 9s-1 7-3 9c-2-2-3-5-3-9s1-7 3-9Z"/>', titolo: 'Il contesto di mercato, dalle fonti ufficiali', testo: 'Nella ricerca di un asset trovi i comunicati recenti di Fed e BCE accanto alle fonti sulla società. I documenti SEC ora spiegano anche cosa significa 8-K, 10-Q e 10-K.', titoloKey: 'marketMacroReleaseTitle', testoKey: 'marketMacroReleaseBody' },
+    { colore: 'primary', icona: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8m-4-4v8"/>', titolo: 'Cripto trovate anche senza rete', testo: 'Bitcoin, Ethereum e altre cripto note si possono aprire anche se la ricerca online non risponde. Prezzi e notizie restano separati e compaiono solo dalle fonti disponibili.', titoloKey: 'marketCryptoOfflineTitle', testoKey: 'marketCryptoOfflineBody' },
+  ],
+});
+RELEASES.push({
+  versione: '2026-09-25c',
+  voci: [
+    { colore: 'primary', icona: '<path d="M4 4h16v16H4z"/><path d="M7 15l3-3 2 2 5-5"/>', titolo: 'Un trimestre verificabile nella ricerca', testo: 'Per le società coperte dalla SEC, la scheda mostra ricavi e utile dell’ultimo trimestre disponibile con periodo, deposito e documento originale. Resta distinto dal bilancio annuale.', titoloKey: 'researchQuarterReleaseTitle', testoKey: 'researchQuarterReleaseBody' },
+    { colore: 'gold', icona: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>', titolo: 'Prima di decidere, controlla le fonti', testo: 'La scheda distingue prezzo datato, documenti e notizie recenti. Le discussioni online non alimentano più il sentiment dei modelli come se fossero notizie.', titoloKey: 'researchGateReleaseTitle', testoKey: 'researchGateReleaseBody' },
+  ],
+});
+RELEASES.push({
+  versione: '2026-09-25d',
+  voci: [{ colore: 'gold', icona: '<circle cx="12" cy="12" r="9"/><path d="M4 12h16M12 4v16"/>', titolo: 'Investimenti più facili da esplorare', testo: 'Budget, categorie e calendario sono più facili da leggere. La ricerca mostra quando sta lavorando e ogni asset spiega che cosa rappresenta. Il grafico indica gli estremi del periodo disponibile con date e limiti chiari.', titoloKey: 'investmentClarityReleaseTitle', testoKey: 'investmentClarityReleaseBody' }],
+});
+RELEASES.push({
+  versione: '2026-09-25e',
+  voci: [{ colore: 'primary', icona: '<circle cx="12" cy="12" r="8"/><path d="M8 9h8M8 13h6M8 17h4"/>', titolo: 'Che cosa fa davvero un asset', testo: 'La scheda cerca una descrizione specifica e indica la fonte, lasciando separati identità, bilanci e prezzi.', titoloKey: 'assetDescriptionReleaseTitle', testoKey: 'assetDescriptionReleaseBody' }],
+});
+RELEASES.push({
+  versione: '2026-09-25f',
+  voci: [{ colore: 'gold', icona: '<path d="M3 18 8 12l4 3 5-9 4 3"/><path d="M3 21h18"/>', titolo: 'Storici più lunghi, con limiti visibili', testo: 'Le cripto cercano più anni di prezzi reali; azioni ed ETF scelgono la serie più estesa e recente fra le fonti collegate. Il grafico usa date vere e lascia visibili i vuoti. Puoi consultare separatamente il grafico esterno del titolo.', titoloKey: 'assetHistoryReleaseTitle', testoKey: 'assetHistoryReleaseBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

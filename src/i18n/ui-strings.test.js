@@ -37,14 +37,15 @@ test('resolveUiLanguage: nessun dato disponibile -> fallback inglese', () => {
 });
 
 test('resolveUiLanguage: chiamata SENZA argomenti (come fa main.js: resolveUiLanguage()) legge il navigator VERO del browser — bug reale trovato dal vivo (2026-08-29): il default navigatorLike=null passava null a detectDeviceLanguage, che con null esplicito (mai undefined) non ripiegava mai sul navigator reale, quindi l\'app mostrava sempre inglese a prescindere dal dispositivo', () => {
-  const realNavigator = globalThis.navigator;
+  const realNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
   try {
-    globalThis.navigator = { language: 'it-IT', languages: ['it-IT'] };
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { language: 'it-IT', languages: ['it-IT'] } });
     assert.equal(resolveUiLanguage(), 'it', 'con navigator reale in italiano, resolveUiLanguage() senza argomenti deve restituire "it", non ripiegare su "en"');
-    globalThis.navigator = { language: 'de-CH', languages: ['de-CH'] };
+    Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { language: 'de-CH', languages: ['de-CH'] } });
     assert.equal(resolveUiLanguage(), 'de');
   } finally {
-    globalThis.navigator = realNavigator;
+    if (realNavigator) Object.defineProperty(globalThis, 'navigator', realNavigator);
+    else delete globalThis.navigator;
   }
 });
 
@@ -1090,5 +1091,65 @@ test('efficient Vault storage is explained in all seven languages', () => {
     for (const key of ['storageEfficientTitle', 'storageEfficientBody']) {
       assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
     }
+  }
+});
+
+test('asset news provenance and alert controls are translated in all seven languages', () => {
+  const keys = ['assetNewsUnavailable', 'assetNewsCached', 'assetNewsIndexedAt', 'assetNewsPublishedAt', 'assetNewsGdeltCredit',
+    'assetAlertDirection', 'assetAlertAbove', 'assetAlertBelow', 'assetAlertThreshold',
+    'assetAlertAction', 'assetFollowAction', 'marketMacroTitle', 'marketMacroContextNote',
+    'marketMacroViaRelay', 'marketSecEvent', 'marketSecQuarter', 'marketSecYear',
+    'marketMacroReleaseTitle', 'marketMacroReleaseBody', 'marketCryptoOfflineTitle', 'marketCryptoOfflineBody'];
+  for (const lang of UI_LANGS) {
+    for (const key of keys) assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    assert.match(t('marketHistoryTokenProxy', lang, 'AAPLx', 'AAPL'), /AAPLx.*AAPL/);
+  }
+});
+
+test('investment search and reserve path have labels in every UI language', () => {
+  const keys = ['investmentContextTitle', 'investmentContextIntro', 'investmentSectorChoiceHint', 'investmentOfficialChoiceHint', 'assetSearchMoreOptions', 'assetKindStock',
+    'assetKindCrypto', 'assetSearchFirstResult', 'assetChangeResult', 'assetExploreAccounts', 'assetExploreNews',
+    'assetExploreHistory', 'assetExploreAlerts', 'investEditReserve', 'investSetReserve', 'investReserveTitle',
+    'investReserveHint', 'investReserveLabel', 'investReserveLocal', 'investReserveInvalid', 'investReserveSaved',
+    'investSectorMeasure', 'assetComparePeers', 'assetCryptoPositioning', 'investmentOfficialSources',
+    'investmentPublicRelay', 'investNeedExpenses', 'investmentClarityReleaseTitle', 'investmentClarityReleaseBody',
+    'assetIdentityLoading', 'assetDescriptionReleaseTitle', 'assetDescriptionReleaseBody',
+    'assetHistoryLoading', 'assetHistoryMissingTitle', 'assetHistoryMissingStock', 'assetHistoryMissingCrypto',
+    'assetHistoryRetry', 'assetHistoryExternalLabel', 'assetHistoryExternalLimit', 'assetExploreComparisons',
+    'assetExploreCryptoProfile', 'assetCryptoProfileMissing', 'assetAccountsMissing', 'assetPeriodAll',
+    'assetPeriodFiveYears', 'assetPeriodOneYear', 'assetPeriodInsufficient',
+    'assetHistoryCoverageTitle', 'assetHistoryCoverageLimit', 'assetHistoryStale', 'assetHistoryUsdtNote', 'assetHistoryUsdNote', 'assetHistoryRawClose', 'assetHistoryProvisional',
+    'assetHistoryReleaseTitle', 'assetHistoryReleaseBody', 'netWorthNeedsData',
+    'dataAddMovement', 'activityAddMovement', 'analysisDemoTitle', 'analysisDemoBody',
+    'spendingDataMissingTitle', 'spendingDataMissingBody', 'wealthDataMissingTitle', 'wealthDataMissingBody',
+    'assetSearchNoResultTitle', 'assetSearchFailedTitle',
+    'assetSearchRetry', 'assetNewsRetry', 'assetQuoteUnavailableTitle', 'assetQuoteUnavailableHelp',
+    'assetSearchLoading', 'assetSearchPartialReady', 'assetSearchNeedsQuery', 'assetSearchOtherSourcesUnavailable',
+    'assetIdentityTitle', 'assetIdentityStock', 'assetIdentitySecSector', 'assetIdentityStockUnknown',
+    'assetIdentityEtf', 'assetIdentityBitcoinEtp', 'assetIdentityFundFocus', 'assetIdentityFundUnknown',
+    'assetIdentityCrypto', 'assetIdentityTokenizedStock', 'assetIdentityCryptoSource',
+    'assetIdentityCryptoUnknown', 'assetIdentityIssuer', 'assetIdentityPlainActivity'];
+  for (const lang of UI_LANGS) {
+    for (const key of keys) assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    for (const activity of ['semiconductors','software','banking','retail','hardware']) {
+      assert.ok(t('assetIdentityActivities', lang)?.[activity], `${lang}: ${activity}`);
+    }
+    assert.match(t('assetSearchOtherResults', lang, 4), /4/);
+    assert.match(t('investMoreSectors', lang, 5), /5/);
+    assert.match(t('assetHistoryGaps', lang, 3), /3/);
+  }
+});
+
+test('spending overview and measured market history stay clear in seven languages', () => {
+  const keys = ['analysisSpentThisMonth','analysisBudgetSet','analysisBudgetLeft','analysisBudgetOver',
+    'analysisBudgetNoLimitHelp','analysisNoExpenseDays','assetHistoryMeasured','assetHistoryVisibleHigh',
+    'assetHistoryVisibleLow','assetHistoryLastVsHigh','assetHistoryChartLabel','assetHistoryExplore',
+    'assetHistoryHowToRead','assetHistoryMeasuredLimit','assetTrackReading','assetTrackSampleStrong',
+    'assetTrackSampleFragile','assetTrackSampleUncertain','assetTrackWhy','assetTrackDownside','assetTrackOutliers'];
+  for (const lang of UI_LANGS) {
+    for (const key of keys) assert.ok(t(key, lang) && t(key, lang) !== key, `${lang}: ${key}`);
+    assert.match(t('analysisDaysWithExpenses', lang, 3), /3/);
+    assert.match(t('analysisHighestDay', lang, 9, '42 €'), /9.*42/);
+    assert.match(t('assetTrackSampleLimit', lang, 12), /12/);
   }
 });

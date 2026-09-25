@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Market data display</title>
+  <style>
+    html,body{margin:0;min-width:0;background:transparent;color:#aeb6ca;font:12px system-ui,sans-serif}
+    .tradingview-widget-container,.tradingview-widget-container__widget{width:100%;min-width:0}
+    body.chart-view,body.chart-view #view{height:100%}
+    body.chart-view .tradingview-widget-container__widget{height:calc(100% - 22px)}
+    .error{padding:16px;line-height:1.5}
+    a{color:#a5a8ff}
+  </style>
+</head>
+<body>
+  <div id="view" class="tradingview-widget-container"></div>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const symbol = params.get('symbol') || '';
+      const kind = ['news','chart'].includes(params.get('kind')) ? params.get('kind') : 'quote';
+      if (kind === 'chart') document.body.classList.add('chart-view');
+      const language = params.get('lang') || 'en';
+      const locale = ['it','en','de','fr','es','nl','pt'].includes(language) ? language : 'en';
+      const host = document.getElementById('view');
+      if (!/^[A-Za-z0-9._^:-]{1,24}$/.test(symbol)) {
+        host.textContent = 'Market symbol unavailable.';
+        return;
+      }
+      const widget = document.createElement('div');
+      widget.className = 'tradingview-widget-container__widget';
+      host.append(widget);
+      const link = document.createElement('a');
+      link.href = 'https://www.tradingview.com/symbols/' + encodeURIComponent(symbol) + '/';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer nofollow';
+      link.textContent = 'TradingView';
+      host.append(link);
+      const base = {symbol, colorTheme: params.get('theme') === 'light' ? 'light' : 'dark', isTransparent: true, locale, width: '100%'};
+      const options = kind === 'news' ? {...base, feedMode:'symbol', displayMode:'adaptive', height:340}
+        : kind === 'chart' ? {symbol, autosize:true, interval:'D', timezone:'Etc/UTC', theme:params.get('theme') === 'light' ? 'light' : 'dark', style:'1', locale, withdateranges:true, allow_symbol_change:true, calendar:false, support_host:'https://www.tradingview.com'} : base;
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = kind === 'news'
+        ? 'https://s3.tradingview.com/external-embedding/embed-widget-timeline.js'
+        : kind === 'chart' ? 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
+        : 'https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js';
+      script.textContent = JSON.stringify(options);
+      script.onerror = () => { widget.textContent = 'Market display unavailable.'; };
+      host.append(script);
+    })();
+  </script>
+</body>
+</html>

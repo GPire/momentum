@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchCryptoOverview, fetchStockOverview, fetchAssetOverview } from './asset-overview.js';
+import { fetchCryptoOverview, fetchStockOverview, fetchAssetOverview, visibleCryptoCategories } from './asset-overview.js';
+
+test('CoinGecko tags are not blindly presented as a Bitcoin taxonomy', () => {
+  assert.equal(visibleCryptoCategories(['Smart Contract Platform', 'Layer 1', 'FTX Holdings', 'Cryptocurrency'], 'bitcoin'), 'Cryptocurrency');
+  assert.equal(visibleCryptoCategories(['Smart Contract Platform', 'Layer 1'], 'ethereum'), 'Smart Contract Platform, Layer 1');
+  assert.equal(visibleCryptoCategories(null, 'bitcoin'), null);
+});
 
 test('fetchCryptoOverview: forma reale CoinGecko → riassunto ripulito da HTML, troncato', async () => {
   const fetchImpl = async () => ({ ok: true, json: async () => ({

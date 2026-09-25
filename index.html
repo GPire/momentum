@@ -3525,7 +3525,8 @@
     }
     .cal-giorno.is-vuoto:active .cal-giorno-plus-badge { transform: scale(.85); transition-duration: .12s; }
     @media (prefers-reduced-motion: reduce) {
-      .cal-giorno { transition: none; }
+      .cal-giorno { transition: none; opacity: 1; transform: none; }
+      .cal-giorno.cal-futuro { opacity: .45; }
       .cal-giorno.cal-oggi::before { animation: none; }
       .cal-giorno-plus-badge, .cal-giorno-plus-badge::before { animation: none; }
       .cal-giorno-plus-badge { opacity: .95; transform: none; }
@@ -5040,6 +5041,7 @@
           <!-- ANALISI TENSOR VIEW -->
           <div id="analysis-view" class="hidden w-full flex-grow min-w-0 space-y-6 sm:space-y-10 animate-slideUpFade">
             <header class="cosmos-view-intro"><span class="cosmos-view-orbit" aria-hidden="true"></span><div><h2 data-i18n-key="navAnalysis">Analisi Tensor</h2><p data-i18n-key="alphaSubtitle">Dove vanno i tuoi soldi e come andrà a finire il mese</p></div></header>
+            <div id="analysis-demo-note" class="analysis-demo-note" role="status" hidden><span class="analysis-demo-orbit" aria-hidden="true"><i></i></span><div><strong data-i18n-key="analysisDemoTitle">Stai guardando dati di esempio</strong><p data-i18n-key="analysisDemoBody">Queste spese mostrano come funziona Analisi. La prima spesa vera le sostituisce.</p></div><button type="button" onclick="window.openPrefilledAdd({type:'uscita'})" data-i18n-key="activityAddMovement">Aggiungi una spesa</button></div>
 
             <!-- Vista Essenziale/Completa (2026-09-03) — richiesta esplicita:
                  troppe card istituzionali (Value at Risk, Sharpe deflazionato,
@@ -5056,15 +5058,16 @@
                <div class="xl:col-span-1 space-y-6 sm:space-y-8">
                  <!-- Budget card -->
                  <div id="monthly-budget-card" class="card p-6 finance-detail-card">
-                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg><span data-i18n-key="alphaBudgetTitle">Budget del mese</span></h3>
-                   <div class="flex flex-wrap justify-between items-end gap-x-2 gap-y-0 mb-2">
-                     <p class="text-3xl font-black font-mono tracking-tighter min-w-0 truncate" id="budget-spent">€0</p>
-                     <p class="text-xs font-bold text-[var(--on-surface-secondary)] shrink-0" id="budget-limit">su €0</p>
+                   <h3 class="eyebrow"><span class="budget-orbit-mark" aria-hidden="true"></span><span data-i18n-key="alphaBudgetTitle">Budget del mese</span></h3>
+                   <div class="budget-reading">
+                     <div><span class="budget-reading-label" data-i18n-key="analysisSpentThisMonth">Speso questo mese</span><p id="budget-spent">€0</p></div>
+                     <div class="budget-position" id="budget-position"><span id="budget-limit">Nessun limite impostato</span><strong id="budget-remaining" hidden></strong></div>
                    </div>
+                   <p id="budget-next-step" class="budget-next-step"></p>
                    <div class="budget-track">
                      <div id="budget-progress" class="budget-fill" style="width: 0%; background: var(--green);"></div>
                    </div>
-                   <div id="weekly-budget-container" class="mt-4 pt-4 border-t border-[var(--glass-border)]"></div><button type="button" class="finance-card-action" onclick="window.openBudgetEditor()"><span data-i18n-key="alphaBudgetTapHint">tocca per modificare</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 5 5 5M4 20l4-1L20 7l-3-3L5 16z"/></svg></button>
+                   <div id="weekly-budget-container" class="mt-4 pt-4 border-t border-[var(--glass-border)]"></div><button type="button" class="finance-card-action" onclick="window.openBudgetEditor()"><span id="budget-edit-label" data-i18n-key="alphaBudgetTapHint">Modifica budget</span><span class="budget-action-arrow" aria-hidden="true"></span></button>
                  </div>
 
                  <!-- Obiettivi di risparmio (src/predict/engagement.js):
@@ -5083,7 +5086,7 @@
                  <div id="debt-entry-card" class="card p-6 journey-entry-card">
                    <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z"/><path d="M9 7h6M9 11h4"/></svg><h3 class="eyebrow" data-i18n-key="alphaDebtTitle">Debiti e prestiti</h3></div>
                    <p class="card-sub" data-i18n-key="alphaDebtSub">Carta di credito, prestito auto, un prestito fra amici: l'ordine per estinguerli prima, con i numeri di entrambe le strategie.</p>
-                   <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
+                   <button onclick="window.openDebiti()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><span data-i18n-key="alphaDebtBtn">Il mio piano di estinzione</span></button>
                  </div>
 
                  <!-- Commissioni bancarie (src/predict/bank-fees.js, 2026-09-16):
@@ -5095,7 +5098,7 @@
                  <div id="bank-fees-entry-card" class="card p-6 journey-entry-card">
                    <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6M6 10v9M12 10v9M18 10v9"/></svg><h3 class="eyebrow" data-i18n-key="bankFeesTitle">Quanto ti costa la banca</h3></div>
                    <p class="card-sub" data-i18n-key="bankFeesSub">Canoni, commissioni bonifico/prelievo, spese di tenuta conto: rilevate dalle tue transazioni reali, mai da un dato che la banca sceglie di mostrarti.</p>
-                   <button onclick="window.openBankFees()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="9" rx="1"/><path d="M3 10 12 4l9 6"/></svg><span data-i18n-key="bankFeesBtn">Vedi il totale</span></button>
+                   <button onclick="window.openBankFees()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><span data-i18n-key="bankFeesBtn">Vedi il totale</span></button>
                  </div>
 
                  <!-- Trasferte di lavoro (src/trips/trip-engine.js): diverso
@@ -5110,7 +5113,7 @@
                  <div id="trip-entry-card" class="card p-6 journey-entry-card">
                    <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="14" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg><h3 class="eyebrow" data-i18n-key="tripTitle">Trasferte di lavoro</h3></div>
                    <p class="card-sub" data-i18n-key="tripSub">Foto dello scontrino, categoria automatica, riepilogo pronto da consegnare per il rimborso.</p>
-                   <button onclick="window.openBusinessTrips()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></svg><span data-i18n-key="tripOpenBtn">Le mie trasferte</span></button>
+                   <button onclick="window.openBusinessTrips()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><span data-i18n-key="tripOpenBtn">Le mie trasferte</span></button>
                  </div>
 
                  </div>
@@ -5120,13 +5123,14 @@
                    <p class="card-sub" data-i18n-key="alphaWhereGoesSub">La torta delle tue spese: più grande la fetta, più ci spendi</p>
                    <div class="spending-orbit-layout"><div class="spending-orbit-stage"><div class="spending-orbit-halo" aria-hidden="true"></div><canvas id="category-chart" aria-hidden="true"></canvas><div class="spending-orbit-center"><span id="category-chart-label"></span><strong id="category-chart-total"></strong></div></div>
                    <div class="spending-category-browser"><div id="spending-focus" class="spending-focus" role="status"></div><button type="button" id="spending-focus-reset" class="spending-focus-reset" hidden data-i18n-key="spendingAll">Tutte le categorie</button><div id="category-chart-legend" class="spending-orbit-legend"></div><button type="button" id="spending-show-more" class="spending-show-more" hidden></button></div></div>
+                   <div id="spending-orbit-empty" class="market-data-state" hidden><strong data-i18n-key="spendingDataMissingTitle">Qui nascerà la mappa delle tue spese</strong><p data-i18n-key="spendingDataMissingBody">Aggiungi una spesa per vedere dove vanno i soldi. Puoi anche importare movimenti già registrati.</p><button type="button" onclick="window.openPrefilledAdd({type:'uscita'})" data-i18n-key="activityAddMovement">Aggiungi una spesa</button></div>
                  </div>
 
                  <!-- Insieme: dividi una spesa (split P2P on-device) -->
                  <div id="together-entry-card" class="card p-6 journey-entry-card">
                    <div class="journey-heading"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v3"/></svg><h3 class="eyebrow" data-i18n-key="alphaTogetherTitle">Insieme</h3></div>
                    <p class="card-sub" data-i18n-key="alphaTogetherSub">Cena, vacanza, casa: dividi una spesa e sai subito chi deve cosa a chi — senza account, tutto sul tuo telefono.</p>
-                   <button onclick="window.openSplitGroup()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 7h6M9 12h6M9 17h3"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg><span data-i18n-key="alphaTogetherGroupsBtn">I miei gruppi (dividi le spese)</span></button>
+                   <button onclick="window.openSplitGroup()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm inline-flex items-center justify-center gap-2"><span data-i18n-key="alphaTogetherGroupsBtn">I miei gruppi (dividi le spese)</span></button>
                    <!-- Era bg-black/20 + text-[var(--on-surface-secondary)]: colori fissi pensati solo per
                         tema scuro, in tema chiaro diventava testo quasi invisibile su
                         sfondo chiaro. Sostituito con .btn-action, la stessa convenzione
@@ -5139,6 +5143,7 @@
                  <!-- ML Projections with compound SVG Jar -->
                  <div id="wealth-growth-card" class="card finance-detail-card wealth-observatory order-2">
                    <header class="wealth-heading"><h3 data-i18n-key="alphaWealthGrowthTitle">Come cresce il tuo patrimonio</h3><p data-i18n-key="wealthIntro"></p></header>
+                   <div id="wealth-growth-empty" class="market-data-state" role="status" hidden><strong data-i18n-key="wealthDataMissingTitle">Servono i tuoi dati per una proiezione personale</strong><p id="wealth-growth-empty-detail"></p><button type="button" onclick="window.openPrefilledAdd({type:'uscita'})" data-i18n-key="activityAddMovement">Aggiungi una spesa</button></div>
                    <div class="wealth-horizons">
                      <div class="wealth-horizon wealth-horizon-near"><span class="wealth-marker" aria-hidden="true"></span><p data-i18n-key="alphaProjection1y"></p><strong id="forecast-1y">—</strong></div>
                      <div class="wealth-horizon wealth-horizon-far"><span class="wealth-planet" aria-hidden="true"><i></i></span><p data-i18n-key="alphaProjection5y"></p><strong id="forecast-5y">—</strong></div>
@@ -5186,7 +5191,47 @@
                     <p id="invest-note" class="text-[11px] text-[var(--on-surface-secondary)] mb-2"></p>
                     <div id="invest-fund-bar" class="mb-2"></div>
                     <p id="invest-regime" class="text-[11px] text-[var(--on-surface-secondary)]"></p>
+                    <button type="button" id="invest-next-action" class="invest-next-action" onclick="window.openEmergencyFundEditor()" hidden></button>
+                    <button type="button" id="invest-add-expense" class="workspace-empty-action" onclick="window.openPrefilledAdd({type:'uscita'})" data-i18n-key="activityAddMovement" hidden>Aggiungi una spesa</button>
                     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaInvestDisclaimer">Non è consulenza finanziaria: sono proprietà calcolate sui tuoi dati e su statistiche storiche/simulate.</p>
+                 </div>
+
+                 <!-- Cerca un asset: prezzo live + notizie/sentiment reali (Alpha
+                      Vantage/CoinGecko) + avvisi di prezzo. Tutto on-device, mai
+                      un consiglio di acquisto — solo dati e la possibilità di
+                      essere avvisati quando un prezzo tocca una soglia scelta. -->
+                 <div class="constellation-card card p-6 order-8 finance-detail-card" id="asset-search-card">
+                    <h3 class="eyebrow" id="asset-search-heading" data-i18n-key="alphaAssetSearchTitle">Cerca un asset</h3>
+                    <p class="card-sub" data-i18n-key="alphaAssetSearchSub">Cripto, azioni o ETF: prezzo, notizie reali e avvisi di prezzo</p>
+                    <div class="asset-search-form">
+                      <input type="search" id="asset-search-input" aria-labelledby="asset-search-heading" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." data-i18n-placeholder="alphaAssetSearchPlaceholder" onkeydown="if(event.key==='Enter') window.runAssetSearch()" name="asset-search-input" aria-label="alphaAssetSearchPlaceholder" data-i18n-aria="alphaAssetSearchPlaceholder" />
+                      <button id="asset-search-submit" type="button" onclick="window.runAssetSearch()" class="finance-search-action" data-i18n-key="alphaSearchBtn">Cerca</button>
+                    </div>
+                    <div id="asset-search-progress" class="market-search-progress" role="status" aria-live="polite" hidden><span class="market-search-orbit" aria-hidden="true"></span><span id="asset-search-progress-label"></span></div>
+                    <!-- Suggerimenti rapidi: una casella vuota non invita a nulla —
+                         un tocco su un asset comune parte subito, utile anche solo
+                         per capire cosa si può cercare qui. -->
+                    <div class="asset-search-examples">
+                      <button type="button" onclick="window.quickAssetSearch('Bitcoin')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.0s">Bitcoin</button>
+                      <button type="button" onclick="window.quickAssetSearch('SPY')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.05s">S&amp;P 500</button>
+                      <button type="button" onclick="window.quickAssetSearch('Apple')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.1s">Apple</button>
+                      <button type="button" onclick="window.quickAssetSearch('Oro')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.15s" data-i18n-key="alphaGoldChip">Oro</button>
+                    </div>
+                    <details class="market-search-options"><summary data-i18n-key="assetSearchMoreOptions">Fonti e strumenti</summary><div>
+                      <div class="market-source-brief">
+                        <span class="market-source-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.3 3.5 5 3.5 8s-1 5.7-3.5 8c-2.5-2.3-3.5-5-3.5-8s1-5.7 3.5-8Z"/></svg></span>
+                        <div><strong data-i18n-key="marketKeylessTitle">Inizia senza chiavi</strong><p data-i18n-key="marketKeylessBody">Cripto e notizie da fonti pubbliche; aziende e bilanci SEC con anno e data visibili. I prezzi recenti di azioni ed ETF richiedono una fonte facoltativa.</p></div>
+                      </div>
+                      <button type="button" class="market-source-link" onclick="window.openMarketSources()" data-i18n-key="marketSourcesAction">Fonti e chiavi facoltative</button>
+                      <div class="market-memory-entry">
+                        <button type="button" id="market-memory-toggle" aria-controls="market-memory-panel" aria-expanded="false" onclick="window.toggleMarketMemory()" data-i18n-key="marketMemoryOpen">Esplora i cicli di mercato</button>
+                        <div id="market-memory-panel" hidden aria-live="polite"></div>
+                      </div>
+                    </div></details>
+                    <div id="asset-search-results" class="mt-2 flex flex-col gap-1"></div>
+                    <div id="asset-detail" class="mt-3"></div>
+                    <div id="asset-watchlist" class="mt-3 flex flex-col gap-1.5"></div>
+                    <div id="price-alerts-list" class="mt-3 flex flex-col gap-1.5"></div>
                  </div>
 
                  <!-- Patrimonio netto unificato (src/alpha/net-worth.js): UN numero
@@ -5196,10 +5241,10 @@
                     <h3 class="eyebrow" data-i18n-key="alphaNetWorthTitle">Patrimonio netto</h3>
                     <p class="card-sub" data-i18n-key="alphaNetWorthSub">Tutto quello che hai, in un numero: contante + investimenti</p>
                     <p id="net-worth-total" class="text-3xl font-black font-mono text-[var(--gold)] mb-1">—</p>
+                    <div id="net-worth-empty" class="market-data-state" hidden><p data-i18n-key="netWorthNeedsData">Per calcolare il tuo patrimonio servono movimenti, investimenti o beni e debiti registrati.</p><button type="button" onclick="window.openPrefilledAdd()" data-i18n-key="dataAddMovement">Aggiungi un movimento</button></div>
                     <p id="net-worth-breakdown" class="text-[11px] text-[var(--on-surface-secondary)] mb-3"></p>
                     <div id="net-worth-projection" class="overflow-x-auto"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaNetWorthDisclaimer">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
-                    <details class="market-disclosure"><summary><span data-market-label="sectors">Sector comparison</span></summary><div id="sector-ranking" class="mt-4"></div></details>
+                    <p id="net-worth-disclaimer" class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaNetWorthDisclaimer">Proiezione probabilistica su ipotesi storiche dichiarate, non garantite. Non è consulenza finanziaria né promessa di rendimento.</p>
                     <!-- Notizie sulle posizioni davvero possedute (Cantiere H del
                          piano: fetchAssetNewsCascade esisteva già ma si attivava
                          SOLO su ricerca manuale — mai collegato a state.positions,
@@ -5222,7 +5267,12 @@
                          davvero (200 reale, dati veri) — la funzione già
                          degrada da sola alle fonti che rispondono, nessun
                          codice nuovo serviva per QUESTO, solo il collegamento. -->
-                    <details class="market-disclosure"><summary><span data-market-label="official">Official economic news</span></summary><div id="regulatory-news" class="mt-4"></div></details>
+                 </div>
+
+                 <div class="card finance-detail-card market-context-card order-3" id="market-context-card">
+                   <div class="market-context-intro"><span class="market-context-orbit" aria-hidden="true"></span><div><h3 data-i18n-key="investmentContextTitle">Esplora il mercato</h3><p data-i18n-key="investmentContextIntro">Settori e fonti ufficiali, separati dai tuoi soldi.</p></div></div>
+                   <details class="market-disclosure market-context-choice"><summary><span class="market-context-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5m0 14h16M8 15l4-4 3 2 5-7"/><circle cx="20" cy="6" r="1" fill="currentColor" stroke="none"/></svg></span><span class="market-context-choice-copy"><strong data-market-label="sectors">Confronta i settori</strong><small data-i18n-key="investmentSectorChoiceHint">Guarda i confronti storici, non una previsione.</small></span><span class="market-context-choice-arrow" aria-hidden="true"></span></summary><div id="sector-ranking" class="mt-4"></div></details>
+                   <details class="market-disclosure market-context-choice"><summary><span class="market-context-choice-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h10l4 4v12H5zM15 4v5h4M8 13h8M8 17h6"/><circle cx="19" cy="17" r="2.5" fill="currentColor" stroke="none"/></svg></span><span class="market-context-choice-copy"><strong data-market-label="official">Notizie economiche ufficiali</strong><small data-i18n-key="investmentOfficialChoiceHint">Leggi la data e apri il comunicato originale.</small></span><span class="market-context-choice-arrow" aria-hidden="true"></span></summary><div id="regulatory-news" class="mt-4"></div></details>
                  </div>
 
                  <!-- Tassi a lungo termine di 12 Paesi (src/alpha/tassi-mondo.js):
@@ -5381,37 +5431,11 @@
                     <div id="causal-graph-viz"></div>
                  </div>
 
-                 <!-- Cerca un asset: prezzo live + notizie/sentiment reali (Alpha
-                      Vantage/CoinGecko) + avvisi di prezzo. Tutto on-device, mai
-                      un consiglio di acquisto — solo dati e la possibilità di
-                      essere avvisati quando un prezzo tocca una soglia scelta. -->
-                 <div class="constellation-card card p-6 order-8 finance-detail-card" id="asset-search-card">
-                    <h3 class="eyebrow" id="asset-search-heading" data-i18n-key="alphaAssetSearchTitle">Cerca un asset</h3>
-                    <p class="card-sub" data-i18n-key="alphaAssetSearchSub">Cripto, azioni o ETF: prezzo, notizie reali e avvisi di prezzo</p>
-                    <div class="asset-search-form">
-                      <input type="search" id="asset-search-input" aria-labelledby="asset-search-heading" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="Es. bitcoin, Apple, XLK..." data-i18n-placeholder="alphaAssetSearchPlaceholder" onkeydown="if(event.key==='Enter') window.runAssetSearch()" name="asset-search-input" aria-label="alphaAssetSearchPlaceholder" data-i18n-aria="alphaAssetSearchPlaceholder" />
-                      <button onclick="window.runAssetSearch()" class="finance-search-action" data-i18n-key="alphaSearchBtn">Cerca</button>
-                    </div>
-                    <!-- Suggerimenti rapidi: una casella vuota non invita a nulla —
-                         un tocco su un asset comune parte subito, utile anche solo
-                         per capire cosa si può cercare qui. -->
-                    <div class="asset-search-examples">
-                      <button type="button" onclick="window.quickAssetSearch('Bitcoin')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.0s">Bitcoin</button>
-                      <button type="button" onclick="window.quickAssetSearch('S&amp;P 500')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.05s">S&amp;P 500</button>
-                      <button type="button" onclick="window.quickAssetSearch('Apple')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.1s">Apple</button>
-                      <button type="button" onclick="window.quickAssetSearch('Oro')" class="asset-chip-in text-[10px] px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-elevated)] text-[var(--on-surface-secondary)] hover:border-[var(--primary)]/50" style="animation-delay:.15s" data-i18n-key="alphaGoldChip">Oro</button>
-                    </div>
-                    <div id="asset-search-results" class="mt-2 flex flex-col gap-1"></div>
-                    <div id="asset-detail" class="mt-3"></div>
-                    <div id="asset-watchlist" class="mt-3 flex flex-col gap-1.5"></div>
-                    <div id="price-alerts-list" class="mt-3 flex flex-col gap-1.5"></div>
-                    <p class="text-[11px] text-[var(--on-surface-secondary)] mt-3 opacity-70" data-i18n-key="alphaAlertsDisclaimer">Gli avvisi arrivano come notifica reale mentre l'app è aperta o in background di recente; ad app completamente chiusa il sistema operativo decide quando ricontrollare (di solito entro qualche ora) — nessuna app on-device senza server può garantire un controllo istantaneo ad app chiusa.</p>
-                 </div>
-
                  <!-- Heatmap grid -->
-                 <div class="card p-6 order-4">
+                 <div class="card p-6 order-4" id="spending-heatmap-card">
                     <h3 class="eyebrow" data-i18n-key="alphaHeatmapTitle">Le tue spese giorno per giorno</h3>
                     <p class="card-sub" data-i18n-key="alphaHeatmapSub">Più il giorno è acceso, più hai speso — tocca un giorno per la cifra</p>
+                    <div id="heatmap-summary" class="heatmap-summary" role="status"></div>
                     <div class="heatmap-grid" id="heatmap-grid"></div>
                     <div id="heatmap-day-detail" data-detail-for="heatmap-grid" class="mt-3"></div>
                  </div>
@@ -5785,7 +5809,7 @@
                        Vantage News condivide lo stesso limite di 25/giorno
                        della ricerca, facile da esaurire). Finnhub: 60/minuto. -->
                   <div class="space-y-2 mt-3 pt-3 border-t border-[var(--outline)]">
-                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBNews">Piano B per le notizie (quota molto più generosa, 60/minuto):</p>
+                    <p class="text-[10px] text-[var(--on-surface-secondary)]" data-i18n-key="vaultPlanBNews">Finnhub: notizie e quotazioni azioni/ETF con data della fonte. Richiede una chiave personale gratuita.</p>
                     <div class="flex gap-2">
                       <input type="password" id="finnhub-key-input" class="modal-input !mb-0 py-2 text-xs flex-1" placeholder="La tua chiave Finnhub..." data-i18n-placeholder="vaultKeyPlaceholderFinnhub" name="finnhub-key-input" aria-label="La tua chiave Finnhub..." data-i18n-aria="vaultKeyPlaceholderFinnhub" />
                       <button onclick="window.saveLiveDataKey('finnhub')" class="px-3 bg-indigo-600 rounded-lg text-xs font-bold whitespace-nowrap" data-i18n-key="vaultSave">Salva</button>

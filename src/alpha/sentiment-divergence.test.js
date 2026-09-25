@@ -1,8 +1,26 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { divergenzaSentimentPrezzo } from './sentiment-divergence.js';
+import { divergenzaSentimentPrezzo, prepareSentimentPriceEvidence } from './sentiment-divergence.js';
 
 const sent = (score, n = 5, extra = {}) => ({ score, n, confidence: 0.6, onDevice: false, label: 'x', ...extra });
+
+test('la divergenza usa solo notizie pubblicate nella finestra dei prezzi aggiornati', () => {
+  const now = Date.parse('2026-09-24T12:00:00Z');
+  const series = [{ date: '2026-09-22', price: 100 }, { date: '2026-09-23', price: 96 }];
+  const news = [
+    { sentimentScore: 0.7, publishedAt: '2026-09-23T10:00:00Z', url: 'https://source.example/1' },
+    { sentimentScore: -0.8, publishedAt: '2026-09-24T09:00:00Z', url: 'https://source.example/2' },
+  ];
+  const evidence = prepareSentimentPriceEvidence(news, series, { now });
+  assert.equal(evidence.sentiment.n, 1);
+  assert.equal(evidence.variazionePrezzo, -0.04);
+  assert.equal(evidence.finestraGiorni, 1);
+  assert.equal(prepareSentimentPriceEvidence(news.slice(1), series, { now }), null);
+  assert.equal(prepareSentimentPriceEvidence([{ sentimentScore: 0.7, observedAt: news[0].publishedAt }], series, { now }), null);
+  assert.equal(prepareSentimentPriceEvidence(news, [{ date: '2026-09-01', price: 100 }, { date: '2026-09-02', price: 96 }], { now }), null);
+  assert.equal(prepareSentimentPriceEvidence(news, [{ date: '2026-09-22', price: 100 }, { date: '2026-09-23', price: 0 }], { now }), null);
+  assert.equal(prepareSentimentPriceEvidence(news, [{ date: '2026-09-22', price: Infinity }, { date: '2026-09-23', price: 96 }], { now }), null);
+});
 
 test('input incompleto → non valido, mai un numero inventato', () => {
   assert.equal(divergenzaSentimentPrezzo({}).valido, false);

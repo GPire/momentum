@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createRequire, registerHooks } from 'node:module';
 import vm from 'node:vm';
+await import('./generate-sec-catalog.mjs');
 
 if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('Portable build requires Node 24 or newer.');
 const require = createRequire(import.meta.url);
