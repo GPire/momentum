@@ -28,7 +28,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - run: npm ci
@@ -41,6 +41,9 @@ jobs:
         env:
           SEC_CONTATTO: ${{ secrets.SEC_CONTATTO }}
         run: node bench/fetch-panel-sec.mjs
+
+      - name: Allinea l'indice leggero alla nuova fotografia SEC
+        run: node scripts/generate-sec-catalog.mjs
 
       # Prima di proporre qualunque cosa: la suite intera deve restare
       # verde. Un pannello che rompe un test non diventa mai una PR.
@@ -83,4 +86,5 @@ jobs:
           delete-branch: true
           add-paths: |
             src/alpha/panel-settoriale.js
+            src/alpha/sec-catalog-index.js
             bench/sic-cache.json
