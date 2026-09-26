@@ -7697,7 +7697,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
   document.getElementById('tl1-expert-toggle')?.addEventListener('click', (e) => {
     const on = document.querySelectorAll('#modal-content .tl1-expert.tl1-expert-open').length === 0;
     document.querySelectorAll('#modal-content .tl1-expert').forEach((el) => el.classList.toggle('tl1-expert-open', on));
-    e.target.textContent = on ? 'Nascondi i riferimenti normativi' : 'Sei del mestiere? Mostra i riferimenti normativi';
+    e.target.textContent = on ? tCh('pivaExpertHide', __uiLang) : tCh('pivaExpertToggle', __uiLang);
   });
   // Freccia che ruota quando la scheda si apre, e i passi numerati che
   // rientrano a scaglione ogni volta che una scheda passa da chiusa ad
@@ -14698,20 +14698,20 @@ window.openConfermaAcquisti = (lista) => {
   const render = () => {
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-        <div><h3 class="text-base font-black">Questi sembrano acquisti di titoli</h3><p class="card-sub !mb-0">Non sono sicuro di ticker/quantità per ${righe.length === 1 ? 'questa transazione' : `queste ${righe.length} transazioni`} — conferma o correggi, oppure salta se non era un acquisto.</p></div>
+        <div><h3 class="text-base font-black">${tCh('secBuyTitle', __uiLang)}</h3><p class="card-sub !mb-0">${tCh('secBuyUnsure', __uiLang, righe.length)}</p></div>
         ${righe.map((a) => `
         <div class="card p-3" data-riga="${a.idx}">
-          <p class="text-[12px] text-[var(--on-surface-secondary)] mb-2">${esc(a.description || 'Transazione')} · ${eur(a.amount)}${a.date ? ` · ${new Date(a.date).toLocaleDateString('it-IT')}` : ''}</p>
+          <p class="text-[12px] text-[var(--on-surface-secondary)] mb-2">${esc(a.description || tCh('transaction', __uiLang))} · ${eur(a.amount)}${a.date ? ` · ${new Date(a.date).toLocaleDateString(__uiLocale)}` : ''}</p>
           <div class="flex gap-2">
             <input data-ticker="${a.idx}" value="${esc(a.ticker)}" class="w-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono uppercase" placeholder="Ticker" aria-label="Ticker" />
-            <input data-qty="${a.idx}" type="number" inputmode="decimal" value="${esc(a.quantity)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono min-w-0" placeholder="Quante ne hai comprate" aria-label="Quante ne hai comprate" />
+            <input data-qty="${a.idx}" type="number" inputmode="decimal" value="${esc(a.quantity)}" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2 text-sm font-mono min-w-0" placeholder="${tCh('secBuyQtyPh', __uiLang)}" aria-label="${tCh('secBuyQtyPh', __uiLang)}" />
           </div>
           <div class="flex gap-2 mt-2">
-            <button data-conferma="${a.idx}" class="btn-action btn-primary flex-1 py-2 font-bold rounded-xl text-[12px]">Conferma</button>
-            <button data-salta="${a.idx}" class="px-3 py-2 font-bold rounded-xl border border-[var(--outline)] text-[11px] text-[var(--on-surface-secondary)]">Non era un acquisto</button>
+            <button data-conferma="${a.idx}" class="btn-action btn-primary flex-1 py-2 font-bold rounded-xl text-[12px]">${tCh('confirm', __uiLang)}</button>
+            <button data-salta="${a.idx}" class="px-3 py-2 font-bold rounded-xl border border-[var(--outline)] text-[11px] text-[var(--on-surface-secondary)]">${tCh('secBuyNotPurchase', __uiLang)}</button>
           </div>
         </div>`).join('')}
-      </div>`, `<button id="ca-chiudi" class="btn-action w-full py-3 font-bold rounded-xl text-sm">Chiudi</button>`);
+      </div>`, `<button id="ca-chiudi" class="btn-action w-full py-3 font-bold rounded-xl text-sm">${tCh('close', __uiLang)}</button>`);
 
     $('#ca-chiudi')?.addEventListener('click', () => closeModal());
     document.querySelectorAll('[data-conferma]').forEach(b => b.addEventListener('click', () => {
@@ -14719,7 +14719,7 @@ window.openConfermaAcquisti = (lista) => {
       const el = document.querySelector(`[data-riga="${idx}"]`);
       const ticker = el.querySelector('[data-ticker]').value.trim().toUpperCase();
       const quantity = parseFloat(String(el.querySelector('[data-qty]').value).replace(',', '.'));
-      if (!ticker || !(quantity > 0)) { showToast('Servono ticker e quantità (maggiore di zero).', 'error'); return; }
+      if (!ticker || !(quantity > 0)) { showToast(tCh('secBuyNeedTicker', __uiLang), 'error'); return; }
       const riga = righe.find(r => r.idx === idx);
       const assetClass = /^(BITCOIN|ETH|ETHEREUM|BTC)$/i.test(ticker) ? 'crypto' : 'stock';
       VaultDAO.state.positions = aggiornaPosizioneConAcquisto(VaultDAO.state.positions, {
@@ -14797,49 +14797,49 @@ function showUploadHelp(filename, number, year) {
     div.id = 'inv-upload-steps';
     div.className = 'mt-2 pt-3 border-t border-emerald-400/20 modal-section-in';
     div.innerHTML = `
-      ${tl1CostoTempo('Gratis', 'green', 'Pochi minuti', 'green')}
-      <div class="mt-2">${tl1Checklist('tl1-check-sdi', ['SPID, CIE, CNS oppure credenziali Entratel/Fisconline', `Il file ${(filename || 'XML').replace(/</g, '')} già scaricato da Momentum (fatto)`])}</div>
-      <div class="font-bold mt-3 mb-1.5 text-[10px] uppercase tracking-wide text-[var(--on-surface-secondary)]">Come caricarla (una volta sola, poi è routine)</div>
+      ${tl1CostoTempo(tCh('free', __uiLang), 'green', tCh('fewMinutes', __uiLang), 'green')}
+      <div class="mt-2">${tl1Checklist('tl1-check-sdi', [tCh('sdiChkId', __uiLang), tCh('sdiChkFile', __uiLang, (filename || 'XML').replace(/</g, ''))])}</div>
+      <div class="font-bold mt-3 mb-1.5 text-[10px] uppercase tracking-wide text-[var(--on-surface-secondary)]">${tCh('sdiHowUpload', __uiLang)}</div>
       <div class="flex flex-col gap-2">
-        ${tl1Step(1, 'Accedi al portale <b class="text-[var(--on-surface)]">Fatture e Corrispettivi</b> con SPID, CIE, CNS o le tue credenziali Entratel/Fisconline. Se dopo l\'accesso finisci su una pagina diversa (es. "Registrazione indirizzo telematico"), non hai sbagliato: cerca il link <b class="text-[var(--on-surface)]">"torna a Fatture e Corrispettivi"</b> in alto e riparti da lì.')}
-        ${tl1Step(2, 'Alla prima schermata scegli il profilo <b class="text-[var(--on-surface)]">"Me stesso"</b> (sei tu che fatturi, non un\'altra persona/azienda) — è il punto dove più persone si bloccano: se vedi un elenco di aziende/deleghe, "Me stesso" è comunque sempre la prima opzione in alto.')}
-        ${tl1Step(3, `Non cercare nel menu: <a href="${SDI_WIZARD_URL}" target="_blank" rel="noopener noreferrer" class="font-bold underline text-[var(--gold)]">apri direttamente il servizio di trasmissione</a> (funziona solo se hai già completato il passo 1 sopra).`)}
-        ${tl1Step(4, `Carica il file <b class="text-[var(--on-surface)]">${(filename || 'XML').replace(/</g, '')}</b> che hai appena scaricato da Momentum.`)}
-        ${tl1Step(5, 'Controlla l\'anteprima e premi <b class="text-[var(--on-surface)]">Trasmetti</b>: lo SdI ti invierà la ricevuta di consegna (o di scarto, spiegata in chiaro qui sopra prima ancora di inviarla).')}
+        ${tl1Step(1, tCh('sdiStep1', __uiLang))}
+        ${tl1Step(2, tCh('sdiStep2', __uiLang))}
+        ${tl1Step(3, `${tCh('sdiStep3Pre', __uiLang)} <a href="${SDI_WIZARD_URL}" target="_blank" rel="noopener noreferrer" class="font-bold underline text-[var(--gold)]">${tCh('sdiStep3Link', __uiLang)}</a> ${tCh('sdiStep3Post', __uiLang)}`)}
+        ${tl1Step(4, tCh('sdiStep4', __uiLang, (filename || 'XML').replace(/</g, '')))}
+        ${tl1Step(5, tCh('sdiStep5', __uiLang))}
       </div>
-      <div class="mt-2 opacity-70 text-[10px]">I nomi esatti delle voci possono variare nel tempo: cerca "Fatturazione elettronica" nel menu.</div>
+      <div class="mt-2 opacity-70 text-[10px]">${tCh('sdiMenuNames', __uiLang)}</div>
       <button type="button" id="inv-sdi-walkthrough-btn" class="mt-2.5 w-full btn-action btn-primary justify-center text-[12px] font-bold py-2.5">
         <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
-        Guidami passo dopo passo, uno schermo alla volta
+        ${tCh('sdiGuideMe', __uiLang)}
       </button>
       <details class="mt-2.5 pt-2.5 border-t border-emerald-400/20">
-        <summary class="cursor-pointer font-bold text-[11px]">Non hai SPID o non riesci ad accedere? C'è una seconda strada: la PEC</summary>
+        <summary class="cursor-pointer font-bold text-[11px]">${tCh('sdiNoSpid', __uiLang)}</summary>
         <div class="mt-2 flex flex-col gap-2">
-          <div class="text-[11px] text-[var(--on-surface-secondary)]">Se hai una casella di <b class="text-[var(--on-surface)]">PEC (Posta Elettronica Certificata)</b>, puoi mandare il file XML come allegato direttamente al Sistema di Interscambio, senza passare dal portale:</div>
-          ${tl1Step(1, 'La <b class="text-[var(--on-surface)]">prima volta</b> invia una email dalla tua PEC, con il file XML allegato, a <b class="text-[var(--on-surface)]">sdi01@pec.fatturapa.it</b>.')}
-          ${tl1Step(2, 'Lo SdI ti risponderà comunicandoti un <b class="text-[var(--on-surface)]">indirizzo PEC-SdI dedicato</b> tutto tuo: userai quello per <b class="text-[var(--on-surface)]">tutti gli invii successivi</b> (non più il primo indirizzo).')}
-          ${tl1Step(3, 'Tieni le ricevute che arrivano: dicono se la fattura è stata consegnata o scartata.')}
-          <div class="text-[10px] text-amber-300 opacity-90">Attenzione: mandare il file direttamente alla PEC del cliente, senza passare per lo SdI, NON vale come fattura elettronica — va sempre allo SdI prima.</div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('sdiPecIntro', __uiLang)}</div>
+          ${tl1Step(1, tCh('sdiPec1', __uiLang))}
+          ${tl1Step(2, tCh('sdiPec2', __uiLang))}
+          ${tl1Step(3, tCh('sdiPec3', __uiLang))}
+          <div class="text-[10px] text-amber-300 opacity-90">${tCh('sdiPecWarn', __uiLang)}</div>
         </div>
       </details>
       <details class="mt-2.5 pt-2.5 border-t border-emerald-400/20">
-        <summary class="cursor-pointer font-bold text-[11px]">Vuoi anche ricevere automaticamente le fatture dei tuoi fornitori? (facoltativo, una volta sola)</summary>
-        <div class="mt-2 text-[11px] text-[var(--on-surface-secondary)] leading-snug">Questa guida ti porta a <b class="text-[var(--on-surface)]">inviare</b> la fattura che hai creato — è una cosa diversa dal <b class="text-[var(--on-surface)]">ricevere</b> quelle dei tuoi fornitori. Sullo stesso portale c'è una sezione separata, "Registrazione dell'indirizzo telematico", dove dici all'Agenzia dove recapitarti le fatture in arrivo (Codice Destinatario o PEC). Non è obbligatoria — senza, le fatture in arrivo restano comunque nel tuo cassetto fiscale — ma se la vedi comparire dopo il login, ora sai cos'è: un'impostazione a parte, non un errore.</div>
+        <summary class="cursor-pointer font-bold text-[11px]">${tCh('sdiReceiveQ', __uiLang)}</summary>
+        <div class="mt-2 text-[11px] text-[var(--on-surface-secondary)] leading-snug">${tCh('sdiReceiveBody', __uiLang)}</div>
       </details>
-      <button type="button" id="tl1-sdi-expert-toggle" class="mt-2 text-[10px] font-bold text-[var(--on-surface-secondary)] underline">Sei del mestiere? Mostra i riferimenti normativi</button>
-      <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo generalizzato di fatturazione elettronica tra privati dal 1° gennaio 2019 — L. 205/2017 (Legge di Bilancio 2018), art. 1 commi 909–928. Regole tecniche del Sistema di Interscambio: DM 55/2013.</div>
-      <div class="mt-2 opacity-70 text-[10px]">Momentum prepara il file e ti indica la strada esatta, ma non può cliccare "Trasmetti" al posto tuo: serve il tuo accesso ufficiale, che noi non vediamo mai.</div>`;
+      <button type="button" id="tl1-sdi-expert-toggle" class="mt-2 text-[10px] font-bold text-[var(--on-surface-secondary)] underline">${tCh('pivaExpertToggle', __uiLang)}</button>
+      <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">${tCh('sdiRef', __uiLang)}</div>
+      <div class="mt-2 opacity-70 text-[10px]">${tCh('sdiCannotSend', __uiLang)}</div>`;
     box.appendChild(div);
     tl1InitChecklist('tl1-check-sdi');
     document.getElementById('tl1-sdi-expert-toggle')?.addEventListener('click', (e) => {
       const el = div.querySelector('.tl1-expert');
       const on = !el.classList.contains('tl1-expert-open');
       el.classList.toggle('tl1-expert-open', on);
-      e.target.textContent = on ? 'Nascondi i riferimenti normativi' : 'Sei del mestiere? Mostra i riferimenti normativi';
+      e.target.textContent = on ? tCh('pivaExpertHide', __uiLang) : tCh('pivaExpertToggle', __uiLang);
     });
     document.getElementById('inv-sdi-walkthrough-btn')?.addEventListener('click', () => window.openSdiWalkthrough(filename, number, year));
   }
-  showToast('Guida al caricamento mostrata sotto.', 'success');
+  showToast(tCh('sdiGuideShown', __uiLang), 'success');
 }
 
 // Percorso guidato uno-schermo-alla-volta dentro il portale reale, invece di
@@ -14864,7 +14864,7 @@ window.openSdiWalkthroughDone = (number, year) => {
       </div>
       <div class="w-full flex flex-col gap-2">
         ${number != null ? `<button id="sdi-wt-mark" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${copy[2]}</button>` : ''}
-        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn-action w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5">Non ancora, apri il portale<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="btn-action w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-1.5">${tCh('sdiNotYetOpen', __uiLang)}<svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
         <button onclick="window.closeModal()" class="btn-action w-full">${copy[3]}</button>
       </div>
     </div>`);
@@ -14889,20 +14889,20 @@ function getInvoiceFormHTML() {
   // serve davvero); il PDF di cortesia funziona anche senza.
   const emitterFiscalHTML = `
         <div class="grid grid-cols-2 gap-2">
-          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="Partita IVA (11 cifre)" value="${v(fis.partitaIva)}" name="inv-piva" aria-label="Partita IVA (11 cifre)" />
-          <input id="inv-cf" class="${smallCls}" placeholder="Codice Fiscale (se diverso)" value="${v(fis.codiceFiscale)}" name="inv-cf" aria-label="Codice Fiscale (se diverso)" />
-          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo (via e numero)" value="${v(fis.indirizzo)}" name="inv-indirizzo" aria-label="Indirizzo (via e numero)" />
-          <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" value="${v(fis.cap)}" name="inv-cap" />
-          <input id="inv-comune" class="${smallCls}" placeholder="Comune" value="${v(fis.comune)}" name="inv-comune" aria-label="Comune" />
-          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="Prov. (es. MI)" value="${v(fis.provincia)}" name="inv-prov" aria-label="Prov. (es. MI)" />
-          <input id="inv-iban" class="${smallCls}" placeholder="IBAN (per il pagamento)" value="${v(fis.iban)}" name="inv-iban" aria-label="IBAN (per il pagamento)" />
+          <input id="inv-piva" inputmode="numeric" class="${smallCls}" placeholder="${escapeHtml(tCh('invPiva', __uiLang))}" value="${v(fis.partitaIva)}" name="inv-piva" aria-label="${escapeHtml(tCh('invPiva', __uiLang))}" />
+          <input id="inv-cf" class="${smallCls}" placeholder="${escapeHtml(tCh('invCf', __uiLang))}" value="${v(fis.codiceFiscale)}" name="inv-cf" aria-label="${escapeHtml(tCh('invCf', __uiLang))}" />
+          <input id="inv-indirizzo" class="${smallCls} col-span-2" placeholder="${escapeHtml(tCh('invAddress', __uiLang))}" value="${v(fis.indirizzo)}" name="inv-indirizzo" aria-label="${escapeHtml(tCh('invAddress', __uiLang))}" />
+          <input id="inv-cap" inputmode="numeric" class="${smallCls}" placeholder="${escapeHtml(tCh('invPostcode', __uiLang))}" value="${v(fis.cap)}" name="inv-cap" />
+          <input id="inv-comune" class="${smallCls}" placeholder="${escapeHtml(tCh('invCity', __uiLang))}" value="${v(fis.comune)}" name="inv-comune" aria-label="${escapeHtml(tCh('invCity', __uiLang))}" />
+          <input id="inv-prov" maxlength="2" class="${smallCls}" placeholder="${escapeHtml(tCh('invProvEx', __uiLang))}" value="${v(fis.provincia)}" name="inv-prov" aria-label="${escapeHtml(tCh('invProvEx', __uiLang))}" />
+          <input id="inv-iban" class="${smallCls}" placeholder="${escapeHtml(tCh('invIban', __uiLang))}" value="${v(fis.iban)}" name="inv-iban" aria-label="${escapeHtml(tCh('invIban', __uiLang))}" />
         </div>`;
   return `
   <div class="tax-workspace-step tax-invoice-form flex flex-col gap-3 p-3 sm:p-5 lg:p-0 modal-section-in">
     <div class="flex items-center gap-3">
       ${tl1Icon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/>', '--primary')}
       <div class="flex-1 min-w-0">
-        <h3 class="text-lg font-black leading-tight">Crea fattura</h3>
+        <h3 class="text-lg font-black leading-tight">${tCh('invCreate', __uiLang)}</h3>
         <p class="text-[11px] text-[var(--on-surface-secondary)]">n. ${num}/${year} · ${new Date().toLocaleDateString('it-IT')}</p>
       </div>
     </div>
@@ -14912,7 +14912,7 @@ function getInvoiceFormHTML() {
     <details ${hasProfile ? '' : 'open'} class="rounded-xl border border-[var(--glass-border)] bg-black/20">
       <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">I tuoi dati e logo ${hasProfile ? `· <span class="text-emerald-400">${(prof.emitter || '').slice(0, 24)}</span>` : '(compila una volta)'}</summary>
       <div class="flex flex-col gap-2 p-3 pt-0">
-        <input id="inv-emitter" class="${inputCls}" placeholder="Il tuo nome / ragione sociale" value="${v(prof.emitter)}" name="inv-emitter" aria-label="Il tuo nome / ragione sociale" />
+        <input id="inv-emitter" class="${inputCls}" placeholder="${escapeHtml(tCh('invEmitter', __uiLang))}" value="${v(prof.emitter)}" name="inv-emitter" aria-label="${escapeHtml(tCh('invEmitter', __uiLang))}" />
         ${emitterFiscalHTML}
         <section class="invoice-brand" aria-label="${invoiceBrandCopy(__uiLang).title}">
           <div class="invoice-brand-preview" id="inv-logo-preview" aria-hidden="true">${prof.logo ? `<img src="${v(prof.logo)}" alt="" />` : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="9" cy="9" r="2"/><path d="m4 18 5-5 4 3 3-4 5 6"/></svg>'}</div>
@@ -14921,10 +14921,10 @@ function getInvoiceFormHTML() {
           <input id="inv-logo" type="file" accept="image/png,image/jpeg" class="hidden" name="inv-logo" />
         </section>
         <div class="invoice-brand-options">
-          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="Paese (regole fattura)" name="inv-country">
+          <select id="inv-country" class="text-[11px] bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5" title="${escapeHtml(tCh('invCountryRules', __uiLang))}" name="inv-country">
             ${selectableInvoiceCountries().map(c => `<option value="${c.code}" ${(prof.country || 'IT') === c.code ? 'selected' : ''}>${c.name}</option>`).join('')}
           </select>
-          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="Colore accento" name="inv-accent" />
+          <input id="inv-accent" type="color" value="${/^#[0-9a-fA-F]{6}$/.test(prof.accent) ? prof.accent : '#0ea5e9'}" class="ml-auto w-8 h-8 rounded-lg bg-transparent border border-[var(--glass-border)] cursor-pointer" title="${escapeHtml(tCh('invAccent', __uiLang))}" name="inv-accent" />
         </div>
         ${(() => {
           // Tre stili, tre pubblici diversi (non decorazione a caso): "minimale"
@@ -14943,7 +14943,7 @@ function getInvoiceFormHTML() {
           // un default fisso — mai deciso al posto suo dopo la prima scelta.
           const cur = INVOICE_THEMES.includes(prof.theme) ? prof.theme : suggestInvoiceTheme('', '', 0);
           return `<div class="pt-1">
-            <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Stile del documento</div>
+            <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">${tCh('invStyle', __uiLang)}</div>
             <div id="inv-theme-picker" class="grid grid-cols-3 gap-2">
               ${THEMES.map(t => `
                 <button type="button" data-theme="${t.id}" title="${t.hint}"
@@ -14988,31 +14988,31 @@ function getInvoiceFormHTML() {
              stessa filosofia della voce. "fattura a Rossi Srl 500 per
              consulenza" compila cliente, importo e causale con un tocco. -->
         <div class="flex gap-2">
-          <input id="inv-oneline" class="${inputCls} flex-1" placeholder='Scrivila a parole: "a Rossi Srl 500 per consulenza"' autocomplete="off" name="inv-oneline" aria-label='Scrivila a parole: "a Rossi Srl 500 per consulenza"' />
-          <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">Compila</button>
+          <input id="inv-oneline" class="${inputCls} flex-1" placeholder="${escapeHtml(tCh('invOneline', __uiLang))}" autocomplete="off" name="inv-oneline" aria-label="${escapeHtml(tCh('invOneline', __uiLang))}" />
+          <button type="button" id="inv-oneline-fill" class="shrink-0 px-3 rounded-xl border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] text-[var(--primary)] text-xs font-bold">${tCh('invFill', __uiLang)}</button>
         </div>
-        <input id="inv-client" class="${inputCls}" placeholder="Cliente (es. Studio Rossi)" autocomplete="off" list="inv-clients" name="inv-client" aria-label="Cliente (es. Studio Rossi)" />
+        <input id="inv-client" class="${inputCls}" placeholder="${escapeHtml(tCh('invClient', __uiLang))}" autocomplete="off" list="inv-clients" name="inv-client" aria-label="${escapeHtml(tCh('invClient', __uiLang))}" />
         <datalist id="inv-clients">${[...new Set((VaultDAO.state.invoices || []).map(i => i.client).filter(Boolean))].map(c => `<option value="${c.replace(/"/g, '&quot;')}">`).join('')}</datalist>
         <!-- Dati fiscali del CLIENTE: servono solo alla fattura elettronica. A scomparsa,
              si aprono da soli quando serve. Ricordati per cliente (riuso intelligente). -->
         <details id="inv-client-fiscal" class="rounded-xl border border-[var(--glass-border)] bg-black/20">
-          <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">Dati del cliente per la fattura elettronica <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
+          <summary class="cursor-pointer px-4 py-2.5 text-[11px] font-bold text-[var(--on-surface-secondary)] select-none">${tCh('invClientFiscal', __uiLang)} <span id="inv-cli-badge" class="text-[var(--gold)]"></span></summary>
           <div class="grid grid-cols-2 gap-2 p-3 pt-0">
-            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="P.IVA cliente" name="inv-cli-piva" aria-label="P.IVA cliente" />
-            <input id="inv-cli-cf" class="${smallCls}" placeholder="Codice Fiscale cliente" name="inv-cli-cf" aria-label="Codice Fiscale cliente" />
-            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="Indirizzo cliente" name="inv-cli-indirizzo" aria-label="Indirizzo cliente" />
-            <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="CAP" name="inv-cli-cap" />
-            <input id="inv-cli-comune" class="${smallCls}" placeholder="Comune" name="inv-cli-comune" aria-label="Comune" />
-            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="Prov." name="inv-cli-prov" aria-label="Prov." />
-            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="Codice SdI (7) — se ce l'ha" name="inv-cli-sdi" aria-label="Codice SdI (7) — se ce l'ha" />
-            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="oppure PEC del cliente" name="inv-cli-pec" aria-label="oppure PEC del cliente" />
-            <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">Non hai il Codice SdI né la PEC? Nessun problema: la fattura arriva nel cassetto fiscale del cliente (useremo <b>0000000</b>).</p>
+            <input id="inv-cli-piva" inputmode="numeric" class="${smallCls}" placeholder="${escapeHtml(tCh('invCliPiva', __uiLang))}" name="inv-cli-piva" aria-label="${escapeHtml(tCh('invCliPiva', __uiLang))}" />
+            <input id="inv-cli-cf" class="${smallCls}" placeholder="${escapeHtml(tCh('invCliCf', __uiLang))}" name="inv-cli-cf" aria-label="${escapeHtml(tCh('invCliCf', __uiLang))}" />
+            <input id="inv-cli-indirizzo" class="${smallCls} col-span-2" placeholder="${escapeHtml(tCh('invCliAddress', __uiLang))}" name="inv-cli-indirizzo" aria-label="${escapeHtml(tCh('invCliAddress', __uiLang))}" />
+            <input id="inv-cli-cap" inputmode="numeric" class="${smallCls}" placeholder="${escapeHtml(tCh('invPostcode', __uiLang))}" name="inv-cli-cap" />
+            <input id="inv-cli-comune" class="${smallCls}" placeholder="${escapeHtml(tCh('invCity', __uiLang))}" name="inv-cli-comune" aria-label="${escapeHtml(tCh('invCity', __uiLang))}" />
+            <input id="inv-cli-prov" maxlength="2" class="${smallCls}" placeholder="${escapeHtml(tCh('invProv', __uiLang))}" name="inv-cli-prov" aria-label="${escapeHtml(tCh('invProv', __uiLang))}" />
+            <input id="inv-cli-sdi" maxlength="7" class="${smallCls}" placeholder="${escapeHtml(tCh('invCliSdi', __uiLang))}" name="inv-cli-sdi" aria-label="${escapeHtml(tCh('invCliSdi', __uiLang))}" />
+            <input id="inv-cli-pec" type="email" class="${smallCls} col-span-2" placeholder="${escapeHtml(tCh('invCliPec', __uiLang))}" name="inv-cli-pec" aria-label="${escapeHtml(tCh('invCliPec', __uiLang))}" />
+            <p class="col-span-2 text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('invCliNoSdi', __uiLang)}</p>
           </div>
         </details>
       </div>
       <div class="flex flex-col gap-3">
-        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="Quanto (imponibile €)" name="inv-amount" aria-label="Quanto (imponibile €)" />
-        <input id="inv-desc" class="${inputCls}" placeholder="Per cosa (es. Consulenza marzo)" name="inv-desc" aria-label="Per cosa (es. Consulenza marzo)" />
+        <input id="inv-amount" type="number" inputmode="decimal" class="${inputCls} font-mono" placeholder="${escapeHtml(tCh('invAmount', __uiLang))}" name="inv-amount" aria-label="${escapeHtml(tCh('invAmount', __uiLang))}" />
+        <input id="inv-desc" class="${inputCls}" placeholder="${escapeHtml(tCh('invDesc', __uiLang))}" name="inv-desc" aria-label="${escapeHtml(tCh('invDesc', __uiLang))}" />
         <!-- Voci multiple: una fattura spesso NON è un solo importo indistinto
              ("4000 di sviluppo, 399 di hosting") — qui si scompone senza
              obbligare nessuno, resta un dettaglio apribile come gli altri.
@@ -15020,21 +15020,21 @@ function getInvoiceFormHTML() {
         <div id="inv-extra-voci" class="flex flex-col gap-2"></div>
         <button type="button" id="inv-add-voce" class="self-start text-[11px] font-bold text-[var(--primary)] underline">+ Scomponi in più voci</button>
         <div id="inv-voci-total" class="hidden flex items-center justify-between text-[11px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2">
-          <span>Totale imponibile</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
+          <span>${tCh('invTaxableTotal', __uiLang)}</span><span id="inv-voci-total-val" class="font-mono font-bold text-[var(--on-surface)]"></span>
         </div>
-        <input id="inv-email" type="email" class="${inputCls}" placeholder="Email cliente (per inviarla)" autocomplete="off" name="inv-email" aria-label="Email cliente (per inviarla)" />
+        <input id="inv-email" type="email" class="${inputCls}" placeholder="${escapeHtml(tCh('invClientEmail', __uiLang))}" autocomplete="off" name="inv-email" aria-label="${escapeHtml(tCh('invClientEmail', __uiLang))}" />
         <label class="block cursor-pointer select-none">
           <input id="inv-recurring" type="checkbox" class="recur-check" style="position:absolute;opacity:0;width:0;height:0" name="inv-recurring" />
           <span class="recur-row">
             <span class="flex items-center gap-2 text-[12px] text-[var(--on-surface-secondary)] min-w-0">
               ${REPEAT_ICON}
-              <span class="min-w-0"><b>Ricorrente ogni mese</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— te lo ricordo io</span></span>
+              <span class="min-w-0"><b>${tCh('invRecurring', __uiLang)}</b> <span class="text-[10px] text-[var(--on-surface-secondary)]">— ${tCh('invRemindMe', __uiLang)}</span></span>
             </span>
             <span class="recur-switch"></span>
           </span>
         </label>
         <div class="flex items-center gap-2 text-[11px] text-[var(--on-surface-secondary)]">
-          <span class="shrink-0">Regime:</span>
+          <span class="shrink-0">${tCh('invRegime', __uiLang)}</span>
           <div class="flex-1 min-w-0">${tl1Select('inv-regime', Object.entries(REGIMI).map(([k, v]) => ({ value: k, label: v.label.split('(')[0].trim() })), regime)}</div>
         </div>
       </div>
@@ -15056,18 +15056,18 @@ function getInvoiceFooterHTML() {
   return `
     <!-- Pulsante FATTURA ELETTRONICA (XML): primario per l'Italia. Nascosto
          per i Paesi/casi in cui non serve (allora resta solo il PDF). -->
-    <button id="inv-xml" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2 hidden mb-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>Scarica fattura elettronica (XML)</button>
+    <button id="inv-xml" class="btn-action btn-primary w-full py-3 font-bold rounded-xl inline-flex items-center justify-center gap-2 hidden mb-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>${tCh('invDownloadXml', __uiLang)}</button>
     <div class="flex gap-2 mb-2">
-      <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">Scarica PDF</button>
-      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Invia con allegato</button>
+      <button id="inv-generate" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm">${tCh('invDownloadPdf', __uiLang)}</button>
+      <button id="inv-email-send" class="flex-1 py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>${tCh('invSendAttach', __uiLang)}</button>
     </div>
     <details class="tax-secondary-actions"><summary>${taxJourneyCopy(__uiLang).more}</summary><div>
-    <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>Chiedi il pagamento (QR · WhatsApp · Email)</button>
+    <button id="inv-request-pay" class="w-full py-3 font-bold rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 text-sm inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 20v.01M14 20v.01M20 14v.01"/></svg>${tCh('invRequestPay', __uiLang)}</button>
     <!-- Export annuale FatturaPA in blocco: il ponte commercialista universale
          (qualunque gestionale legge lo standard, non solo B.Point come
          Fattura24 — vedi ANALISI_COMPETITOR.md §6). Solo per fatture italiane
          già emesse, mai un pulsante attivo se non ce n'è nessuna. -->
-    <button id="inv-export-annuale" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm mt-2 inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Esporta l'anno per il commercialista (XML)</button>
+    <button id="inv-export-annuale" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] bg-black/20 text-sm mt-2 inline-flex items-center justify-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>${tCh('invExportYear', __uiLang)}</button>
     </div></details>
     <p id="inv-foot" class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 mt-2"></p>`;
 }
@@ -15207,9 +15207,9 @@ window.openCreateInvoice = (prefillClient) => {
     const vociBreakdown = voci.length > 1
       ? `<div class="mb-1.5 pb-1.5 border-b border-[var(--glass-border)]">${voci.map((v) => `<div class="flex justify-between items-center text-[var(--on-surface-secondary)]"><span class="truncate">${v.descrizione}</span><span class="font-mono shrink-0 ml-2">${eur(v.importo)}</span></div>`).join('')}</div>`
       : '';
-    prevEl.innerHTML = `${vociBreakdown}${inv.righe.map((r) => `<div class="flex justify-between items-center"><span>${r.voce}${r === bolloRiga ? ` <button type="button" id="inv-bollo-why" class="text-[var(--gold)] underline font-bold">perché?</button>` : ''}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
-      ${bolloRiga ? `<div id="inv-bollo-explain" class="hidden mt-1 mb-1 text-[10px] text-[var(--on-surface-secondary)] leading-relaxed border-l-2 border-[var(--gold)]/40 pl-2">Le fatture senza IVA sopra 77,47€ richiedono per legge una marca da bollo da 2€ (DPR 642/1972, art. 13 n.1-bis) — Momentum la aggiunge da sola, non serve comprarla a parte.</div>` : ''}
-      <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">Totale fattura</span><span id="inv-prev-totale" class="font-mono">${eur(inv.totaleFattura)}</span></div>
+    prevEl.innerHTML = `${vociBreakdown}${inv.righe.map((r) => `<div class="flex justify-between items-center"><span>${r.voce}${r === bolloRiga ? ` <button type="button" id="inv-bollo-why" class="text-[var(--gold)] underline font-bold">${tCh('invStampWhy', __uiLang)}</button>` : ''}</span><span class="font-mono">${eur(r.importo)}</span></div>`).join('')}
+      ${bolloRiga ? `<div id="inv-bollo-explain" class="hidden mt-1 mb-1 text-[10px] text-[var(--on-surface-secondary)] leading-relaxed border-l-2 border-[var(--gold)]/40 pl-2">${tCh('invStampExplain', __uiLang)}</div>` : ''}
+      <div class="flex justify-between border-t border-[var(--glass-border)] mt-1 pt-1"><span class="font-bold">${tCh('invTotal', __uiLang)}</span><span id="inv-prev-totale" class="font-mono">${eur(inv.totaleFattura)}</span></div>
       <div class="flex justify-between text-emerald-300 font-bold"><span>Riceverai</span><span id="inv-prev-netto" class="font-mono">${eur(inv.nettoARicevere)}</span></div>
       ${inv.note ? `<div class="mt-1.5 pt-1.5 border-t border-[var(--glass-border)] text-[10px] text-[var(--on-surface-secondary)] leading-relaxed">${inv.note}</div>` : ''}`;
     document.getElementById('inv-bollo-why')?.addEventListener('click', (e) => {
@@ -15436,10 +15436,10 @@ window.openCreateInvoice = (prefillClient) => {
     if (!emitter) {
       const det = document.querySelector('#modal-body details'); if (det) det.open = true;
       $('#inv-emitter').focus();
-      showToast('Aggiungi il tuo nome / P.IVA (serve per una fattura valida).', 'error'); return null;
+      showToast(tCh('invNeedEmitter', __uiLang), 'error'); return null;
     }
-    if (!client) { clientEl.focus(); showToast('Inserisci il nome del cliente.', 'error'); return null; }
-    if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci un importo valido.', 'error'); return null; }
+    if (!client) { clientEl.focus(); showToast(tCh('invNeedClient', __uiLang), 'error'); return null; }
+    if (!(imp > 0)) { amountEl.focus(); showToast(tCh('invNeedAmount', __uiLang), 'error'); return null; }
     const fis = currentFiscal();
     const cliFis = currentClientFiscal();
     const country = ($('#inv-country') && $('#inv-country').value) || 'IT';
@@ -15507,7 +15507,7 @@ window.openCreateInvoice = (prefillClient) => {
       win.document.close();
       win.addEventListener('load', () => setTimeout(() => win.print(), 250));
       closeModal();
-      showToast(`Fattura n.${res.number}/${res.year} pronta — scegli "Salva come PDF" nella finestra di stampa.`, 'success');
+      showToast(tCh('invReadyPrint', __uiLang, res.number, res.year), 'success');
     } else {
       // Riserva onesta: se il browser blocca i popup, il documento di solo
       // testo resta comunque scaricabile, invece di lasciare l'utente senza nulla.
@@ -15516,7 +15516,7 @@ window.openCreateInvoice = (prefillClient) => {
       const a = document.createElement('a'); a.href = url; a.download = fname; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
       closeModal();
-      showToast('Popup bloccati dal browser: scaricata la versione semplice in PDF. Consenti i popup per la versione disegnata.', 'error');
+      showToast(tCh('invPopupBlocked', __uiLang), 'error');
     }
     renderAnalysis();
   });
@@ -15536,7 +15536,7 @@ window.openCreateInvoice = (prefillClient) => {
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: email.subject, text: email.body });
-        closeModal(); showToast('Condivisione aperta con la fattura allegata.', 'success'); renderAnalysis(); return;
+        closeModal(); showToast(tCh('invShareOpened', __uiLang), 'success'); renderAnalysis(); return;
       }
     } catch (e) { if (e && e.name === 'AbortError') return; /* utente ha annullato */ }
     // Fallback universale (desktop senza Web Share): SCARICO il file fattura
@@ -15547,7 +15547,7 @@ window.openCreateInvoice = (prefillClient) => {
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     window.location.href = email.mailto;
     closeModal();
-    showToast('Fattura scaricata: allegala all\'email che si è aperta.', 'success');
+    showToast(tCh('invDownloadedAttach', __uiLang), 'success');
     renderAnalysis();
   });
 
@@ -15561,7 +15561,7 @@ window.openCreateInvoice = (prefillClient) => {
     if (!fis.iban) {
       const det = document.querySelector('#modal-body details'); if (det) det.open = true;
       $('#inv-iban')?.focus();
-      showToast('Aggiungi il tuo IBAN nei dati fiscali per farti pagare.', 'error'); return;
+      showToast(tCh('invNeedIban', __uiLang), 'error'); return;
     }
     if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci l\'importo della fattura.', 'error'); return; }
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: ($('#inv-country') && $('#inv-country').value) || 'IT' });
@@ -15587,7 +15587,7 @@ window.openCreateInvoice = (prefillClient) => {
     const prof = VaultDAO.state.invoiceProfile || {};
     const emitterFiscal = { ...(prof.fiscale || {}), denominazione: prof.emitter || '', regime: VaultDAO.state.taxRegime || 'forfettario', nazione: 'IT' };
     const fattureIt = (VaultDAO.state.invoices || []).filter(i => (i.country || 'IT') === 'IT');
-    if (!fattureIt.length) { showToast('Nessuna fattura italiana emessa.', 'info'); return; }
+    if (!fattureIt.length) { showToast(tCh('invNoItalian', __uiLang), 'info'); return; }
     // Anno PIÙ RECENTE con fatture, non sempre l'anno corrente: chi esporta
     // per il commercialista a gennaio/febbraio lo fa quasi sempre per l'anno
     // appena chiuso — bloccarsi sull'anno corrente avrebbe scaricato zero
@@ -15617,17 +15617,17 @@ window.openCreateInvoice = (prefillClient) => {
       const escLoc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
       const righe = incomplete.map(x => {
         const motivi = x.controls.filter(c => c.level === 'error').map(c => c.message).join('; ');
-        return `<li class="mb-1"><b>Fattura ${escLoc(String(x.number))}</b> — ${escLoc(motivi)}</li>`;
+        return `<li class="mb-1"><b>${escLoc(tCh('invLabelNo', __uiLang, String(x.number)))}</b> — ${escLoc(motivi)}</li>`;
       }).join('');
       openModal(`
         <div class="task-editor flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
-          <h3 class="font-black text-sm">Export ${year}: ${pronte.length} scaricate, ${incomplete.length} da completare</h3>
-          <p class="text-[11px] text-[var(--on-surface-secondary)]">Queste fatture non sono state esportate — completa i dati indicati e riprova.</p>
+          <h3 class="font-black text-sm">${tCh('invExportSummary', __uiLang, year, pronte.length, incomplete.length)}</h3>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('invNotExported', __uiLang)}</p>
           <ul class="text-[12px] list-disc pl-4 max-h-64 overflow-y-auto">${righe}</ul>
-          <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">Ho capito</button>
+          <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-2.5 font-bold rounded-xl text-sm">${tCh('gotIt', __uiLang)}</button>
         </div>`);
     } else if (pronte.length) {
-      showToast(`${pronte.length} fatture del ${year} scaricate: pronte per il commercialista.`, 'success');
+      showToast(tCh('invYearExported', __uiLang, pronte.length, year), 'success');
     }
   });
 
@@ -15671,14 +15671,14 @@ window.openCreateInvoice = (prefillClient) => {
       box.className = 'text-[11px] leading-snug rounded-xl border px-3 py-2.5 border-amber-500/40 bg-amber-500/10 text-amber-200';
       box.dataset.validation = 'blocked';
       box.setAttribute('role', 'status');
-      box.innerHTML = `<div class="font-bold mb-1">Ci manca qualcosa per la fattura elettronica:</div><ul class="list-disc pl-4 space-y-0.5">${items.join('')}</ul>`;
+      box.innerHTML = `<div class="font-bold mb-1">${tCh('invMissingForEinv', __uiLang)}</div><ul class="list-disc pl-4 space-y-0.5">${items.join('')}</ul>`;
       box.classList.remove('hidden');
       const id = missing[0] && FOCUS_MAP[missing[0].field];
       if (id && $(id)) {
         document.querySelector('.tax-invoice-form')?.dispatchEvent(new CustomEvent('invoice-reveal-field', { detail: id }));
         setTimeout(() => $(id)?.focus(), 60);
       }
-      showToast('Completa i campi indicati per la fattura elettronica.', 'error');
+      showToast(tCh('invCompleteFields', __uiLang), 'error');
       return;
     }
     // Tutto in regola coi controlli offline → salva e scarica l'XML.
@@ -15696,11 +15696,11 @@ window.openCreateInvoice = (prefillClient) => {
     // ciclo. Ora la guida appare SUBITO (zero tap in più) e c'è un pulsante
     // che segna la fattura trasmessa nello stesso posto in cui l'hai appena
     // creata, invece di doverlo ricordare più tardi dal promemoria in Analisi.
-    box.innerHTML = `<div class="flex items-center gap-2 font-bold mb-1"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fattura elettronica pronta — ora trasmettila</div>
-      <div><b>${out.filename}</b> è stato scaricato. Due minuti e hai finito: caricalo sul portale <b>Fatture e Corrispettivi</b> dell'Agenzia delle Entrate, oppure invialo al commercialista. Momentum non può caricarlo da solo: serve il tuo accesso ufficiale.</div>
+    box.innerHTML = `<div class="flex items-center gap-2 font-bold mb-1"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>${tCh('invEinvReady', __uiLang)}</div>
+      <div>${tCh('invDownloadedUpload', __uiLang, out.filename)}</div>
       <div class="flex flex-wrap gap-2 mt-2">
-        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-100">Apri il portale Fatture e Corrispettivi<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
-        <button type="button" id="inv-mark-transmitted" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-emerald-400/30 text-emerald-100/90">L'ho già caricata — segna trasmessa</button>
+        <a href="${SDI_PORTAL_URL}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-100">${tCh('invOpenPortal', __uiLang)}<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+        <button type="button" id="inv-mark-transmitted" class="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-full border border-emerald-400/30 text-emerald-100/90">${tCh('invAlreadyUploaded', __uiLang)}</button>
       </div>
       ${warns.length ? `<div class="mt-2 opacity-80">Nota: ${warns.map(w => w.message).join(' ')}</div>` : ''}`;
     box.classList.remove('hidden');
@@ -15723,7 +15723,7 @@ window.openCreateInvoice = (prefillClient) => {
         btn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.12)' }, { transform: 'scale(1)' }], { duration: 320, easing: 'cubic-bezier(.34,1.56,.64,1)' });
       }
     });
-    showToast('XML fattura elettronica scaricato.', 'success');
+    showToast(tCh('invXmlDownloaded', __uiLang), 'success');
     renderAnalysis();
   });
 

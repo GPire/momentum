@@ -4,7 +4,7 @@
 // contengono parole italiane frequenti. Commenti esclusi.
 import { readFileSync } from 'node:fs';
 
-const PAROLE = /\b(il|la|lo|le|gli|dei|delle|della|degli|per|con|non|sono|questo|questa|questi|tuoi|tua|tuo|tue|nel|nella|alla|anche|ancora|oggi|spese|spesa|entrate|salva|salvato|riprova|chiave|dati|mese|scegli|apri|vedi|nessun|nessuna|puoi|devi|serve|servono|qui|più|già|dopo|prima|ogni|tutto|tutti|quando|come|cosa|perché|attiva|disattiva|chiudi|annulla|conferma|aggiungi|elimina|modifica|importo|fattura|gruppo|dispositivo)\b/i;
+const PAROLE = /\b(il|la|lo|le|gli|dei|delle|della|degli|per|con|non|sono|questo|questa|questi|tuoi|tua|tuo|tue|nel|nella|alla|anche|ancora|oggi|spese|spesa|entrate|salva|salvato|riprova|chiave|dati|mese|scegli|apri|vedi|nessun|nessuna|puoi|devi|serve|servono|qui|più|già|dopo|prima|ogni|tutto|tutti|quando|come|cosa|perché|attiva|disattiva|chiudi|annulla|conferma|aggiungi|elimina|modifica|importo|fattura|fatture|gruppo|dispositivo|cifre|codice|indirizzo|comune|cliente|clienti|quanto|quanti|stile|documento|compila|totale|scarica|invia|chiedi|pagamento|esporta|anno|ricorrente|crea|nome|cognome|precedente|successivo|riepilogo|nascosti|tocca|limite|impostato|investire|movimento|movimenti|suggerimento|paese|conto|banca|telefono|restano|resta|oppure|mese|settimana|giorno|giorni|prossima|prossimo|scadenza|scadenze|saldo|saldi|risparmio|obiettivo|obiettivi|budget|categoria|categorie|carica|caricare|ricevuta|ricevute|allegato|allegati|trasferta|trasferte|rimborso|rimborsi|spendere|guadagni|entrata|uscita|uscite|aggiornamento|novità|impostazioni|preferenze|scegliere|tutte|nessuno|sempre|mai|ora|adesso|subito|pronto|pronta|errore|riprovare|attendi|caricamento|valido|valida|obbligatorio|facoltativo|ragione|sociale|cassetto|fiscale|contributi|imposta|tasse|stima)\b/i;
 
 export function findItalianUiStrings(source) {
   const out = [];
@@ -29,6 +29,11 @@ export function findItalianUiStrings(source) {
     for (const m of line.matchAll(/(?:textContent|placeholder|innerText)\s*=\s*(['"`])((?:(?!\1).){4,}?)\1/g)) {
       if (PAROLE.test(m[2])) found.add(m[2]);
     }
+    for (const m of line.matchAll(/(?:placeholder|aria-label|title)="([^"$]{3,})"/g)) {
+      if (PAROLE.test(m[1])) found.add(m[1]);
+    }
+    // Testo da solo su una riga dentro un template HTML (nessun codice sulla riga).
+    if (t.length > 12 && !/[<>=;{}()\[\]]|^['"`]|['"`],?$/.test(t) && PAROLE.test(t) && /^[A-ZÀ-Ù]/.test(t)) found.add(t);
     for (const txt of found) out.push({ line: i + 1, text: txt.slice(0, 120) });
   });
   return out;

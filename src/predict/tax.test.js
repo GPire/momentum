@@ -1119,3 +1119,20 @@ test('CAUSE_ESCLUSIONE_FORFETTARIO: ogni causa dichiara la propria fonte normati
     assert.ok(typeof causa.fonte === 'string' && causa.fonte.length > 5, `${chiave}: fonte mancante`);
   }
 });
+
+test('parseInvoiceLine: la frase si scrive nella propria lingua, non solo in italiano', () => {
+  const casi = [
+    ['to Rossi Ltd 500 for consulting', 'Rossi Ltd', 'consulting'],
+    ['Rechnung an Müller GmbH 500 für Beratung', 'Müller GmbH', 'Beratung'],
+    ['facture à Dupont SARL 500 pour conseil', 'Dupont SARL', 'conseil'],
+    ['a García SL 500 para consultoría', 'García SL', 'consultoría'],
+    ['aan Jansen BV 500 voor advies', 'Jansen BV', 'advies'],
+    ['fatura para Silva Lda 500 para consultoria', 'Silva Lda', 'consultoria'],
+  ];
+  for (const [frase, cliente, causale] of casi) {
+    const r = parseInvoiceLine(frase);
+    assert.equal(r.amount, 500, frase);
+    assert.equal(r.client, cliente, frase);
+    assert.equal(r.description, causale, frase);
+  }
+});

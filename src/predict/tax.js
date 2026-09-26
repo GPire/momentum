@@ -1143,18 +1143,19 @@ export function parseInvoiceLine(text) {
   if (!(amount > 0)) return null;
 
   let rest = raw.replace(amtMatch[0], ' ');
-  // Causale: tutto ciò che segue "per".
+  // Causale: tutto ciò che segue "per" (e l'equivalente nelle 7 lingue dell'app).
   let description = '';
-  const per = rest.match(/\bper\s+(.+)$/i);
-  if (per) { description = per[1].trim(); rest = rest.slice(0, per.index); }
+  // L'ultima occorrenza: in portoghese e spagnolo "para" introduce anche il cliente.
+  const per = [...rest.matchAll(/(?:^|\s)(?:per|for|für|pour|para|voor)\s+/gi)].pop();
+  if (per) { description = rest.slice(per.index + per[0].length).trim(); rest = rest.slice(0, per.index); }
 
   // Cliente: dopo "a/al/alla/all'/cliente/ditta/fattura a", togliendo i verbi di
   // comando iniziali. Ciò che resta, ripulito, è il nome (anche multi-parola,
   // "Rossi Srl", "Mario Rossi"). Le preposizioni/connettivi di servizio via.
   let client = rest
-    .replace(/\b(fattura|fatturare|emetti|emettere|crea|creare|nuova|una)\b/gi, ' ')
-    .replace(/\b(a|al|allo|alla|all'|ai|agli|alle|il|lo|la|di|del|della|cliente|ditta|per)\b/gi, ' ')
-    .replace(/[^\wàèéìòùÀÈÉÌÒÙ&.\s'-]/g, ' ')
+    .replace(/\b(fattura|fatturare|emetti|emettere|crea|creare|nuova|una|invoice|bill|rechnung|facture|factura|factuur|fatura)\b/gi, ' ')
+    .replace(/(?:^|\s)(a|al|allo|alla|all'|ai|agli|alle|il|lo|la|di|del|della|cliente|ditta|per|to|an|à|au|aux|aan|para|ao|à)(?=\s|$)/gi, ' ')
+    .replace(/[^\p{L}\p{N}&.\s'-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   // Capitalizza ogni parola del nome (Srl/SpA restano leggibili comunque).
