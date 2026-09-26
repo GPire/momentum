@@ -26,6 +26,8 @@ const NOTE_BY_LANG = {
   es: (namedCat, altra, motivo) => ` Atención: ${namedCat} y ${altra} se mueven juntos probablemente por ${motivo}, no porque uno cause el otro.`,
   fr: (namedCat, altra, motivo) => ` Attention : ${namedCat} et ${altra} bougent ensemble probablement à cause de ${motivo}, pas parce que l'un cause l'autre.`,
   de: (namedCat, altra, motivo) => ` Achtung: ${namedCat} und ${altra} bewegen sich wahrscheinlich wegen ${motivo} gemeinsam, nicht weil eins das andere verursacht.`,
+  nl: (namedCat, altra, motivo) => ` Let op: ${namedCat} en ${altra} bewegen waarschijnlijk samen door ${motivo}, niet omdat het een het ander veroorzaakt.`,
+  pt: (namedCat, altra, motivo) => ` Atenção: ${namedCat} e ${altra} mexem-se juntas provavelmente por causa de ${motivo}, não porque uma cause a outra.`,
 };
 
 // avviso: il caso restituito da findMacroConfounderWarning (non null).

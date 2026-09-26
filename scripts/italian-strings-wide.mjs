@@ -20,6 +20,12 @@ export function findItalianStringsWide(source) {
     if (/console\.(log|warn|error|info|debug)\(/.test(line)) return;
     for (const m of line.matchAll(/(['"`])((?:\\.|(?!\1).){8,}?)\1/g)) {
       const s = m[2];
+      // Stringhe dichiarate per una lingua precisa (`es: '...'`, `fr: (n) => \`...\``):
+      // "la", "con", "le" sono parole spagnole e francesi, non debito.
+      // Anche la voce `it:` di un dizionario per lingua è la sorgente, non debito.
+      const prima = line.slice(0, m.index);
+      if (/^(it|en|es|fr|de|nl|pt)\s*:/.test(t)) continue;
+      if (/\b(it|en|es|fr|de|nl|pt)\s*:\s*(\([^)]*\)\s*=>\s*|\w+\s*=>\s*)?$/.test(prima)) continue;
       if (PAROLE.test(s) && /\s\S+\s/.test(s)) out.push({ line: i + 1, text: s.slice(0, 100) });
     }
   });

@@ -67,21 +67,32 @@ const CANONICAL_TRIGGER = {
 // d'acquisto specifico — solo le STESSE categorie e Sharpe ratio MISURATI
 // (walk-forward, mai un numero inventato) già mostrati nella tabella
 // "Strategia (10 anni)" di Analisi Tensor, qui riassunti in una frase.
-function topMeasuredStrategiesNote() {
+function topMeasuredStrategiesNote(lang = 'it') {
   const rows = [
     { label: MEASURED.spy?.label, sharpe: MEASURED.spy?.momentumTiming?.sharpe },
     { label: `${MEASURED.spy?.label} (buy&hold)`, sharpe: MEASURED.spy?.buyHold?.sharpe },
     { label: MEASURED.btc?.label, sharpe: MEASURED.btc?.buyHold?.sharpe },
   ].filter(r => r.label && Number.isFinite(r.sharpe)).sort((a, b) => b.sharpe - a.sharpe);
   if (!rows.length) return '';
-  const top = rows.slice(0, 2).map(r => `${r.label} (Sharpe ${r.sharpe.toFixed(2)}, misurato)`).join(' e ');
-  return ` Dato storico (non una previsione, non un consiglio d'acquisto): negli ultimi anni ${top} hanno avuto il miglior rapporto rischio/rendimento — vedi la tabella completa in Analisi Tensor.`;
+  const W = {
+    it: { m: 'misurato', and: ' e ', s: (top) => ` Dato storico (non una previsione, non un consiglio d'acquisto): negli ultimi anni ${top} hanno avuto il miglior rapporto rischio/rendimento. La tabella completa è in Analisi Tensor.` },
+    en: { m: 'measured', and: ' and ', s: (top) => ` Historical fact (not a forecast, not buying advice): in recent years ${top} had the best risk/return ratio. The full table is in Tensor Analysis.` },
+    es: { m: 'medido', and: ' y ', s: (top) => ` Dato histórico (no una previsión, no un consejo de compra): en los últimos años ${top} tuvieron la mejor relación riesgo/rentabilidad. La tabla completa está en Análisis Tensor.` },
+    fr: { m: 'mesuré', and: ' et ', s: (top) => ` Donnée historique (pas une prévision, pas un conseil d'achat) : ces dernières années ${top} ont eu le meilleur rapport risque/rendement. Le tableau complet est dans Analyse Tensor.` },
+    de: { m: 'gemessen', and: ' und ', s: (top) => ` Historischer Wert (keine Prognose, keine Kaufempfehlung): in den letzten Jahren hatten ${top} das beste Rendite-Risiko-Verhältnis. Die ganze Tabelle steht in Tensor-Analyse.` },
+    nl: { m: 'gemeten', and: ' en ', s: (top) => ` Historisch gegeven (geen voorspelling, geen koopadvies): de afgelopen jaren hadden ${top} de beste verhouding tussen risico en rendement. De volledige tabel staat in Tensor-analyse.` },
+    pt: { m: 'medido', and: ' e ', s: (top) => ` Dado histórico (não é uma previsão nem um conselho de compra): nos últimos anos ${top} tiveram a melhor relação risco/retorno. A tabela completa está em Análise Tensor.` },
+  }[lang] || null;
+  const w = W || { m: 'measured', and: ' and ', s: (top) => ` Historical fact (not a forecast, not buying advice): in recent years ${top} had the best risk/return ratio.` };
+  const top = rows.slice(0, 2).map(r => `${r.label} (Sharpe ${r.sharpe.toFixed(2)}, ${w.m})`).join(w.and);
+  return w.s(top);
 }
 
-const LANGS = ['it', 'en', 'es', 'fr', 'de'];
-// Fallback onesto: una lingua rilevata ma non tradotta qui (es. 'pt') usa
-// l'inglese, mai spacciato per italiano solo perché è la lingua di default
-// del motore quando NESSUNA lingua è rilevata.
+const LANGS = ['it', 'en', 'es', 'fr', 'de', 'nl', 'pt'];
+// Fallback onesto: una lingua rilevata ma non tradotta qui usa l'inglese,
+// mai spacciata per italiano solo perché è la lingua di default del motore
+// quando NESSUNA lingua è rilevata. Dal 26/09/2026 tutte e 7 le lingue
+// dell'interfaccia hanno risposte proprie.
 const L = (lang) => LANGS.includes(lang) ? lang : 'en';
 
 function monthlyFinance(allTx, ref) {
@@ -109,6 +120,8 @@ const MONTH_NAMES = {
   es: ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'],
   fr: ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'],
   de: ['januar','februar','märz','april','mai','juni','juli','august','september','oktober','november','dezember'],
+  nl: ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'],
+  pt: ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'],
 };
 
 const fmt = n => `${(+n).toFixed(2).replace('.', ',')}€`;
@@ -124,20 +137,22 @@ function resolvePeriod(q, ref, lang) {
     es: { today: 'hoy', yesterday: 'ayer', thisWeek: 'esta semana', lastMonth: 'el mes pasado', thisMonth: 'este mes', in: 'en' },
     fr: { today: 'aujourd\'hui', yesterday: 'hier', thisWeek: 'cette semaine', lastMonth: 'le mois dernier', thisMonth: 'ce mois', in: 'en' },
     de: { today: 'heute', yesterday: 'gestern', thisWeek: 'diese Woche', lastMonth: 'letzten Monat', thisMonth: 'diesen Monat', in: 'im' },
+    nl: { today: 'vandaag', yesterday: 'gisteren', thisWeek: 'deze week', lastMonth: 'vorige maand', thisMonth: 'deze maand', in: 'in' },
+    pt: { today: 'hoje', yesterday: 'ontem', thisWeek: 'esta semana', lastMonth: 'o mês passado', thisMonth: 'este mês', in: 'em' },
   }[lang];
 
-  if (/\b(oggi|today|hoy|aujourd|heute)\b/.test(q)) return { start: today, end: today, label: LBL.today };
-  if (/\b(ieri|yesterday|ayer|hier|gestern)\b/.test(q)) {
+  if (/\b(oggi|today|hoy|aujourd|heute|vandaag|hoje)\b/.test(q)) return { start: today, end: today, label: LBL.today };
+  if (/\b(ieri|yesterday|ayer|hier|gestern|gisteren|ontem)\b/.test(q)) {
     const y = new Date(today.getTime() - 86_400_000);
     return { start: y, end: y, label: LBL.yesterday };
   }
-  if (/(questa settimana|this week|esta semana|cette semaine|diese woche)/.test(q)) {
+  if (/(questa settimana|this week|esta semana|cette semaine|diese woche|deze week)/.test(q)) {
     const day = today.getDay();
     const monday = new Date(today);
     monday.setDate(monday.getDate() + (day === 0 ? -6 : 1) - day);
     return { start: monday, end: today, label: LBL.thisWeek };
   }
-  if (/(mese scorso|scorso mese|last month|mes pasado|mois dernier|letzten monat)/.test(q)) {
+  if (/(mese scorso|scorso mese|last month|mes pasado|mois dernier|letzten monat|vorige maand|mês passado|mes passado)/.test(q)) {
     const start = new Date(ref.getFullYear(), ref.getMonth() - 1, 1);
     return { start, end: new Date(ref.getFullYear(), ref.getMonth(), 0), label: LBL.lastMonth };
   }
@@ -245,6 +260,8 @@ const PATTERNS = {
     es: /(cuánto puedo invertir|puedo invertir|invertir este mes)/,
     fr: /(combien puis-je investir|puis-je investir|investir ce mois)/,
     de: /(wie viel kann ich investieren|kann ich investieren|diesen monat investieren)/,
+    nl: /(hoeveel kan ik (beleggen|investeren)|kan ik (beleggen|investeren)|deze maand (beleggen|investeren))/,
+    pt: /(quanto posso investir|posso investir|investir este mês)/,
   },
   fire: {
     it: /(quando.{0,15}pensione|quanto manca.{0,10}pensione|indipendenza finanziaria|ritirarmi dal lavoro|smettere di lavorare)/,
@@ -252,6 +269,8 @@ const PATTERNS = {
     es: /(jubila|independencia financiera|retirarme|dejar de trabajar)/,
     fr: /(retraite|indépendance financière|arrêter de travailler)/,
     de: /(in rente|ruhestand|finanzielle unabhängigkeit|aufhören zu arbeiten)/,
+    nl: /(met pensioen|pensioen|financiële onafhankelijkheid|stoppen met werken)/,
+    pt: /(reforma|aposentadoria|independência financeira|deixar de trabalhar)/,
   },
   affordability: {
     it: /(posso permettermi|posso spendere|ce la faccio a spendere|posso comprare|posso comprarmi)/,
@@ -259,6 +278,8 @@ const PATTERNS = {
     es: /(puedo permitirme|puedo gastar|puedo comprar)/,
     fr: /(puis-je me permettre|puis-je dépenser|puis-je acheter)/,
     de: /(kann ich mir .{0,15}leisten|kann ich .{0,10}ausgeben|kann ich kaufen)/,
+    nl: /(kan ik .{0,15}veroorloven|kan ik .{0,10}uitgeven|kan ik kopen)/,
+    pt: /(posso pagar|posso gastar|posso comprar)/,
   },
   safeToSpend: {
     it: /(quanto posso spendere|cosa posso spendere|budget di oggi|quanto mi resta oggi)/,
@@ -266,6 +287,8 @@ const PATTERNS = {
     es: /(cuánto puedo gastar|presupuesto de hoy|cuánto me queda hoy)/,
     fr: /(combien puis-je dépenser|budget d.?aujourd|combien me reste)/,
     de: /(wie viel kann ich .{0,15}ausgeben|budget für heute|wie viel bleibt)/,
+    nl: /(hoeveel kan ik .{0,15}uitgeven|budget voor vandaag|hoeveel blijft)/,
+    pt: /(quanto posso gastar|orçamento de hoje|quanto me resta hoje)/,
   },
   budgetLeft: {
     it: /(quanto (mi )?resta|quanto rimane)/,
@@ -273,6 +296,8 @@ const PATTERNS = {
     es: /(cuánto (me )?queda|qué queda)/,
     fr: /(combien (me )?reste|qu.?est-ce qu.?il reste)/,
     de: /(wie viel (bleibt|habe ich noch)|was bleibt)/,
+    nl: /(hoeveel (heb ik nog|blijft er)|wat blijft er)/,
+    pt: /(quanto (me )?resta|quanto sobra)/,
   },
   monthEnd: {
     it: /(fine mese|chiud[oe] il mese|finisco il mese|proiezione|previsione|spendendo troppo)/,
@@ -280,6 +305,8 @@ const PATTERNS = {
     es: /(fin de mes|cómo termino el mes|proyección del mes)/,
     fr: /(fin du mois|comment vais-je finir le mois|projection du mois)/,
     de: /(monatsende|wie werde ich den monat beenden|monatsprognose)/,
+    nl: /(einde van de maand|hoe eindig ik de maand|maandprognose)/,
+    pt: /(fim do mês|como termino o mês|previsão do mês)/,
   },
   subscriptions: {
     it: /(abbonament|quando pago|pagamenti ricorrenti|spese fisse)/,
@@ -287,6 +314,8 @@ const PATTERNS = {
     es: /(suscripci|pagos recurrentes)/,
     fr: /(abonnement|paiements récurrents)/,
     de: /(abonnement|wiederkehrende zahlung)/,
+    nl: /(abonnement|terugkerende betaling)/,
+    pt: /(subscriç|assinatura|pagamentos recorrentes)/,
   },
   causal: {
     it: /(cosa succede se|se spendo di più|se aumento|cosa si muove con|cosa cambia se)/,
@@ -294,6 +323,8 @@ const PATTERNS = {
     es: /(qué pasa si|si gasto más|si aumento)/,
     fr: /(que se passe-t-il si|si je dépense plus|si j.?augmente)/,
     de: /(was passiert wenn|wenn ich mehr ausgebe|wenn ich erhöhe)/,
+    nl: /(wat gebeurt er als|als ik meer uitgeef|als ik verhoog)/,
+    pt: /(o que acontece se|se gastar mais|se aumentar)/,
   },
   topCategory: {
     it: /(dove spendo|dove.{0,10}vanno|in cosa spendo|categoria più|top categor)/,
@@ -301,6 +332,8 @@ const PATTERNS = {
     es: /(dónde gasto|mayor gasto)/,
     fr: /(où je dépense|plus grosse dépense)/,
     de: /(wo gebe ich aus|größte ausgabe)/,
+    nl: /(waar geef ik .{0,10}uit|grootste uitgave)/,
+    pt: /(onde gasto|maior despesa)/,
   },
   savings: {
     it: /(risparmiat|messo da parte|mett(ere|o) via|messo via|tengo da parte|risparmio)/,
@@ -308,6 +341,8 @@ const PATTERNS = {
     es: /(cuánto (he )?ahorrado|ahorro)/,
     fr: /(combien j.?ai économisé|épargne)/,
     de: /(wie viel habe ich gespart|ersparnis)/,
+    nl: /(hoeveel heb ik gespaard|spaargeld|besparing)/,
+    pt: /(quanto poupei|poupança)/,
   },
   income: {
     it: /(guadagnat|entrate|incassat|quanto (mi )?è entrato|mi hanno dato|paghetta)/,
@@ -315,6 +350,8 @@ const PATTERNS = {
     es: /(cuánto (he )?ganado|ingresos)/,
     fr: /(combien j.?ai gagné|revenus)/,
     de: /(wie viel habe ich verdient|einkommen)/,
+    nl: /(hoeveel heb ik verdiend|inkomen|inkomsten)/,
+    pt: /(quanto ganhei|rendimentos|receitas)/,
   },
   spent: {
     it: /(quanto ho speso|quanto abbiamo speso|spese di|quanto spendo|le mie spese)/,
@@ -322,6 +359,8 @@ const PATTERNS = {
     es: /(cuánto (he )?gastado|mis gastos)/,
     fr: /(combien j.?ai dépensé|mes dépenses)/,
     de: /(wie viel habe ich .{0,20}ausgegeben|meine ausgaben)/,
+    nl: /(hoeveel heb ik .{0,20}uitgegeven|mijn uitgaven)/,
+    pt: /(quanto gastei|as minhas despesas|meus gastos)/,
   },
   goal: {
     it: /(obiettivo|obbiettivo)/,
@@ -329,8 +368,10 @@ const PATTERNS = {
     es: /(objetivo|meta)/,
     fr: /(objectif)/,
     de: /(ziel)/,
+    nl: /(doel|spaardoel)/,
+    pt: /(objetivo|meta)/,
   },
-  when: { it: /quando/, en: /when/, es: /cuándo/, fr: /quand/, de: /wann/ },
+  when: { it: /quando/, en: /when/, es: /cuándo/, fr: /quand/, de: /wann/, nl: /wanneer/, pt: /quando/ },
   // 3 nuovi intent, richiesti esplicitamente ("altre feature di Chiedi a
   // Momentum") — riusano motori GIÀ esistenti e verificati (fixed-commitments,
   // bnpl, net-worth), mai nuovi calcoli inventati per l'occasione.
@@ -340,6 +381,8 @@ const PATTERNS = {
     es: /(patrimonio neto|cuánto tengo en total)/,
     fr: /(patrimoine|combien j.?ai au total)/,
     de: /(vermögen|wie viel habe ich insgesamt)/,
+    nl: /(vermogen|hoeveel heb ik in totaal)/,
+    pt: /(património|patrimônio|quanto tenho no total)/,
   },
   payday: {
     it: /(quando mi pagano|quanto manca (allo |al )?stipendio|prima dello stipendio|quando arriva lo stipendio|arrivano.{0,25}paghetta|manca.{0,15}paghetta)/,
@@ -347,6 +390,8 @@ const PATTERNS = {
     es: /(cuándo me pagan|falta para (el )?sueldo)/,
     fr: /(quand suis-je payé|avant le salaire)/,
     de: /(wann werde ich bezahlt|bis zum gehalt)/,
+    nl: /(wanneer word ik betaald|tot (mijn )?salaris)/,
+    pt: /(quando recebo|até ao salário|antes do salário)/,
   },
   bnplOwed: {
     it: /(quanto devo (ancora )?a rate|rate aperte|piani a rate|klarna|scalapay|paypal.{0,10}rate)/,
@@ -354,11 +399,13 @@ const PATTERNS = {
     es: /(cuánto debo .{0,15}cuotas|planes de cuotas)/,
     fr: /(combien dois-je .{0,15}mensualités|plans de paiement)/,
     de: /(wie viel schulde ich .{0,15}raten|ratenpläne)/,
+    nl: /(hoeveel ben ik .{0,15}termijnen|afbetalingsplannen|achteraf betalen)/,
+    pt: /(quanto devo .{0,15}prestações|planos de prestações)/,
   },
 };
 function matches(intent, q) {
   const p = PATTERNS[intent];
-  return p.it.test(q) || p.en.test(q) || p.es.test(q) || p.fr.test(q) || p.de.test(q);
+  return LANGS.some((l) => p[l]?.test(q));
 }
 
 const UNKNOWN_MSG = {
@@ -367,6 +414,8 @@ const UNKNOWN_MSG = {
   es: 'Esto todavía no lo sé. Prueba con: "¿cuánto he gastado este mes?", "¿cuánto puedo gastar hoy?", "¿puedo permitirme 50€?", "¿cómo termino el mes?", "¿qué suscripciones pago?", "¿dónde gasto más?", "¿cuánto he ahorrado?".',
   fr: 'Je ne sais pas encore répondre à ça. Essaie : "combien j\'ai dépensé ce mois-ci ?", "combien puis-je dépenser aujourd\'hui ?", "puis-je me permettre 50€ ?", "comment vais-je finir le mois ?", "quels abonnements je paie ?", "où je dépense le plus ?", "combien j\'ai économisé ?".',
   de: 'Das weiß ich noch nicht. Versuch es mit: "Wie viel habe ich diesen Monat ausgegeben?", "Wie viel kann ich heute ausgeben?", "Kann ich mir 50€ leisten?", "Wie werde ich den Monat beenden?", "Welche Abos zahle ich?", "Wo gebe ich am meisten aus?", "Wie viel habe ich gespart?".',
+  nl: 'Dit weet ik nog niet. Probeer: "hoeveel heb ik deze maand uitgegeven?", "hoeveel kan ik vandaag uitgeven?", "kan ik 50€ veroorloven?", "hoe eindig ik de maand?", "welke abonnementen betaal ik?", "waar geef ik het meest uit?", "hoeveel heb ik gespaard?".',
+  pt: 'Ainda não sei responder a isto. Experimente: "quanto gastei este mês?", "quanto posso gastar hoje?", "posso pagar 50€?", "como termino o mês?", "que subscrições pago?", "onde gasto mais?", "quanto poupei?".',
 };
 
 // Involucro sottile: calcola di nuovo (è pura ed economica) se la domanda
@@ -465,7 +514,13 @@ function answerQuestionCore(question, ctx) {
       if (no) return no;
     } catch (_) { /* un rifiuto che fallisce non deve rompere la risposta */ }
   }
-  const lang = L(detectLanguage(q).lang);
+  // Lingua della risposta: quella della domanda. A parità di segnali (parole
+  // comuni a più lingue, es. "quanto posso" in italiano e portoghese) o senza
+  // segnali vince la lingua dell'interfaccia, mai l'italiano per ordine.
+  const det = detectLanguage(q);
+  const ui = LANGS.includes(ctx.uiLanguage) ? ctx.uiLanguage : null;
+  const top = Math.max(0, ...Object.values(det.scores || {}));
+  const lang = L(ui && (top === 0 || det.scores?.[ui] === top) ? ui : det.lang);
   // Solo per il RICONOSCIMENTO dell'intento (matches()) — mai per estrarre
   // importi/categorie/periodi, che restano sul testo originale `q`.
   let qMatch = correctTypos(q);
@@ -508,7 +563,7 @@ function answerQuestionCore(question, ctx) {
       emergencyMonths: ctx.emergencyMonths ?? 6,
       lang,
     });
-    const enrich = r.reason === 'ok' ? topMeasuredStrategiesNote() : '';
+    const enrich = r.reason === 'ok' ? topMeasuredStrategiesNote(lang) : '';
     return { intent: 'invest', data: r, answer: r.note + enrich };
   }
 
@@ -523,10 +578,19 @@ function answerQuestionCore(question, ctx) {
       liabilities: ctx.liabilities || 0,
       asOf: ref,
     });
-    const parts = [`contante ${fmt(n.cash)}`];
-    if (n.invested > 0) parts.push(`investito ${fmt(n.invested)}`);
-    if (n.liabilities > 0) parts.push(`debiti −${fmt(n.liabilities)}`);
-    return { intent: 'net-worth', data: n, answer: `Il tuo patrimonio totale è ${fmt(n.total)} (${parts.join(', ')}).` };
+    const W = {
+      it: { cash: 'contante', inv: 'investito', debt: 'debiti', total: (t, p) => `Il tuo patrimonio totale è ${t} (${p}).` },
+      en: { cash: 'cash', inv: 'invested', debt: 'debts', total: (t, p) => `Your total net worth is ${t} (${p}).` },
+      es: { cash: 'efectivo', inv: 'invertido', debt: 'deudas', total: (t, p) => `Tu patrimonio total es ${t} (${p}).` },
+      fr: { cash: 'liquidités', inv: 'investi', debt: 'dettes', total: (t, p) => `Ton patrimoine total est de ${t} (${p}).` },
+      de: { cash: 'Bargeld', inv: 'investiert', debt: 'Schulden', total: (t, p) => `Dein Gesamtvermögen beträgt ${t} (${p}).` },
+      nl: { cash: 'contant', inv: 'belegd', debt: 'schulden', total: (t, p) => `Je totale vermogen is ${t} (${p}).` },
+      pt: { cash: 'dinheiro', inv: 'investido', debt: 'dívidas', total: (t, p) => `O seu património total é ${t} (${p}).` },
+    }[lang];
+    const parts = [`${W.cash} ${fmt(n.cash)}`];
+    if (n.invested > 0) parts.push(`${W.inv} ${fmt(n.invested)}`);
+    if (n.liabilities > 0) parts.push(`${W.debt} −${fmt(n.liabilities)}`);
+    return { intent: 'net-worth', data: n, answer: W.total(fmt(n.total), parts.join(', ')) };
   }
 
   // — "quanti anni mi mancano per la pensione / l'indipendenza finanziaria?"
@@ -566,6 +630,8 @@ function answerQuestionCore(question, ctx) {
       es: { noData: 'Para estimarlo necesito al menos un mes de gastos registrados.', noPath: (cap) => `Con un capital objetivo de ${cap} todavía no veo un camino: haría falta capital invertido o un ahorro mensual positivo para hacerlo crecer.`, ok: (y, cap, r) => `A tu ritmo actual, la independencia financiera está a unos ${y} años (capital objetivo ${cap}, rendimiento real medido ${r}%/año — la regla del 4%, no una promesa).` },
       fr: { noData: 'Il me faut au moins un mois de dépenses enregistrées pour l\'estimer.', noPath: (cap) => `Avec un capital cible de ${cap} je ne vois pas encore de chemin : il faudrait un capital investi ou une épargne mensuelle positive à faire croître.`, ok: (y, cap, r) => `À ton rythme actuel, l'indépendance financière est à environ ${y} ans (capital cible ${cap}, rendement réel mesuré ${r}%/an — la règle des 4 %, pas une promesse).` },
       de: { noData: 'Dafür brauche ich mindestens einen Monat erfasste Ausgaben.', noPath: (cap) => `Mit einem Zielkapital von ${cap} sehe ich noch keinen Weg: dafür bräuchtest du investiertes Kapital oder eine positive monatliche Sparrate zum Wachsen.`, ok: (y, cap, r) => `In deinem aktuellen Tempo ist die finanzielle Unabhängigkeit etwa ${y} Jahre entfernt (Zielkapital ${cap}, gemessene reale Rendite ${r}%/Jahr — die 4-%-Regel, kein Versprechen).` },
+      nl: { noData: 'Om dit te schatten heb ik minstens een maand aan geregistreerde uitgaven nodig.', noPath: (cap) => `Met een doelkapitaal van ${cap} zie ik nog geen weg: je hebt belegd kapitaal of een positief maandelijks spaarbedrag nodig om te laten groeien.`, ok: (y, cap, r) => `In je huidige tempo is financiële onafhankelijkheid ongeveer ${y} jaar weg (doelkapitaal ${cap}, gemeten reëel rendement ${r}%/jaar: de 4%-regel, geen belofte).` },
+      pt: { noData: 'Para estimar isto preciso de pelo menos um mês de despesas registadas.', noPath: (cap) => `Com um capital-alvo de ${cap} ainda não vejo um caminho: é preciso capital investido ou uma poupança mensal positiva para fazer crescer.`, ok: (y, cap, r) => `Ao seu ritmo atual, a independência financeira está a cerca de ${y} anos (capital-alvo ${cap}, retorno real medido ${r}%/ano: a regra dos 4%, não uma promessa).` },
     }[lang];
     if (totalExp <= 0) return { intent: 'fire', answer: T.noData };
     if (!fire.reachable) return { intent: 'fire', data: { targetCapital, netWorth, monthlyContribution }, answer: T.noPath(fmt(targetCapital)) };
@@ -576,22 +642,40 @@ function answerQuestionCore(question, ctx) {
   // commitmentForecast, lo stesso motore della card "Il tuo mese senza
   // sorprese" — mai un secondo calcolo isolato per il QA).
   if (matches('payday', qMatch)) {
-    if (!ctx.salary) return { intent: 'payday', answer: 'Non so ancora quando ti pagano: dimmelo in Momentum Vault → Stipendio, o registra qualche entrata e lo capirò da solo.' };
+    const P = {
+      it: { unknown: 'Non so ancora quando ti pagano: dimmelo in Momentum Vault → Stipendio, o registra qualche entrata e lo capirò da solo.', noDate: 'Non riesco a calcolare la prossima data di stipendio con i dati che ho.', today: 'oggi', tomorrow: 'domani', inDays: (d) => `tra ${d} giorni`, due: (a) => ` Prima di allora devi ancora coprire ${a} di impegni fissi.`, none: ' Nessun impegno fisso da coprire prima di allora.', paid: (l, d) => `Ti pagano ${l} (${d}).` },
+      en: { unknown: "I don't know when you get paid yet: tell me in Momentum Vault → Salary, or record some income and I'll work it out.", noDate: "I can't calculate your next payday with the data I have.", today: 'today', tomorrow: 'tomorrow', inDays: (d) => `in ${d} days`, due: (a) => ` Before then you still need to cover ${a} of fixed commitments.`, none: ' No fixed commitments to cover before then.', paid: (l, d) => `You get paid ${l} (${d}).` },
+      es: { unknown: 'Todavía no sé cuándo cobras: dímelo en Momentum Vault → Sueldo, o registra algún ingreso y lo deduciré yo.', noDate: 'No puedo calcular la próxima fecha de cobro con los datos que tengo.', today: 'hoy', tomorrow: 'mañana', inDays: (d) => `en ${d} días`, due: (a) => ` Antes de eso aún tienes que cubrir ${a} de compromisos fijos.`, none: ' Ningún compromiso fijo que cubrir antes.', paid: (l, d) => `Cobras ${l} (${d}).` },
+      fr: { unknown: "Je ne sais pas encore quand tu es payé : dis-le-moi dans Momentum Vault → Salaire, ou enregistre quelques revenus et je le déduirai.", noDate: 'Je ne peux pas calculer la prochaine date de salaire avec les données que j\'ai.', today: "aujourd'hui", tomorrow: 'demain', inDays: (d) => `dans ${d} jours`, due: (a) => ` D'ici là tu dois encore couvrir ${a} d'engagements fixes.`, none: " Aucun engagement fixe à couvrir d'ici là.", paid: (l, d) => `Tu es payé ${l} (${d}).` },
+      de: { unknown: 'Ich weiß noch nicht, wann du bezahlt wirst: sag es mir in Momentum Vault → Gehalt, oder erfasse ein paar Einnahmen, dann finde ich es selbst heraus.', noDate: 'Mit meinen Daten kann ich den nächsten Zahltag nicht berechnen.', today: 'heute', tomorrow: 'morgen', inDays: (d) => `in ${d} Tagen`, due: (a) => ` Bis dahin musst du noch ${a} an Fixkosten decken.`, none: ' Bis dahin keine Fixkosten zu decken.', paid: (l, d) => `Du wirst ${l} bezahlt (${d}).` },
+      nl: { unknown: 'Ik weet nog niet wanneer je betaald wordt: vertel het me in Momentum Vault → Salaris, of registreer wat inkomsten en ik zoek het zelf uit.', noDate: 'Met de gegevens die ik heb kan ik je volgende betaaldag niet berekenen.', today: 'vandaag', tomorrow: 'morgen', inDays: (d) => `over ${d} dagen`, due: (a) => ` Tot dan moet je nog ${a} aan vaste lasten dekken.`, none: ' Tot dan geen vaste lasten te dekken.', paid: (l, d) => `Je wordt ${l} betaald (${d}).` },
+      pt: { unknown: 'Ainda não sei quando recebe: diga-me em Momentum Vault → Salário, ou registe algumas receitas e eu descubro.', noDate: 'Não consigo calcular a próxima data de salário com os dados que tenho.', today: 'hoje', tomorrow: 'amanhã', inDays: (d) => `daqui a ${d} dias`, due: (a) => ` Até lá ainda tem de cobrir ${a} de compromissos fixos.`, none: ' Nenhum compromisso fixo a cobrir até lá.', paid: (l, d) => `Recebe ${l} (${d}).` },
+    }[lang];
+    if (!ctx.salary) return { intent: 'payday', answer: P.unknown };
     const f = commitmentForecast(ctx.fixedCommitments || [], ctx.salary, { now: ref.getTime(), monthTx: monthTxs });
-    if (!f.payday) return { intent: 'payday', answer: 'Non riesco a calcolare la prossima data di stipendio con i dati che ho.' };
+    if (!f.payday) return { intent: 'payday', answer: P.noDate };
     const days = f.payday.daysToNext;
-    const dayLabel = days === 0 ? 'oggi' : days === 1 ? 'domani' : `tra ${days} giorni`;
-    const dueTxt = f.dueBeforePaydayTotal > 0 ? ` Prima di allora devi ancora coprire ${fmt(f.dueBeforePaydayTotal)} di impegni fissi.` : ' Nessun impegno fisso da coprire prima di allora.';
-    return { intent: 'payday', data: f, answer: `Ti pagano ${dayLabel} (${f.payday.date}).${dueTxt}` };
+    const dayLabel = days === 0 ? P.today : days === 1 ? P.tomorrow : P.inDays(days);
+    const dueTxt = f.dueBeforePaydayTotal > 0 ? P.due(fmt(f.dueBeforePaydayTotal)) : P.none;
+    return { intent: 'payday', data: f, answer: `${P.paid(dayLabel, f.payday.date)}${dueTxt}` };
   }
 
   // — "quanto devo ancora a rate?" (riusa bnplExposure, lo stesso motore
   // del radar BNPL — mai un secondo rilevatore isolato per il QA).
   if (matches('bnplOwed', qMatch)) {
     const exp = bnplExposure(allTx, { now: ref.getTime(), learned: ctx.bnplLearned || {}, anticipate: true, dismissed: ctx.bnplDismissed || [] });
-    if (exp.count === 0) return { intent: 'bnpl-owed', data: exp, answer: 'Non vedo piani a rate aperti al momento.' };
+    const B = {
+      it: { none: 'Non vedo piani a rate aperti al momento.', open: (n, list, tot) => `Hai ${n} ${n > 1 ? 'piani' : 'piano'} a rate ${n > 1 ? 'aperti' : 'aperto'}: ${list}. Totale residuo ${tot}.` },
+      en: { none: "I don't see any open instalment plans right now.", open: (n, list, tot) => `You have ${n} open instalment plan${n > 1 ? 's' : ''}: ${list}. Total remaining ${tot}.` },
+      es: { none: 'Ahora mismo no veo planes de pago a plazos abiertos.', open: (n, list, tot) => `Tienes ${n} ${n > 1 ? 'planes' : 'plan'} a plazos ${n > 1 ? 'abiertos' : 'abierto'}: ${list}. Total pendiente ${tot}.` },
+      fr: { none: 'Je ne vois aucun paiement échelonné en cours.', open: (n, list, tot) => `Tu as ${n} paiement${n > 1 ? 's' : ''} échelonné${n > 1 ? 's' : ''} en cours : ${list}. Reste à payer ${tot}.` },
+      de: { none: 'Ich sehe gerade keine offenen Ratenpläne.', open: (n, list, tot) => `Du hast ${n} offene${n > 1 ? '' : 'n'} Ratenplan${n > 1 ? 'e' : ''}: ${list}. Restbetrag ${tot}.` },
+      nl: { none: 'Ik zie op dit moment geen lopende afbetalingsplannen.', open: (n, list, tot) => `Je hebt ${n} lopende afbetalingsplan${n > 1 ? 'nen' : ''}: ${list}. Totaal resterend ${tot}.` },
+      pt: { none: 'Neste momento não vejo planos de prestações em aberto.', open: (n, list, tot) => `Tem ${n} ${n > 1 ? 'planos' : 'plano'} de prestações em aberto: ${list}. Total em falta ${tot}.` },
+    }[lang];
+    if (exp.count === 0) return { intent: 'bnpl-owed', data: exp, answer: B.none };
     const byProv = exp.byProvider.map(p => `${p.providerLabel} ${fmt(p.remainingTotal)}`).join(', ');
-    return { intent: 'bnpl-owed', data: exp, answer: `Hai ${exp.count} piano${exp.count > 1 ? 'i' : ''} a rate aperto${exp.count > 1 ? 'i' : ''}: ${byProv}. Totale residuo ${fmt(exp.totalRemaining)}.` };
+    return { intent: 'bnpl-owed', data: exp, answer: B.open(exp.count, byProv, fmt(exp.totalRemaining)) };
   }
 
   // — "posso permettermi X?" (prima di safe-to-spend: contiene un importo)
@@ -611,6 +695,8 @@ function answerQuestionCore(question, ctx) {
       es: { noBudget: 'Para responderte necesito un presupuesto mensual configurado — actívalo en la sección Análisis y te digo enseguida.', over: n => `Mejor que no: esta semana ya estás ${n} por encima. Si puedes, aplázalo.`, yesToday: (a, r) => `Sí: ${a} entra dentro de los ${r} de hoy.`, yesWeek: (a, r, d) => `Sí, pero usa el margen de la semana: tendrás que ir más ligero los próximos ${d} días.`, risky: (r, a) => `Arriesgado: te quedan ${r} para toda la semana. ${a} te pasarían de largo.` },
       fr: { noBudget: 'Il me faut un budget mensuel configuré pour répondre — active-le dans la section Analyse et je te réponds tout de suite.', over: n => `Mieux vaut pas : cette semaine tu es déjà à ${n} de dépassement. Reporte si tu peux.`, yesToday: (a, r) => `Oui : ${a} rentrent dans les ${r} d'aujourd'hui.`, yesWeek: (a, r, d) => `Oui, mais utilise la marge de la semaine : il faudra lever le pied les ${d} prochains jours.`, risky: (r, a) => `Risqué : il te reste ${r} pour toute la semaine. ${a} te feraient dépasser.` },
       de: { noBudget: 'Dazu brauche ich ein eingerichtetes Monatsbudget — richte es im Bereich Analyse ein, dann sage ich es dir sofort.', over: n => `Besser nicht: diese Woche bist du schon ${n} drüber. Verschieb es wenn möglich.`, yesToday: (a, r) => `Ja: ${a} passen in die heutigen ${r}.`, yesWeek: (a, r, d) => `Ja, aber nutze den Spielraum der Woche: die nächsten ${d} Tage musst du kürzertreten.`, risky: (r, a) => `Riskant: dir bleiben ${r} für die ganze Woche. ${a} würden das überschreiten.` },
+      nl: { noBudget: 'Om dit te beantwoorden heb ik een ingesteld maandbudget nodig: zet het in het onderdeel Analyse en ik zeg het je meteen.', over: n => `Liever niet: je zit deze week al ${n} over. Stel het uit als het kan.`, yesToday: (a, r) => `Ja: ${a} past binnen de ${r} van vandaag.`, yesWeek: (a, r, d) => `Ja, maar gebruik de ruimte van de week: de komende ${d} dagen moet je het rustiger aan doen.`, risky: (r, a) => `Riskant: je hebt nog ${r} voor de hele week. ${a} zou je eroverheen duwen.` },
+      pt: { noBudget: 'Para responder preciso de um orçamento mensal definido: defina-o na secção Análise e digo-lhe logo.', over: n => `Melhor não: esta semana já passou ${n}. Se puder, adie.`, yesToday: (a, r) => `Sim: ${a} cabem nos ${r} de hoje.`, yesWeek: (a, r, d) => `Sim, mas use a margem da semana: nos próximos ${d} dias terá de gastar menos.`, risky: (r, a) => `Arriscado: restam-lhe ${r} para a semana toda. ${a} fariam-no ultrapassar.` },
     };
     const Tciclo = {
       it: { over: n => `Meglio di no: sei già oltre il ritmo di ${n} prima dello stipendio. Se puoi, rimanda.`, yesToday: (a, r) => `Sì: ${a} rientrano nei ${r} di oggi.`, yesWeek: (a, r, d) => `Sì, ma vai piano: dovrai stare più leggero nei prossimi ${d} giorni, fino allo stipendio.`, risky: (r, a) => `Rischioso: ti restano ${r} fino allo stipendio. ${a} ti manderebbero oltre.` },
@@ -618,6 +704,8 @@ function answerQuestionCore(question, ctx) {
       es: { over: n => `Mejor que no: ya vas ${n} por encima del ritmo antes de la nómina. Si puedes, aplázalo.`, yesToday: (a, r) => `Sí: ${a} entra dentro de los ${r} de hoy.`, yesWeek: (a, r, d) => `Sí, pero ve con calma: tendrás que gastar menos los próximos ${d} días, hasta la nómina.`, risky: (r, a) => `Arriesgado: te quedan ${r} hasta la nómina. ${a} te pasarían de largo.` },
       fr: { over: n => `Mieux vaut pas : tu dépasses déjà le rythme de ${n} avant ton salaire. Reporte si tu peux.`, yesToday: (a, r) => `Oui : ${a} rentrent dans les ${r} d'aujourd'hui.`, yesWeek: (a, r, d) => `Oui, mais vas-y doucement : il faudra dépenser moins les ${d} prochains jours, jusqu'au salaire.`, risky: (r, a) => `Risqué : il te reste ${r} jusqu'au salaire. ${a} te feraient dépasser.` },
       de: { over: n => `Besser nicht: du liegst schon ${n} über dem Tempo vor dem Gehalt. Verschieb es wenn möglich.`, yesToday: (a, r) => `Ja: ${a} passen in die heutigen ${r}.`, yesWeek: (a, r, d) => `Ja, aber geh es langsam an: die nächsten ${d} Tage bis zum Gehalt musst du weniger ausgeben.`, risky: (r, a) => `Riskant: dir bleiben ${r} bis zum Gehalt. ${a} würden das überschreiten.` },
+      nl: { over: n => `Liever niet: je zit al ${n} boven het tempo vóór je salaris. Stel het uit als het kan.`, yesToday: (a, r) => `Ja: ${a} past binnen de ${r} van vandaag.`, yesWeek: (a, r, d) => `Ja, maar rustig aan: de komende ${d} dagen tot je salaris moet je minder uitgeven.`, risky: (r, a) => `Riskant: je hebt nog ${r} tot je salaris. ${a} zou je eroverheen duwen.` },
+      pt: { over: n => `Melhor não: já vai ${n} acima do ritmo antes do salário. Se puder, adie.`, yesToday: (a, r) => `Sim: ${a} cabem nos ${r} de hoje.`, yesWeek: (a, r, d) => `Sim, mas com calma: nos próximos ${d} dias, até ao salário, terá de gastar menos.`, risky: (r, a) => `Arriscado: restam-lhe ${r} até ao salário. ${a} fariam-no ultrapassar.` },
     };
     const T = (isCiclo ? Tciclo : Tweek)[lang];
     if (!sts) return { intent: 'affordability', answer: Tweek[lang].noBudget };
@@ -637,6 +725,8 @@ function answerQuestionCore(question, ctx) {
       es: { noBudget: 'Configura primero un presupuesto mensual (sección Análisis): desde ahí calculo cuánto puedes gastar cada día.', over: n => `Hoy mejor nada: esta semana estás ${n} por encima.`, ok: (t, w, d) => `Hoy puedes gastar ${t}. Te quedan ${w} para la semana (${d} días).` },
       fr: { noBudget: 'Configure d\'abord un budget mensuel (section Analyse) : à partir de là je calcule combien tu peux dépenser chaque jour.', over: n => `Aujourd'hui mieux vaut rien : cette semaine tu dépasses de ${n}.`, ok: (t, w, d) => `Aujourd'hui tu peux dépenser ${t}. Il te reste ${w} pour la semaine (${d} jours).` },
       de: { noBudget: 'Richte zuerst ein Monatsbudget ein (Bereich Analyse): von dort berechne ich, wie viel du täglich ausgeben kannst.', over: n => `Heute besser nichts: diese Woche bist du ${n} drüber.`, ok: (t, w, d) => `Heute kannst du ${t} ausgeben. Dir bleiben ${w} für die Woche (${d} Tage).` },
+      nl: { noBudget: 'Stel eerst een maandbudget in (onderdeel Analyse): daarmee bereken ik hoeveel je per dag kunt uitgeven.', over: n => `Vandaag liever niets: je zit deze week ${n} over.`, ok: (t, w, d) => `Vandaag kun je ${t} uitgeven. Je hebt nog ${w} voor de week (${d} dagen).` },
+      pt: { noBudget: 'Defina primeiro um orçamento mensal (secção Análise): a partir daí calculo quanto pode gastar por dia.', over: n => `Hoje melhor nada: esta semana passou ${n}.`, ok: (t, w, d) => `Hoje pode gastar ${t}. Restam-lhe ${w} para a semana (${d} dias).` },
     };
     // Stessa frase della card "Il tuo mese, senza sorprese" (main.js,
     // ghostPayInDays/ghostPayTomorrow) — mai un secondo modo di dirlo.
@@ -646,6 +736,8 @@ function answerQuestionCore(question, ctx) {
       es: { over: n => `Hoy mejor nada: vas ${n} por encima del ritmo antes de la nómina.`, ok: (t, w, d) => `Hoy puedes gastar ${t}. Te pagan en ${d} días — en total ${w} hasta entonces.` },
       fr: { over: n => `Aujourd'hui mieux vaut rien : tu dépasses le rythme de ${n} avant le salaire.`, ok: (t, w, d) => `Aujourd'hui tu peux dépenser ${t}. Tu es payé dans ${d} jours — ${w} au total jusque-là.` },
       de: { over: n => `Heute besser nichts: du liegst ${n} über dem Tempo vor dem Gehalt.`, ok: (t, w, d) => `Heute kannst du ${t} ausgeben. Gehalt in ${d} Tagen — insgesamt ${w} bis dahin.` },
+      nl: { over: n => `Vandaag liever niets: je zit ${n} boven het tempo vóór je salaris.`, ok: (t, w, d) => `Vandaag kun je ${t} uitgeven. Over ${d} dagen word je betaald: in totaal ${w} tot dan.` },
+      pt: { over: n => `Hoje melhor nada: vai ${n} acima do ritmo antes do salário.`, ok: (t, w, d) => `Hoje pode gastar ${t}. Recebe daqui a ${d} dias: no total ${w} até lá.` },
     };
     const T = (isCiclo ? Tciclo : Tweek)[lang];
     if (!sts) return { intent: 'safe-to-spend', answer: Tweek[lang].noBudget };
@@ -663,6 +755,8 @@ function answerQuestionCore(question, ctx) {
       es: { noBudget: 'Todavía no tienes un presupuesto configurado: sin él, "cuánto queda" no tiene una respuesta real.', over: n => `Estás ${n} por encima esta semana.`, ok: (w, t, d) => `${w} para esta semana, ${t} si lo repartes en los ${d} días que quedan.` },
       fr: { noBudget: 'Tu n\'as pas encore de budget configuré : sans ça, "combien reste" n\'a pas de vraie réponse.', over: n => `Tu dépasses de ${n} cette semaine.`, ok: (w, t, d) => `${w} pour cette semaine, ${t} si tu les étales sur les ${d} jours restants.` },
       de: { noBudget: 'Du hast noch kein Budget eingerichtet: ohne das hat "was bleibt" keine echte Antwort.', over: n => `Du bist diese Woche ${n} drüber.`, ok: (w, t, d) => `${w} für diese Woche, ${t} wenn du sie auf die ${d} verbleibenden Tage verteilst.` },
+      nl: { noBudget: 'Je hebt nog geen budget ingesteld: zonder budget heeft "wat blijft er" geen echt antwoord.', over: n => `Je zit deze week ${n} over.`, ok: (w, t, d) => `${w} voor deze week, ${t} als je het over de ${d} resterende dagen spreidt.` },
+      pt: { noBudget: 'Ainda não definiu um orçamento: sem ele, "quanto resta" não tem uma resposta real.', over: n => `Esta semana passou ${n}.`, ok: (w, t, d) => `${w} para esta semana, ${t} se os distribuir pelos ${d} dias que faltam.` },
     };
     const Tciclo = {
       it: { over: n => `Sei oltre il ritmo di ${n}, prima dello stipendio.`, ok: (w, t, d) => `${w} fino allo stipendio (fra ${d} giorni), circa ${t} al giorno se li spalmi.` },
@@ -670,6 +764,8 @@ function answerQuestionCore(question, ctx) {
       es: { over: n => `Vas ${n} por encima del ritmo, antes de la nómina.`, ok: (w, t, d) => `${w} hasta la nómina (en ${d} días), unos ${t} al día si lo repartes.` },
       fr: { over: n => `Tu dépasses le rythme de ${n}, avant le salaire.`, ok: (w, t, d) => `${w} jusqu'au salaire (dans ${d} jours), environ ${t} par jour si tu les étales.` },
       de: { over: n => `Du liegst ${n} über dem Tempo, vor dem Gehalt.`, ok: (w, t, d) => `${w} bis zum Gehalt (in ${d} Tagen), etwa ${t} pro Tag verteilt.` },
+      nl: { over: n => `Je zit ${n} boven het tempo, vóór je salaris.`, ok: (w, t, d) => `${w} tot je salaris (over ${d} dagen), ongeveer ${t} per dag als je het spreidt.` },
+      pt: { over: n => `Vai ${n} acima do ritmo, antes do salário.`, ok: (w, t, d) => `${w} até ao salário (daqui a ${d} dias), cerca de ${t} por dia se distribuir.` },
     };
     const T = (isCiclo ? Tciclo : Tweek)[lang];
     if (!sts) return { intent: 'budget-left', answer: Tweek[lang].noBudget };
@@ -685,6 +781,8 @@ function answerQuestionCore(question, ctx) {
       es: { noBudget: (s, t) => `Has gastado ${s} hasta ahora; a este ritmo llegas a ${t} a fin de mes. Configura un presupuesto y también te digo si te mantienes dentro.`, over: (s, t, d) => `Cuidado: has gastado ${s} y a este ritmo cierras en ${t}, es decir ${d} por encima del presupuesto.`, ok: (s, t, d) => `Bien: has gastado ${s} y a este ritmo cierras en ${t}, con ${d} de margen.` },
       fr: { noBudget: (s, t) => `Tu as dépensé ${s} jusqu'ici ; à ce rythme tu atteindras ${t} en fin de mois. Configure un budget et je te dirai aussi si tu restes dedans.`, over: (s, t, d) => `Attention : tu as dépensé ${s} et à ce rythme tu termineras à ${t}, soit ${d} au-delà du budget.`, ok: (s, t, d) => `Bien : tu as dépensé ${s} et à ce rythme tu clôtureras à ${t}, avec ${d} de marge.` },
       de: { noBudget: (s, t) => `Du hast bisher ${s} ausgegeben; in diesem Tempo erreichst du ${t} zum Monatsende. Richte ein Budget ein, dann sage ich dir auch, ob du darin bleibst.`, over: (s, t, d) => `Achtung: du hast ${s} ausgegeben und wirst in diesem Tempo bei ${t} landen, das sind ${d} über dem Budget.`, ok: (s, t, d) => `Gut: du hast ${s} ausgegeben und wirst in diesem Tempo bei ${t} abschließen, mit ${d} Spielraum.` },
+      nl: { noBudget: (s, t) => `Je hebt tot nu toe ${s} uitgegeven; in dit tempo kom je aan het eind van de maand op ${t}. Stel een budget in en ik zeg je ook of je erbinnen blijft.`, over: (s, t, d) => `Let op: je hebt ${s} uitgegeven en in dit tempo eindig je op ${t}, dat is ${d} boven budget.`, ok: (s, t, d) => `Goed: je hebt ${s} uitgegeven en in dit tempo sluit je af op ${t}, met ${d} marge.` },
+      pt: { noBudget: (s, t) => `Gastou ${s} até agora; a este ritmo chega a ${t} no fim do mês. Defina um orçamento e digo-lhe também se fica dentro dele.`, over: (s, t, d) => `Atenção: gastou ${s} e a este ritmo fecha em ${t}, ou seja ${d} acima do orçamento.`, ok: (s, t, d) => `Bem: gastou ${s} e a este ritmo fecha em ${t}, com ${d} de margem.` },
     }[lang];
     if (!ctx.monthlyBudget) return { intent: 'month-end', data: proj, answer: T.noBudget(fmt(proj.spentSoFar), fmt(proj.projectedTotal)) };
     return { intent: 'month-end', data: proj, answer: proj.willOverspend
@@ -695,13 +793,13 @@ function answerQuestionCore(question, ctx) {
   // — abbonamenti: "quali abbonamenti pago" / "quando pago X"
   if (matches('subscriptions', qMatch)) {
     const recurring = detectRecurring(allTx);
-    const NONE = { it: 'Non vedo ancora addebiti ricorrenti nei tuoi dati.', en: 'I don\'t see any recurring charges in your data yet.', es: 'Todavía no veo cargos recurrentes en tus datos.', fr: 'Je ne vois pas encore de prélèvements récurrents dans tes données.', de: 'Ich sehe noch keine wiederkehrenden Belastungen in deinen Daten.' }[lang];
+    const NONE = { it: 'Non vedo ancora addebiti ricorrenti nei tuoi dati.', en: 'I don\'t see any recurring charges in your data yet.', es: 'Todavía no veo cargos recurrentes en tus datos.', fr: 'Je ne vois pas encore de prélèvements récurrents dans tes données.', de: 'Ich sehe noch keine wiederkehrenden Belastungen in deinen Daten.', nl: 'Ik zie nog geen terugkerende afschrijvingen in je gegevens.', pt: 'Ainda não vejo débitos recorrentes nos seus dados.' }[lang];
     if (ctx.paymentDeclarations?.length || Object.keys(ctx.paymentOverrides || {}).length) {
       const agenda = buildPaymentAgenda({ transactions: allTx, paymentDeclarations: ctx.paymentDeclarations, paymentOverrides: ctx.paymentOverrides, mlData: { bnplLearned: ctx.bnplLearned, bnplDismissed: ctx.bnplDismissed } }, ref)
         .filter(item => item.date >= ref.toISOString().slice(0, 10));
       const named = agenda.find(item => item.name.toLowerCase().split(/[^\p{L}\p{N}]+/u).some(word => word.length > 2 && q.includes(word)));
       const selected = (named && PATTERNS.when[lang].test(q) ? [named] : agenda).slice(0, 6);
-      const locale = { it:'it-IT', en:'en-US', es:'es-ES', fr:'fr-FR', de:'de-DE' }[lang];
+      const locale = { it:'it-IT', en:'en-US', es:'es-ES', fr:'fr-FR', de:'de-DE', nl:'nl-NL', pt:'pt-PT' }[lang];
       return { intent:'subscriptions', data:selected, answer:selected.length ? selected.map(item => `${item.name}: ${item.amount === null ? '—' : fmt(item.amount)} · ${new Date(item.date + 'T12:00:00').toLocaleDateString(locale)} · ${paymentText(item.source === 'declared' ? 'agendaDeclared' : 'agendaEstimated', lang)}`).join('\n') : NONE };
     }
     if (recurring.length === 0) return { intent: 'subscriptions', answer: NONE };
@@ -709,9 +807,9 @@ function answerQuestionCore(question, ctx) {
     if (named && PATTERNS.when[lang].test(q)) {
       const upcoming = getUpcomingCharges(allTx, ref, 40).find(c => c.description === named.representative);
       if (upcoming) {
-        const locale = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE' }[lang];
-        const soon = { it: 'a momenti', en: 'any moment', es: 'en cualquier momento', fr: 'à tout moment', de: 'jeden Moment' }[lang];
-        const inDays = { it: n => `tra ${n} giorni`, en: n => `in ${n} days`, es: n => `en ${n} días`, fr: n => `dans ${n} jours`, de: n => `in ${n} Tagen` }[lang];
+        const locale = { it: 'it-IT', en: 'en-US', es: 'es-ES', fr: 'fr-FR', de: 'de-DE', nl: 'nl-NL', pt: 'pt-PT' }[lang];
+        const soon = { it: 'a momenti', en: 'any moment', es: 'en cualquier momento', fr: 'à tout moment', de: 'jeden Moment', nl: 'elk moment', pt: 'a qualquer momento' }[lang];
+        const inDays = { it: n => `tra ${n} giorni`, en: n => `in ${n} days`, es: n => `en ${n} días`, fr: n => `dans ${n} jours`, de: n => `in ${n} Tagen`, nl: n => `over ${n} dagen`, pt: n => `daqui a ${n} dias` }[lang];
         return { intent: 'subscriptions', data: upcoming, answer: `${named.representative}: ${fmt(upcoming.amount)} ${upcoming.daysUntil === 0 ? soon : inDays(upcoming.daysUntil)} (${upcoming.expectedDate.toLocaleDateString(locale)}).` };
       }
     }
@@ -723,6 +821,8 @@ function answerQuestionCore(question, ctx) {
       es: `Pagas ${recurring.length} suscripci${recurring.length === 1 ? 'ón' : 'ones'} por ${fmt(total)} al mes: ${list}.`,
       fr: `Tu paies ${recurring.length} abonnement${recurring.length === 1 ? '' : 's'} pour ${fmt(total)}/mois : ${list}.`,
       de: `Du zahlst ${recurring.length} Abo${recurring.length === 1 ? '' : 's'} für ${fmt(total)}/Monat: ${list}.`,
+      nl: `Je betaalt ${recurring.length} abonnement${recurring.length === 1 ? '' : 'en'} voor ${fmt(total)}/maand: ${list}.`,
+      pt: `Paga ${recurring.length} subscriç${recurring.length === 1 ? 'ão' : 'ões'} por ${fmt(total)}/mês: ${list}.`,
     }[lang];
     return { intent: 'subscriptions', data: recurring, answer: SUM };
   }
@@ -731,7 +831,7 @@ function answerQuestionCore(question, ctx) {
   if (matches('causal', qMatch)) {
     const cats = [...new Set(Object.values(allTx).flat().map(t => t.category))];
     const namedCat = cats.find(c => c && q.includes(String(c).toLowerCase()));
-    const ASK_CAT = { it: 'Dimmi la categoria: ad esempio "cosa succede se spendo di più in Ristorante?"', en: 'Tell me the category: e.g. "what happens if I spend more on dining?"', es: 'Dime la categoría: por ejemplo "¿qué pasa si gasto más en Restaurante?"', fr: 'Dis-moi la catégorie : par exemple "que se passe-t-il si je dépense plus en Restaurant ?"', de: 'Nenn mir die Kategorie: z.B. "was passiert wenn ich mehr für Restaurant ausgebe?"' }[lang];
+    const ASK_CAT = { it: 'Dimmi la categoria: ad esempio "cosa succede se spendo di più in Ristorante?"', en: 'Tell me the category: e.g. "what happens if I spend more on dining?"', es: 'Dime la categoría: por ejemplo "¿qué pasa si gasto más en Restaurante?"', fr: 'Dis-moi la catégorie : par exemple "que se passe-t-il si je dépense plus en Restaurant ?"', de: 'Nenn mir die Kategorie: z.B. "was passiert wenn ich mehr für Restaurant ausgebe?"', nl: 'Noem de categorie: bijvoorbeeld "wat gebeurt er als ik meer uitgeef aan Restaurant?"', pt: 'Diga-me a categoria: por exemplo "o que acontece se gastar mais em Restaurante?"' }[lang];
     if (!namedCat) return { intent: 'causal', answer: ASK_CAT };
     // Lag variabile (fino a 3 settimane, non solo 0/1) + potatura della
     // direzione più debole per coppia — entrambe le funzioni esistevano già,
@@ -741,12 +841,12 @@ function answerQuestionCore(question, ctx) {
     // ("una spesa oggi si riflette sul risparmio fra qualche settimana").
     const links = pruneNonCausal(buildCausalGraph(allTx, ref, { maxLag: 3 }));
     const effects = propagateImpact(links, namedCat, 30); // scenario: +30%
-    const NONE = { it: `Nei tuoi dati non vedo altre spese che si muovono insieme a ${namedCat}: aumentarla non dovrebbe trascinare altro.`, en: `In your data, I don't see other expenses moving together with ${namedCat}: increasing it shouldn't drag anything else along.`, es: `En tus datos no veo otros gastos que se muevan junto a ${namedCat}: aumentarlo no debería arrastrar nada más.`, fr: `Dans tes données je ne vois pas d'autres dépenses bouger avec ${namedCat} : l'augmenter ne devrait rien entraîner d'autre.`, de: `In deinen Daten sehe ich keine anderen Ausgaben, die sich mit ${namedCat} mitbewegen: eine Erhöhung sollte nichts anderes nach sich ziehen.` }[lang];
+    const NONE = { it: `Nei tuoi dati non vedo altre spese che si muovono insieme a ${namedCat}: aumentarla non dovrebbe trascinare altro.`, en: `In your data, I don't see other expenses moving together with ${namedCat}: increasing it shouldn't drag anything else along.`, es: `En tus datos no veo otros gastos que se muevan junto a ${namedCat}: aumentarlo no debería arrastrar nada más.`, fr: `Dans tes données je ne vois pas d'autres dépenses bouger avec ${namedCat} : l'augmenter ne devrait rien entraîner d'autre.`, de: `In deinen Daten sehe ich keine anderen Ausgaben, die sich mit ${namedCat} mitbewegen: eine Erhöhung sollte nichts anderes nach sich ziehen.`, nl: `In je gegevens zie ik geen andere uitgaven die met ${namedCat} meebewegen: verhogen zou niets anders moeten meetrekken.`, pt: `Nos seus dados não vejo outras despesas que se mexam com ${namedCat}: aumentá-la não deve arrastar mais nada.` }[lang];
     if (effects.length === 0) return { intent: 'causal', answer: NONE };
-    const dir = (up) => ({ it: up ? 'sale' : 'scende', en: up ? 'rises' : 'falls', es: up ? 'sube' : 'baja', fr: up ? 'monte' : 'baisse', de: up ? 'steigt' : 'sinkt' }[lang]);
-    const after = { it: ' la settimana dopo', en: ' the week after', es: ' la semana siguiente', fr: ' la semaine suivante', de: ' die Woche danach' }[lang];
+    const dir = (up) => ({ it: up ? 'sale' : 'scende', en: up ? 'rises' : 'falls', es: up ? 'sube' : 'baja', fr: up ? 'monte' : 'baisse', de: up ? 'steigt' : 'sinkt', nl: up ? 'stijgt' : 'daalt', pt: up ? 'sobe' : 'desce' }[lang]);
+    const after = { it: ' la settimana dopo', en: ' the week after', es: ' la semana siguiente', fr: ' la semaine suivante', de: ' die Woche danach', nl: ' de week erna', pt: ' na semana seguinte' }[lang];
     const parts = effects.slice(0, 3).map(e => `${e.category} ${dir(e.expectedPct > 0)} ${Math.abs(e.expectedPct)}%${e.lagWeeks > 0 ? after : ''}`);
-    let RESULT = { it: `Nei tuoi dati, quando sale ${namedCat} (+30%): ${parts.join('; ')}. Non è una legge, è quello che è successo finora nelle tue settimane.`, en: `In your data, when ${namedCat} rises (+30%): ${parts.join('; ')}. This isn't a law, it's what's happened so far in your weeks.`, es: `En tus datos, cuando sube ${namedCat} (+30%): ${parts.join('; ')}. No es una ley, es lo que ha pasado hasta ahora en tus semanas.`, fr: `Dans tes données, quand ${namedCat} augmente (+30%) : ${parts.join('; ')}. Ce n'est pas une loi, c'est ce qui s'est passé jusqu'ici dans tes semaines.`, de: `In deinen Daten, wenn ${namedCat} steigt (+30%): ${parts.join('; ')}. Das ist kein Gesetz, sondern was bisher in deinen Wochen passiert ist.` }[lang];
+    let RESULT = { it: `Nei tuoi dati, quando sale ${namedCat} (+30%): ${parts.join('; ')}. Non è una legge, è quello che è successo finora nelle tue settimane.`, en: `In your data, when ${namedCat} rises (+30%): ${parts.join('; ')}. This isn't a law, it's what's happened so far in your weeks.`, es: `En tus datos, cuando sube ${namedCat} (+30%): ${parts.join('; ')}. No es una ley, es lo que ha pasado hasta ahora en tus semanas.`, fr: `Dans tes données, quand ${namedCat} augmente (+30%) : ${parts.join('; ')}. Ce n'est pas une loi, c'est ce qui s'est passé jusqu'ici dans tes semaines.`, de: `In deinen Daten, wenn ${namedCat} steigt (+30%): ${parts.join('; ')}. Das ist kein Gesetz, sondern was bisher in deinen Wochen passiert ist.`, nl: `In je gegevens, als ${namedCat} stijgt (+30%): ${parts.join('; ')}. Dat is geen wet, het is wat er tot nu toe in jouw weken gebeurde.`, pt: `Nos seus dados, quando ${namedCat} sobe (+30%): ${parts.join('; ')}. Não é uma lei, é o que aconteceu até agora nas suas semanas.` }[lang];
 
     // ADDITIVO (mai al posto della risposta esistente): con abbastanza
     // settimane di storia (src/predict/causal-orchestrator.js sceglie da solo
@@ -788,6 +888,8 @@ function answerQuestionCore(question, ctx) {
               es: ` En euros: subiendo ${namedCat} en ${fmt(delta)}/semana, se espera ${riga}.`,
               fr: ` En euros : en augmentant ${namedCat} de ${fmt(delta)}/semaine, on peut attendre ${riga}.`,
               de: ` In Euro: bei einer Erhöhung von ${namedCat} um ${fmt(delta)}/Woche, erwarte ${riga}.`,
+              nl: ` In geld: als je ${namedCat} met ${fmt(delta)}/week verhoogt, verwacht ${riga}.`,
+              pt: ` Em dinheiro: aumentando ${namedCat} em ${fmt(delta)}/semana, espera-se ${riga}.`,
             }[lang];
             RESULT += EXTRA;
           }
@@ -802,7 +904,7 @@ function answerQuestionCore(question, ctx) {
   if (matches('topCategory', qMatch)) {
     const period = resolvePeriod(q, ref, lang);
     const spese = txInPeriod(allTx, period).filter(t => t.type === 'uscita');
-    const NONE = { it: `Nessuna spesa registrata ${period.label}.`, en: `No expenses recorded ${period.label}.`, es: `Ningún gasto registrado ${period.label}.`, fr: `Aucune dépense enregistrée ${period.label}.`, de: `Keine Ausgaben erfasst ${period.label}.` }[lang];
+    const NONE = { it: `Nessuna spesa registrata ${period.label}.`, en: `No expenses recorded ${period.label}.`, es: `Ningún gasto registrado ${period.label}.`, fr: `Aucune dépense enregistrée ${period.label}.`, de: `Keine Ausgaben erfasst ${period.label}.`, nl: `Geen uitgaven geregistreerd ${period.label}.`, pt: `Nenhuma despesa registada ${period.label}.` }[lang];
     if (spese.length === 0) return { intent: 'top-category', answer: NONE };
     const byCat = {};
     spese.forEach(t => { byCat[t.category] = (byCat[t.category] || 0) + t.amount; });
@@ -815,6 +917,8 @@ function answerQuestionCore(question, ctx) {
       es: `${cap(period.label)} el gasto mayor es ${top[0][0]} con ${fmt(top[0][1])} (${pct}% del total)${top[1] ? `, luego ${top[1][0]} (${fmt(top[1][1])})` : ''}${top[2] ? ` y ${top[2][0]} (${fmt(top[2][1])})` : ''}.`,
       fr: `${cap(period.label)} la plus grosse dépense est ${top[0][0]} avec ${fmt(top[0][1])} (${pct}% du total)${top[1] ? `, puis ${top[1][0]} (${fmt(top[1][1])})` : ''}${top[2] ? ` et ${top[2][0]} (${fmt(top[2][1])})` : ''}.`,
       de: `${cap(period.label)} ist die größte Ausgabe ${top[0][0]} mit ${fmt(top[0][1])} (${pct}% der Summe)${top[1] ? `, dann ${top[1][0]} (${fmt(top[1][1])})` : ''}${top[2] ? ` und ${top[2][0]} (${fmt(top[2][1])})` : ''}.`,
+      nl: `${cap(period.label)} is je grootste uitgave ${top[0][0]} met ${fmt(top[0][1])} (${pct}% van het totaal)${top[1] ? `, dan ${top[1][0]} (${fmt(top[1][1])})` : ''}${top[2] ? ` en ${top[2][0]} (${fmt(top[2][1])})` : ''}.`,
+      pt: `${cap(period.label)} a maior despesa é ${top[0][0]} com ${fmt(top[0][1])} (${pct}% do total)${top[1] ? `, depois ${top[1][0]} (${fmt(top[1][1])})` : ''}${top[2] ? ` e ${top[2][0]} (${fmt(top[2][1])})` : ''}.`,
     }[lang];
     return { intent: 'top-category', data: top, answer: RESULT };
   }
@@ -826,8 +930,8 @@ function answerQuestionCore(question, ctx) {
     const inc = txs.filter(t => t.type === 'entrata').reduce((s, t) => s + t.amount, 0);
     const out = txs.filter(t => t.type === 'uscita').reduce((s, t) => s + t.amount, 0);
     const net = inc - out;
-    const POS = { it: (p, n, i, o) => `${p} hai messo da parte ${n} (${i} entrati, ${o} usciti).`, en: (p, n, i, o) => `${p} you saved ${n} (${i} in, ${o} out).`, es: (p, n, i, o) => `${p} has ahorrado ${n} (${i} entrados, ${o} salidos).`, fr: (p, n, i, o) => `${p} tu as économisé ${n} (${i} entrés, ${o} sortis).`, de: (p, n, i, o) => `${p} hast du ${n} gespart (${i} eingegangen, ${o} ausgegeben).` }[lang];
-    const NEG = { it: (p, n, i, o) => `${p} hai speso ${n} più di quanto è entrato (${i} entrati, ${o} usciti).`, en: (p, n, i, o) => `${p} you spent ${n} more than came in (${i} in, ${o} out).`, es: (p, n, i, o) => `${p} has gastado ${n} más de lo que entró (${i} entrados, ${o} salidos).`, fr: (p, n, i, o) => `${p} tu as dépensé ${n} de plus que ce qui est entré (${i} entrés, ${o} sortis).`, de: (p, n, i, o) => `${p} hast du ${n} mehr ausgegeben als eingenommen (${i} eingegangen, ${o} ausgegeben).` }[lang];
+    const POS = { it: (p, n, i, o) => `${p} hai messo da parte ${n} (${i} entrati, ${o} usciti).`, en: (p, n, i, o) => `${p} you saved ${n} (${i} in, ${o} out).`, es: (p, n, i, o) => `${p} has ahorrado ${n} (${i} entrados, ${o} salidos).`, fr: (p, n, i, o) => `${p} tu as économisé ${n} (${i} entrés, ${o} sortis).`, de: (p, n, i, o) => `${p} hast du ${n} gespart (${i} eingegangen, ${o} ausgegeben).`, nl: (p, n, i, o) => `${p} heb je ${n} gespaard (${i} binnen, ${o} uit).`, pt: (p, n, i, o) => `${p} poupou ${n} (${i} de entradas, ${o} de saídas).` }[lang];
+    const NEG = { it: (p, n, i, o) => `${p} hai speso ${n} più di quanto è entrato (${i} entrati, ${o} usciti).`, en: (p, n, i, o) => `${p} you spent ${n} more than came in (${i} in, ${o} out).`, es: (p, n, i, o) => `${p} has gastado ${n} más de lo que entró (${i} entrados, ${o} salidos).`, fr: (p, n, i, o) => `${p} tu as dépensé ${n} de plus que ce qui est entré (${i} entrés, ${o} sortis).`, de: (p, n, i, o) => `${p} hast du ${n} mehr ausgegeben als eingenommen (${i} eingegangen, ${o} ausgegeben).`, nl: (p, n, i, o) => `${p} heb je ${n} meer uitgegeven dan er binnenkwam (${i} binnen, ${o} uit).`, pt: (p, n, i, o) => `${p} gastou ${n} mais do que entrou (${i} de entradas, ${o} de saídas).` }[lang];
     const label = cap(period.label);
     return { intent: 'savings', data: { inc, out, net }, answer: net >= 0 ? POS(label, fmt(net), fmt(inc), fmt(out)) : NEG(label, fmt(Math.abs(net)), fmt(inc), fmt(out)) };
   }
@@ -837,7 +941,7 @@ function answerQuestionCore(question, ctx) {
     const period = resolvePeriod(q, ref, lang);
     const inc = txInPeriod(allTx, period).filter(t => t.type === 'entrata').reduce((s, t) => s + t.amount, 0);
     const label = cap(period.label);
-    const RESULT = { it: `${label}: ${fmt(inc)} di entrate.`, en: `${label}: ${fmt(inc)} in income.`, es: `${label}: ${fmt(inc)} de ingresos.`, fr: `${label} : ${fmt(inc)} de revenus.`, de: `${label}: ${fmt(inc)} Einkommen.` }[lang];
+    const RESULT = { it: `${label}: ${fmt(inc)} di entrate.`, en: `${label}: ${fmt(inc)} in income.`, es: `${label}: ${fmt(inc)} de ingresos.`, fr: `${label} : ${fmt(inc)} de revenus.`, de: `${label}: ${fmt(inc)} Einkommen.`, nl: `${label}: ${fmt(inc)} aan inkomsten.`, pt: `${label}: ${fmt(inc)} de receitas.` }[lang];
     return { intent: 'income', data: { inc }, answer: RESULT };
   }
 
@@ -856,6 +960,8 @@ function answerQuestionCore(question, ctx) {
       es: `${label} has gastado ${fmt(tot)}${namedCat ? ` en ${namedCat}` : ''} (${spese.length} movimientos).`,
       fr: `${label} tu as dépensé ${fmt(tot)}${namedCat ? ` en ${namedCat}` : ''} (${spese.length} mouvements).`,
       de: `${label} hast du ${fmt(tot)}${namedCat ? ` für ${namedCat}` : ''} ausgegeben (${spese.length} Buchungen).`,
+      nl: `${label} heb je ${fmt(tot)} uitgegeven${namedCat ? ` aan ${namedCat}` : ''} (${spese.length} transacties).`,
+      pt: `${label} gastou ${fmt(tot)}${namedCat ? ` em ${namedCat}` : ''} (${spese.length} movimentos).`,
     }[lang];
     return { intent: 'spent', data: { tot, count: spese.length, period, category: namedCat || null }, answer: RESULT };
   }
@@ -863,12 +969,12 @@ function answerQuestionCore(question, ctx) {
   // — obiettivi: "a che punto è il mio obiettivo?"
   if (matches('goal', qMatch)) {
     const goals = ctx.savingsGoals || [];
-    const NONE = { it: 'Non hai ancora obiettivi di risparmio. Ne creiamo uno dalla sezione Analisi?', en: 'You don\'t have any savings goals yet. Want to create one from the Analysis section?', es: 'Todavía no tienes objetivos de ahorro. ¿Creamos uno desde la sección Análisis?', fr: 'Tu n\'as pas encore d\'objectifs d\'épargne. On en crée un depuis la section Analyse ?', de: 'Du hast noch keine Sparziele. Sollen wir eins im Bereich Analyse erstellen?' }[lang];
+    const NONE = { it: 'Non hai ancora obiettivi di risparmio. Ne creiamo uno dalla sezione Analisi?', en: 'You don\'t have any savings goals yet. Want to create one from the Analysis section?', es: 'Todavía no tienes objetivos de ahorro. ¿Creamos uno desde la sección Análisis?', fr: 'Tu n\'as pas encore d\'objectifs d\'épargne. On en crée un depuis la section Analyse ?', de: 'Du hast noch keine Sparziele. Sollen wir eins im Bereich Analyse erstellen?', nl: 'Je hebt nog geen spaardoelen. Zullen we er een maken in het onderdeel Analyse?', pt: 'Ainda não tem objetivos de poupança. Criamos um na secção Análise?' }[lang];
     if (goals.length === 0) return { intent: 'goal', answer: NONE };
     const named = goals.find(g => q.includes(g.name.toLowerCase())) || goals[0];
     const prog = computeGoalProgress(named, allTx, ref);
-    const onTrack = { it: prog.onTrack === true ? ' — sei in linea.' : prog.onTrack === false ? ' — sei indietro rispetto al ritmo necessario.' : '.', en: prog.onTrack === true ? ' — you\'re on track.' : prog.onTrack === false ? ' — you\'re behind the pace needed.' : '.', es: prog.onTrack === true ? ' — vas bien.' : prog.onTrack === false ? ' — vas por detrás del ritmo necesario.' : '.', fr: prog.onTrack === true ? ' — tu es dans les temps.' : prog.onTrack === false ? ' — tu es en retard sur le rythme nécessaire.' : '.', de: prog.onTrack === true ? ' — du liegst im Plan.' : prog.onTrack === false ? ' — du liegst hinter dem nötigen Tempo.' : '.' }[lang];
-    const CONNECT = { it: 'su', en: 'of', es: 'de', fr: 'sur', de: 'von' }[lang];
+    const onTrack = { it: prog.onTrack === true ? ' — sei in linea.' : prog.onTrack === false ? ' — sei indietro rispetto al ritmo necessario.' : '.', en: prog.onTrack === true ? ' — you\'re on track.' : prog.onTrack === false ? ' — you\'re behind the pace needed.' : '.', es: prog.onTrack === true ? ' — vas bien.' : prog.onTrack === false ? ' — vas por detrás del ritmo necesario.' : '.', fr: prog.onTrack === true ? ' — tu es dans les temps.' : prog.onTrack === false ? ' — tu es en retard sur le rythme nécessaire.' : '.', de: prog.onTrack === true ? ' — du liegst im Plan.' : prog.onTrack === false ? ' — du liegst hinter dem nötigen Tempo.' : '.', nl: prog.onTrack === true ? ': je ligt op schema.' : prog.onTrack === false ? ': je loopt achter op het nodige tempo.' : '.', pt: prog.onTrack === true ? ': está no bom caminho.' : prog.onTrack === false ? ': está atrás do ritmo necessário.' : '.' }[lang];
+    const CONNECT = { it: 'su', en: 'of', es: 'de', fr: 'sur', de: 'von', nl: 'van', pt: 'de' }[lang];
     return { intent: 'goal', data: prog, answer: `"${named.name}": ${fmt(prog.saved)} ${CONNECT} ${fmt(named.target)} (${prog.pct}%)${onTrack}` };
   }
 

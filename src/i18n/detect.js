@@ -17,11 +17,11 @@ const MARKERS = {
   es: ['cuánto', 'cuanto', 'puedo', 'gastado', 'gastar', 'mes', 'dinero', 'este', 'por qué', 'cómo', 'cuándo', 'ahorro', 'invertir', 'impuestos', 'mis'],
   fr: ['combien', 'puis', 'dépensé', 'dépenser', 'mois', 'argent', 'pourquoi', 'comment', 'quand', 'épargne', 'investir', 'impôts', 'mes'],
   de: ['wie', 'viel', 'kann', 'ausgegeben', 'monat', 'geld', 'warum', 'wann', 'sparen', 'investieren', 'steuern', 'diesen', 'meine'],
-  pt: ['quanto', 'posso', 'gastei', 'gastar', 'mês', 'mes', 'dinheiro', 'este', 'porquê', 'porque', 'como', 'quando', 'poupança', 'poupar', 'investir', 'impostos', 'meus'],
+  pt: ['quanto', 'posso', 'gastei', 'gastar', 'mês', 'mes', 'dinheiro', 'este', 'porquê', 'porque', 'como', 'quando', 'poupança', 'poupar', 'investir', 'impostos', 'meus', 'meu', 'minha', 'onde', 'qual', 'recebo', 'poupei', 'ganhei', 'assinaturas', 'subscrições', 'um', 'está', 'salário', 'orçamento', 'pagar'],
   // Olandese (2026-08-29): Paesi Bassi + Fiandre (Belgio) — mercati forti
   // per la divisione spese (Tricount, stessa categoria di prodotto di
   // Momentum), verificato via ricerca prima di aggiungerlo.
-  nl: ['hoeveel', 'kan', 'uitgegeven', 'uitgeven', 'maand', 'geld', 'dit', 'wat', 'wanneer', 'waarom', 'hoe', 'sparen', 'investeren', 'belasting', 'mijn'],
+  nl: ['hoeveel', 'kan', 'uitgegeven', 'uitgeven', 'maand', 'geld', 'dit', 'wat', 'wanneer', 'waarom', 'hoe', 'sparen', 'investeren', 'belasting', 'mijn', 'ik', 'welke', 'waar', 'geef', 'betaal', 'word', 'heb', 'deze', 'het', 'gespaard', 'verdiend', 'vermogen', 'veroorloven'],
 };
 
 // Ritorna { lang, confidence, scores }. Default 'it' se nessun segnale

@@ -19,6 +19,20 @@ export function investmentDataMissing(lang = 'en') {
   })[lang] || investmentDataMissing('en');
 }
 
+const BRIDGE_NOTES = {
+  it: { flow: 'Questo mese non avanza nulla: prima il budget.', fund: (t, f) => `Prima completi il fondo d'emergenza (${t}€): questo mese ${f}€ lì.`, ok: (a, p) => `Fondo d'emergenza pieno: puoi investire circa ${a}€ (il ${p}% dell'avanzo).` },
+  en: { flow: 'Nothing is left over this month: budget first.', fund: (t, f) => `First complete your emergency fund (${t}€): this month ${f}€ goes there.`, ok: (a, p) => `Emergency fund full: you can invest about ${a}€ (${p}% of the surplus).` },
+  de: { flow: 'Diesen Monat bleibt nichts übrig: zuerst das Budget.', fund: (t, f) => `Zuerst den Notgroschen auffüllen (${t}€): diesen Monat ${f}€ dorthin.`, ok: (a, p) => `Notgroschen voll: du kannst etwa ${a}€ investieren (${p}% des Überschusses).` },
+  fr: { flow: 'Rien ne reste ce mois-ci : le budget d\'abord.', fund: (t, f) => `Complète d'abord ton fonds d'urgence (${t}€) : ce mois-ci ${f}€ y vont.`, ok: (a, p) => `Fonds d'urgence plein : tu peux investir environ ${a}€ (${p}% du surplus).` },
+  es: { flow: 'Este mes no sobra nada: primero el presupuesto.', fund: (t, f) => `Primero completa tu fondo de emergencia (${t}€): este mes ${f}€ van ahí.`, ok: (a, p) => `Fondo de emergencia lleno: puedes invertir unos ${a}€ (el ${p}% del sobrante).` },
+  nl: { flow: 'Deze maand blijft er niets over: eerst het budget.', fund: (t, f) => `Vul eerst je noodfonds aan (${t}€): deze maand gaat ${f}€ daarheen.`, ok: (a, p) => `Noodfonds vol: je kunt ongeveer ${a}€ beleggen (${p}% van het overschot).` },
+  pt: { flow: 'Este mês não sobra nada: primeiro o orçamento.', fund: (t, f) => `Primeiro complete o fundo de emergência (${t}€): este mês ${f}€ vão para lá.`, ok: (a, p) => `Fundo de emergência cheio: pode investir cerca de ${a}€ (${p}% do excedente).` },
+};
+function bridgeNote(kind, lang, ...args) {
+  const n = (BRIDGE_NOTES[lang] || BRIDGE_NOTES.it)[kind];
+  return typeof n === 'function' ? n(...args) : n;
+}
+
 // Quanto è prudente investire questo mese.
 // input: { netMonthlyFlow, avgMonthlyExpense, currentEmergencyFund,
 //          emergencyMonths=6, investFraction=0.7 }
@@ -39,18 +53,18 @@ export function investableSurplus(input) {
 
   // 1) Flusso negativo → non si investe (si difende il budget).
   if (netMonthlyFlow <= 0) {
-    return { investable: 0, reason: 'flow-negative', targetEmergency, note: 'Questo mese non avanza nulla: prima il budget.' };
+    return { investable: 0, reason: 'flow-negative', targetEmergency, note: bridgeNote('flow', input.lang) };
   }
   // 2) Fondo d'emergenza non pieno → l'avanzo va lì, non in mercato.
   if (currentEmergencyFund < targetEmergency) {
     const toFund = Math.min(netMonthlyFlow, targetEmergency - currentEmergencyFund);
     return { investable: 0, toEmergencyFund: +toFund.toFixed(2), reason: 'building-emergency', targetEmergency,
-             note: `Prima completi il fondo d'emergenza (${(targetEmergency).toFixed(0)}€): questo mese ${toFund.toFixed(0)}€ lì.` };
+             note: bridgeNote('fund', input.lang, targetEmergency.toFixed(0), toFund.toFixed(0)) };
   }
   // 3) Fondo pieno → investi una QUOTA dell'avanzo (il resto resta cuscinetto).
   const investable = +(netMonthlyFlow * investFraction).toFixed(2);
   return { investable, reason: 'ok', targetEmergency,
-           note: `Fondo d'emergenza pieno: puoi investire ~${investable.toFixed(0)}€ (il ${Math.round(investFraction * 100)}% dell'avanzo).` };
+           note: bridgeNote('ok', input.lang, investable.toFixed(0), Math.round(investFraction * 100)) };
 }
 
 // Distribuisce l'importo investibile tra gli asset con verdetto favorevole,
