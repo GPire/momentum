@@ -20,7 +20,10 @@ test('bulk: N inserimenti → 1 solo save (non O(n²)) e tutte presenti', () => 
   VaultDAO.save = realSave;
   assert.equal(saves, 1, 'in bulk deve esserci UN solo save, non uno per riga');
   assert.equal(VaultDAO.state.transactions['2025-01'].length, N);
-  assert.ok(ms < 3000, `1500 inserimenti bulk devono essere veloci (${ms}ms)`);
+  // Margine largo: con tutta la suite in parallelo la macchina è carica (visto
+  // fallire a poco più di 3 s il 26/09/2026). Il controllo che conta è un solo
+  // save; un ritorno a O(n²) su 1500 righe resterebbe ben sopra gli 8 s.
+  assert.ok(ms < 8000, `1500 inserimenti bulk devono essere veloci (${ms}ms)`);
 });
 
 test('non-bulk: comportamento invariato (salva a ogni inserimento)', () => {

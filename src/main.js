@@ -324,7 +324,8 @@ import { parseFatturaPaXML, fatturaPassivaToAcquisti } from './invoice/fatturapa
 import { isValidPartitaIva, isValidCodiceFiscale } from './invoice/it-fiscal-id.js';
 import { buildEpcPayload, sepaFallbackText, isValidIBAN, normalizeIBAN } from './pay/sepa-qr.js';
 import { qrSvg } from './pay/qr-encode.js';
-import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
+import { createGroup, addSharedExpense, settlementView, quickSplit, frequentCoSplitters, settlementToSepa, suggestSettleTiming, encodeGroupShare, encodeGroupInvite, decodeGroupShare, mergeIntoGroups, computeBalances, settlementCounts, extractSharePayload, renameGroup, describeGroupChanges, claimMember, myMemberId, unclaimedMembers, displayNames as displayNamesRaw, settlementVerificationLog, exportGroupData } from './split/split-engine.js';
+const displayNames = (members) => displayNamesRaw(members, { meLabel: tSplit('me', __uiLang) });
 import { hideLocally, visibleGroups } from './split/group-membership.js';
 import { fetchHistoricalRate } from './split/exchange-rate.js';
 import { itemSplitShares } from './split/item-split.js';
@@ -424,7 +425,8 @@ import { initDriftState, observeRound, combinedWeight, detectCollusion } from '.
 import { encryptBackup, decryptBackup, createRecoveryKit, restoreFromShares, exportPlain, readBackupFile } from './core/backup.js';
 import { backupRisk, placementQuality, recordPlacement, placeLabel } from './core/backup-health.js';
 import { suggestMonthlyBudget, isBudgetStale } from './predict/budget-advisor.js';
-import { handleScreenshotUpload, scanScreenshot } from './import/screenshot-parser.js';
+import { handleScreenshotUpload, scanScreenshot, scanScreenshotMulti } from './import/screenshot-parser.js';
+import { parseReceiptItems } from './split/receipt-items.js';
 import { NON_LATIN_OCR_LANGUAGES } from './import/ocr-languages.js';
 import { extractTransactionsFromItems, detectCurrency } from './import/pdf-parser.js';
 import { buildReceiptOcrReport } from './trips/receipt-ocr-transparency.js';
@@ -11097,7 +11099,7 @@ window.openSplitGroup = (openId = null) => {
       </div>`);
     document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => { currentId = b.dataset.open; render(); }));
     $('#sg-new')?.addEventListener('click', () => {
-      let g = createGroup({ name: tSplit('newGroup',__uiLang), members: ['Io'] });
+      let g = createGroup({ name: tSplit('newGroup',__uiLang), members: ['Io'] }); // "Io" è il segnaposto: displayNames lo mostra nella lingua di chi guarda
       // Il creatore rivendica SUBITO il proprio slot ("Io") con l'id di questo
       // dispositivo: da qui in poi nessun altro dispositivo che entra dal
       // link potrà mai scegliere di essere "Io" — vedi claimMember.
@@ -11607,6 +11609,37 @@ window.openItemSplitEditor = (groupId) => {
     rows: [{ description: '', amount: '', assignedTo: [] }],
     tip: '',
     tipMode: 'proporzionale',
+    scan: null, // { busy } | { tone, text } dopo la lettura dello scontrino
+  };
+
+  // Scontrino → voci (src/split/receipt-items.js). OCR sul dispositivo, poi
+  // controllo della somma col totale stampato: se non torna lo si dice.
+  const leggiScontrino = async (file) => {
+    state.scan = { busy: true };
+    render();
+    let letto = null;
+    try {
+      const { rawText } = await scanScreenshotMulti(file, { uiLang: __uiLang });
+      letto = parseReceiptItems(rawText);
+    } catch (_) { letto = null; }
+    if (!letto || !letto.items.length) {
+      state.scan = { tone: 'warn', text: tCh('isScanNone', __uiLang) };
+      render();
+      return;
+    }
+    const vuote = state.rows.every(r => !r.description.trim() && !r.amount);
+    const virgola = (1.5).toLocaleString(__uiLocale).includes(',');
+    const campo = (v) => { const s = (+v).toFixed(2); return virgola ? s.replace('.', ',') : s; };
+    const nuove = letto.items.map(it => ({ description: it.quantity > 1 ? `${it.quantity}× ${it.description}` : it.description, amount: campo(it.amount), assignedTo: [] }));
+    state.rows = vuote ? nuove : [...state.rows, ...nuove];
+    const extra = +(letto.service + letto.addedTax - letto.discounts).toFixed(2);
+    if (extra > 0 && !splitAmount(state.tip)) state.tip = campo(extra);
+    state.scan = letto.verified
+      ? { tone: 'ok', text: tCh('isScanVerified', __uiLang, letto.items.length, eur(letto.total)) }
+      : letto.total === null
+        ? { tone: 'warn', text: tCh('isScanNoTotal', __uiLang) }
+        : { tone: 'warn', text: tCh('isScanMismatch', __uiLang, letto.items.length, eur(Math.abs(letto.difference))) };
+    render();
   };
 
   const anteprima = () => {
@@ -11651,6 +11684,13 @@ window.openItemSplitEditor = (groupId) => {
         <p class="text-[11px] text-[var(--on-surface-secondary)] -mt-1.5">${esc(tCh('itemSplitIntro', __uiLang))}</p>
         <input id="is-desc" value="${esc(state.description)}" class="bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm" placeholder="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" name="is-desc" aria-label="${esc(tCh('itemSplitDescGeneralPlaceholder', __uiLang))}" />
         <div class="flex flex-wrap gap-1.5">${memberIds.map(id => `<button data-payer="${id}" class="text-[11px] font-bold px-2.5 py-1.5 rounded-full border ${state.payer === id ? 'border-[var(--gold)] text-[var(--gold)]' : 'border-[var(--outline)] text-[var(--on-surface-secondary)]'} bg-[var(--surface-elevated)]">${esc(tCh('itemSplitPaidBy', __uiLang, names[id]))}</button>`).join('')}</div>
+        <label class="split-scan-receipt relative flex items-center gap-2.5 p-2.5 rounded-xl border border-dashed border-[var(--primary)] bg-[color-mix(in_srgb,var(--primary)_7%,transparent)] cursor-pointer ${state.scan?.busy ? 'opacity-70 pointer-events-none' : ''}">
+          <svg class="w-5 h-5 shrink-0 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+          <span class="flex-1 min-w-0"><span class="block text-[12px] font-bold">${esc(state.scan?.busy ? tCh('isScanBusy', __uiLang) : tCh('isScanBtn', __uiLang))}</span><span class="block text-[10px] text-[var(--on-surface-secondary)]">${esc(tCh('isScanPrivacy', __uiLang))}</span></span>
+          ${state.scan?.busy ? '<span class="pdf-progress-ring shrink-0" style="width:18px;height:18px" aria-hidden="true"></span>' : ''}
+          <input id="is-scan" type="file" accept="image/*" capture="environment" name="is-scan" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;pointer-events:none">
+        </label>
+        ${state.scan?.text ? `<p class="text-[11px] -mt-1 ${state.scan.tone === 'ok' ? 'text-emerald-400' : 'text-amber-300'}" role="status">${state.scan.tone === 'ok' ? SVG_CHECK + ' ' : SVG_WARN}${esc(state.scan.text)}</p>` : ''}
         ${rowsHtml}
         <button id="is-addrow" type="button" class="text-[11px] font-bold text-[var(--primary)] underline self-start">${esc(tCh('itemSplitAddRow', __uiLang))}</button>
         <div class="flex items-center gap-2 mt-1">
@@ -11666,6 +11706,7 @@ window.openItemSplitEditor = (groupId) => {
 
     $('#is-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
     $('#is-desc')?.addEventListener('input', (e) => { state.description = e.target.value; });
+    $('#is-scan')?.addEventListener('change', (e) => { const f = e.target.files?.[0]; if (f) leggiScontrino(f); });
     // BUG REALE trovato dal vivo: ri-disegnare l'intero editor a ogni
     // carattere digitato ricrea l'input e ne fa perdere il focus — "12"
     // diventava "1" (il secondo tasto cadeva su un campo appena ricreato,

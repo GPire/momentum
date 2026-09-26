@@ -550,7 +550,10 @@ export function myMemberId(group, deviceId) {
 // unico modificato — cosicché ogni consumatore a valle (avatar, righe
 // spesa, chat) erediti automaticamente l'etichetta già distinguibile senza
 // dover essere toccato uno per uno.
-export function displayNames(members = []) {
+// meLabel: il segnaposto "Io" dato dal creatore del gruppo si mostra nella
+// lingua di chi guarda ("Me", "Ich", …); il nome salvato non cambia.
+export function displayNames(members = [], { meLabel = null } = {}) {
+  if (meLabel) members = members.map((m) => (m.name === 'Io' ? { ...m, name: meLabel } : m));
   const conteggi = new Map();
   for (const m of members) conteggi.set(m.name, (conteggi.get(m.name) || 0) + 1);
   const visti = new Map();
