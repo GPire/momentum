@@ -79,11 +79,13 @@ export async function unlockWithPin(record, pin) {
   } catch { return null; }
 }
 
-export async function enablePin(store = idbKeyStore(), keyBytes, pin, { iterations = PBKDF2_ITERATIONS } = {}) {
+export async function enablePin(store = idbKeyStore(), keyBytes, pin, { iterations = PBKDF2_ITERATIONS, recovery = null } = {}) {
   if (String(pin).length < PIN_MIN_LENGTH) throw new Error('pin_too_short');
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const { iv, wrapped } = await wrapWith(await pinKek(pin, salt, iterations), keyBytes);
-  const record = { v: 1, mode: 'pin', salt, iterations, iv, wrapped };
+  // Cambiando PIN la copia avvolta dal codice di recupero resta valida: si conserva.
+  const precedente = recovery === null ? await store.get(RECORD_ID) : null;
+  const record = { v: 1, mode: 'pin', salt, iterations, iv, wrapped, ...(recovery ? { recovery } : precedente?.mode === 'pin' && precedente.recovery ? { recovery: precedente.recovery } : {}) };
   if (!sameBytes(await unlockWithPin(record, pin), keyBytes)) throw new Error('pin wrap failed');
   await store.put(RECORD_ID, record);
   const back = await loadVaultKey(store);
@@ -107,4 +109,48 @@ export async function setBiometricFlag(store = idbKeyStore(), on) {
   const rec = await store.get(RECORD_ID);
   if (rec?.mode !== 'pin') throw new Error('biometric requires pin');
   await store.put(RECORD_ID, { ...rec, biometric: !!on });
+}
+
+// ── Codice di recupero ────────────────────────────────────────────────
+// 160 bit casuali in base32 Crockford (niente I/L/O/U: si ricopia senza
+// ambiguità), 8 gruppi da 4. Apre la stessa chiave del PIN. Con questa
+// entropia bastano meno iterazioni del PIN: indovinarlo resta impossibile.
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+export const RECOVERY_ITERATIONS = 100_000;
+
+export function generateRecoveryCode() {
+  const bytes = crypto.getRandomValues(new Uint8Array(20));
+  let bits = 0, acc = 0, out = '';
+  for (const b of bytes) {
+    acc = (acc << 8) | b; bits += 8;
+    while (bits >= 5) { out += CROCKFORD[(acc >> (bits - 5)) & 31]; bits -= 5; }
+  }
+  return out.match(/.{4}/g).join('-');
+}
+
+export function normalizeRecoveryCode(code) {
+  return String(code || '').toUpperCase().replace(/[IL]/g, '1').replace(/O/g, '0').replace(/[^0-9A-HJKMNP-TV-Z]/g, '');
+}
+
+export async function wrapRecovery(keyBytes, code, { iterations = RECOVERY_ITERATIONS } = {}) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const { iv, wrapped } = await wrapWith(await pinKek(normalizeRecoveryCode(code), salt, iterations), keyBytes);
+  return { salt, iterations, iv, wrapped };
+}
+
+export async function unlockWithRecovery(record, code) {
+  const r = record?.recovery;
+  if (!r || normalizeRecoveryCode(code).length !== 32) return null;
+  try { return await unwrapWith(await pinKek(normalizeRecoveryCode(code), r.salt, r.iterations), r.iv, r.wrapped); }
+  catch { return null; }
+}
+
+// Nuovo codice (il vecchio smette di funzionare). Richiede il modo PIN.
+export async function setRecovery(store = idbKeyStore(), keyBytes, code, opts) {
+  const rec = await store.get(RECORD_ID);
+  if (rec?.mode !== 'pin') throw new Error('recovery requires pin');
+  const recovery = await wrapRecovery(keyBytes, code, opts);
+  const aggiornato = { ...rec, recovery };
+  if (!sameBytes(await unlockWithRecovery(aggiornato, code), keyBytes)) throw new Error('recovery wrap failed');
+  await store.put(RECORD_ID, aggiornato);
 }

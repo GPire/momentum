@@ -56,3 +56,17 @@
 @keyframes lock-leave { to { opacity:0; transform:translateY(-10px) scale(.98); } }
 @keyframes lock-fade { to { opacity:0; } }
 @media(prefers-reduced-motion:reduce) { #vault-unlock *, #vault-unlock { animation:none!important; transition:none!important; } }
+
+/* Modo codice di recupero: il campo si vede, perché si ricopia da un foglio. */
+.lock-panel.recupero .lock-field { display:none; }
+.lock-recovery { width:100%; min-height:56px; padding:0 16px; text-align:center; font:600 1.02rem/1 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.08em; text-transform:uppercase; color:#f5f5ff; border:1px solid #b9afff99; border-radius:20px; background:#ffffff08; box-shadow:0 0 0 4px #8a7fff1f; }
+.lock-recovery.hidden { display:none; }
+.lock-use-recovery { width:100%; min-height:44px; margin:6px 0 4px; border-radius:14px; border:1px solid #b9afff59; background:#8a7fff12; color:#d4d0ff; font-weight:700; }
+/* Scheda del codice di recupero (dentro il modale standard dell'app). */
+.recovery-sheet { display:grid; gap:14px; text-align:center; }
+.recovery-code { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:14px; border-radius:18px; border:1px solid color-mix(in srgb,var(--primary) 35%,var(--outline)); background:color-mix(in srgb,var(--primary) 7%,transparent); font:650 1.02rem/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.1em; user-select:all; -webkit-user-select:all; }
+.recovery-code span { padding:6px 0; border-radius:10px; background:#ffffff06; }
+.recovery-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.recovery-actions button { min-height:46px; border-radius:14px; border:1px solid var(--glass-border); font-weight:700; }
+.recovery-confirm input { text-align:center; font:650 1.1rem ui-monospace,SFMono-Regular,Menlo,monospace; letter-spacing:.2em; text-transform:uppercase; }
+@media(prefers-reduced-motion:no-preference) { .recovery-code span { animation:lock-arrive .4s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i) * 45ms); } }

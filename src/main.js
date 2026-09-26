@@ -322,7 +322,7 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, verifyStoredLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR, PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR } from './core/subscription.js';
 import { openValue } from './core/vault-cipher.js';
-import { destroyVaultKey, enablePin, disablePin, unlockWithPin, loadVaultKey, setBiometricFlag, PIN_MIN_LENGTH } from './core/vault-key.js';
+import { destroyVaultKey, enablePin, disablePin, unlockWithPin, loadVaultKey, setBiometricFlag, PIN_MIN_LENGTH, generateRecoveryCode, wrapRecovery, unlockWithRecovery, setRecovery, normalizeRecoveryCode } from './core/vault-key.js';
 import { biometricAvailability, enableBiometric, unlockWithBiometric, disableBiometric } from './core/vault-biometric.js';
 import { createAutoLock, autoLockMinutes, AUTO_LOCK_CHOICES_MIN } from './core/auto-lock.js';
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
@@ -25425,8 +25425,41 @@ function chiediPinAvvio(record, { retry = false } = {}) {
     input.focus();
     let errori = 0;
     let attendiFino = 0;
+    // Codice di recupero: stesso pannello, campo visibile (si ricopia da un foglio).
+    const campoRecupero = document.getElementById('vault-unlock-recovery');
+    let modoRecupero = false;
+    const usaRecupero = document.getElementById('vault-unlock-use-recovery');
+    if (usaRecupero && campoRecupero) {
+      usaRecupero.classList.toggle('hidden', !record?.recovery);
+      usaRecupero.onclick = () => {
+        modoRecupero = true;
+        form.classList.add('recupero');
+        campoRecupero.classList.remove('hidden');
+        campoRecupero.placeholder = tCh('vaultRecoveryPlaceholder', __uiLang);
+        box.querySelector('.lock-sub').textContent = tCh('vaultRecoverySub', __uiLang);
+        box.querySelector('.lock-forgot').open = false;
+        err.textContent = '';
+        campoRecupero.focus();
+      };
+    }
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (modoRecupero) {
+        if (Date.now() < attendiFino) { err.textContent = tCh('vaultUnlockWait', __uiLang, Math.ceil((attendiFino - Date.now()) / 1000)); return; }
+        btn.disabled = true;
+        campoRecupero.readOnly = true;
+        btn.textContent = tCh('vaultPinWorking', __uiLang);
+        const key = await unlockWithRecovery(record, campoRecupero.value);
+        campoRecupero.readOnly = false;
+        btn.disabled = false;
+        btn.textContent = tCh('vaultUnlockBtn', __uiLang);
+        if (key) { window.__chiaveRecupero = key; apri(key); return; }
+        errori++;
+        if (errori >= 5) attendiFino = Date.now() + Math.min(300, 30 * 2 ** (errori - 5)) * 1000;
+        err.textContent = tCh('vaultRecoveryWrong', __uiLang);
+        campoRecupero.focus();
+        return;
+      }
       if (!input.value) { input.focus(); return; }
       if (Date.now() < attendiFino) { err.textContent = tCh('vaultUnlockWait', __uiLang, Math.ceil((attendiFino - Date.now()) / 1000)); return; }
       btn.disabled = true;
@@ -25479,7 +25512,8 @@ async function renderVaultLockCard() {
     actions.innerHTML = `<button type="button" onclick="window.lockVaultNow()" class="btn-action w-full font-bold text-sm">${tCh('vaultLockNow', __uiLang)}</button>`
       + (bio.available ? `<button type="button" onclick="window.toggleVaultBiometric(${!r.record.biometric})" class="w-full text-sm font-bold py-2.5 rounded-xl border border-[var(--glass-border)]">${r.record.biometric ? tCh('vaultBioDisable', __uiLang) : testoBiometria(bio.kind)}</button>` : '')
       + `<label class="block text-xs font-bold mt-1">${tCh('vaultAutoLockLabel', __uiLang)}<select onchange="window.setAutoLockMinutes(Number(this.value))" class="modal-input !mb-0 mt-1">${scelta}</select></label>`
-      + bottone('vaultLockChange', 'change', false) + bottone('vaultLockDisable', 'disable', false);
+      + bottone('vaultLockChange', 'change', false) + bottone('vaultRecoveryNew', 'recovery', false) + bottone('vaultLockDisable', 'disable', false)
+      + (r.record.recovery ? '' : `<p class="text-xs text-amber-300 mt-1">${tCh('vaultRecoveryMissing', __uiLang)}</p>`);
   } else {
     status.textContent = tCh('vaultLockStatusOff', __uiLang);
     actions.innerHTML = '';
@@ -25488,12 +25522,12 @@ async function renderVaultLockCard() {
 
 window.openVaultPin = (mode) => {
   const campo = (id, key, ac) => `<label class="block text-xs font-bold text-left">${tCh(key, __uiLang)}<input id="${id}" type="password" autocomplete="${ac}" class="modal-input !mb-0 mt-1"></label>`;
-  const titolo = { enable: 'vaultLockEnable', change: 'vaultLockChange', disable: 'vaultLockDisable', bio: 'vaultBioOther' }[mode];
+  const titolo = { enable: 'vaultLockEnable', change: 'vaultLockChange', disable: 'vaultLockDisable', bio: 'vaultBioOther', recovery: 'vaultRecoveryNew', reset: 'vaultPinResetTitle' }[mode];
   window.openModal(`<form id="vp-form" class="p-5 space-y-3" autocomplete="off">
     <h3 class="text-lg font-bold">${tCh(titolo, __uiLang)}</h3>
     ${mode === 'enable' ? `<p class="text-xs text-amber-300">${tCh('vaultPinWarn', __uiLang)}</p>` : ''}
-    ${mode !== 'enable' ? campo('vp-current', 'vaultPinCurrent', 'current-password') : ''}
-    ${mode === 'enable' || mode === 'change' ? campo('vp-new', 'vaultPinNew', 'new-password') + campo('vp-confirm', 'vaultPinConfirm', 'new-password') : ''}
+    ${mode !== 'enable' && mode !== 'reset' ? campo('vp-current', 'vaultPinCurrent', 'current-password') : ''}
+    ${mode === 'enable' || mode === 'change' || mode === 'reset' ? campo('vp-new', 'vaultPinNew', 'new-password') + campo('vp-confirm', 'vaultPinConfirm', 'new-password') : ''}
     <p id="vp-error" role="alert" class="text-xs text-rose-300 min-h-[1rem]"></p>
     <button type="submit" class="btn-action w-full font-bold">${tCh('vaultPinSave', __uiLang)}</button>
   </form>`);
@@ -25503,7 +25537,7 @@ window.openVaultPin = (mode) => {
     const err = document.getElementById('vp-error');
     const btn = form.querySelector('button[type=submit]');
     const val = (id) => document.getElementById(id)?.value || '';
-    if (mode === 'enable' || mode === 'change') {
+    if (mode === 'enable' || mode === 'change' || mode === 'reset') {
       if (val('vp-new').length < PIN_MIN_LENGTH) { err.textContent = tCh('vaultPinShort', __uiLang); return; }
       if (val('vp-new') !== val('vp-confirm')) { err.textContent = tCh('vaultPinMismatch', __uiLang); return; }
     }
@@ -25514,7 +25548,8 @@ window.openVaultPin = (mode) => {
       const r = await loadVaultKey();
       const key = mode === 'enable'
         ? (r.status === 'ready' ? r.key : null)
-        : (r.status === 'pin' ? await unlockWithPin(r.record, val('vp-current')) : null);
+        : mode === 'reset' ? (window.__chiaveRecupero || null)
+          : (r.status === 'pin' ? await unlockWithPin(r.record, val('vp-current')) : null);
       if (!key) { ripristina(mode === 'enable' ? 'vaultPinError' : 'vaultPinWrongCurrent'); return; }
       if (mode === 'disable') {
         await disablePin(undefined, key);
@@ -25522,12 +25557,28 @@ window.openVaultPin = (mode) => {
       } else if (mode === 'bio') {
         await enableBiometric(NativeBiometric, key, opzioniPromptBio());
         await setBiometricFlag(undefined, true);
+      } else if (mode === 'recovery') {
+        const codice = generateRecoveryCode();
+        await setRecovery(undefined, key, codice);
+        window.closeModal();
+        mostraCodiceRecupero(codice);
+        renderVaultLockCard();
+        return;
+      } else if (mode === 'enable') {
+        const codice = generateRecoveryCode();
+        await enablePin(undefined, key, val('vp-new'), { recovery: await wrapRecovery(key, codice) });
+        window.closeModal();
+        mostraCodiceRecupero(codice);
+        renderVaultLockCard();
+        avviaBloccoInattivita();
+        return;
       } else {
         // Un PIN nuovo riscrive il record: la biometria va riattivata in modo esplicito.
-        if (mode === 'change' && appNativa()) await disableBiometric(NativeBiometric);
+        if ((mode === 'change' || mode === 'reset') && appNativa()) await disableBiometric(NativeBiometric);
         await enablePin(undefined, key, val('vp-new'));
       }
       window.closeModal();
+      if (mode === 'reset') window.__chiaveRecupero = null;
       showToast(tCh(mode === 'disable' ? 'vaultPinRemoved' : mode === 'bio' ? 'vaultBioEnabled' : 'vaultPinDone', __uiLang), 'success');
       if (mode !== 'bio') avviaBloccoInattivita();
       renderVaultLockCard();
@@ -25538,6 +25589,40 @@ window.openVaultPin = (mode) => {
   });
   document.getElementById(mode === 'enable' ? 'vp-new' : 'vp-current')?.focus();
 };
+
+// Il codice si mostra una volta sola. Per chiudere bisogna riscriverne gli
+// ultimi 4 caratteri: il richiamo attivo è il momento in cui ci si accorge
+// davvero di averlo salvato (una casella da spuntare si salta senza leggere).
+function mostraCodiceRecupero(codice) {
+  const gruppi = codice.split('-');
+  window.openModal(`<div class="p-5 recovery-sheet">
+    <div class="release-orbit mx-auto" aria-hidden="true" style="width:56px;height:56px"><i></i><b></b></div>
+    <h3 class="text-lg font-bold">${tCh('vaultRecoveryTitle', __uiLang)}</h3>
+    <p class="text-sm text-[var(--on-surface-secondary)]">${tCh('vaultRecoveryIntro', __uiLang)}</p>
+    <div class="recovery-code" aria-label="${tCh('vaultRecoveryTitle', __uiLang)}">${gruppi.map((g, i) => `<span style="--i:${i}">${g}</span>`).join('')}</div>
+    <div class="recovery-actions">
+      <button type="button" id="rc-copy">${tCh('vaultRecoveryCopy', __uiLang)}</button>
+      <button type="button" id="rc-save">${tCh('vaultRecoverySave', __uiLang)}</button>
+    </div>
+    <label class="recovery-confirm block text-xs font-bold text-left">${tCh('vaultRecoveryConfirmLabel', __uiLang)}<input id="rc-last4" maxlength="4" autocomplete="off" autocapitalize="characters" spellcheck="false" class="modal-input !mb-0 mt-1"></label>
+    <button type="button" id="rc-done" class="btn-action btn-primary w-full py-3 font-bold rounded-xl" disabled>${tCh('vaultRecoveryConfirmBtn', __uiLang)}</button>
+  </div>`);
+  const fine = document.getElementById('rc-done');
+  const ultimi = normalizeRecoveryCode(codice).slice(-4);
+  document.getElementById('rc-last4')?.addEventListener('input', (e) => { fine.disabled = normalizeRecoveryCode(e.target.value) !== ultimi; });
+  document.getElementById('rc-copy')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(codice); showToast(tCh('vaultRecoveryCopied', __uiLang), 'success'); } catch { /* il codice resta selezionabile */ }
+  });
+  document.getElementById('rc-save')?.addEventListener('click', () => {
+    const blob = new Blob([tCh('vaultRecoveryFileText', __uiLang, codice)], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'momentum-recovery-code.txt';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  fine?.addEventListener('click', () => { window.closeModal(); showToast(tCh('vaultRecoveryDone', __uiLang), 'success'); });
+}
 
 window.toggleVaultBiometric = async (on) => {
   if (on) { window.openVaultPin('bio'); return; }
@@ -25595,6 +25680,8 @@ const startMomentum = () => {
     if (VaultDAO.locked) avvisaVaultBloccato();
     renderVaultLockCard().catch(() => {});
     if (!VaultDAO.locked) avviaBloccoInattivita().catch(() => {});
+    // Entrato col codice di recupero: si sceglie subito un PIN nuovo.
+    if (window.__chiaveRecupero) setTimeout(() => window.openVaultPin('reset'), 600);
     verificaLicenzaAvvio().catch(() => {});
     bindVaultDurability({
       doc: document, win: window, vault: VaultDAO,

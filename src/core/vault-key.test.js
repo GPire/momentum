@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { loadVaultKey, createVaultKey, enablePin, unlockWithPin, disablePin, destroyVaultKey, KEK_RECORD_ID } from './vault-key.js';
+import { loadVaultKey, createVaultKey, enablePin, unlockWithPin, disablePin, destroyVaultKey, KEK_RECORD_ID, generateRecoveryCode, normalizeRecoveryCode, wrapRecovery, unlockWithRecovery, setRecovery } from './vault-key.js';
 import { memoryKeyStore } from '../mesh/exchange-identity.js';
 
 const FAST = { iterations: 1000 };
@@ -67,4 +67,42 @@ test('togliere il PIN riporta la stessa chiave in modo dispositivo; cancellazion
   assert.deepEqual([r.status, r.key], ['ready', key]);
   await destroyVaultKey(store);
   assert.equal((await loadVaultKey(store)).status, 'none');
+});
+
+const RAPIDO = { iterations: 1000 };
+
+test('codice di recupero: 32 caratteri leggibili in 8 gruppi, sempre diverso', () => {
+  const a = generateRecoveryCode();
+  assert.match(a, /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){7}$/);
+  assert.notEqual(generateRecoveryCode(), a);
+});
+
+test('codice di recupero: ricopiato con minuscole, spazi o I/O al posto di 1/0 funziona uguale', () => {
+  assert.equal(normalizeRecoveryCode('abcd efgh-1o1i'), 'ABCDEFGH1011');
+});
+
+test('PIN dimenticato: il codice di recupero apre la stessa chiave; un codice sbagliato no', async () => {
+  const store = memoryKeyStore();
+  const key = await createVaultKey(store);
+  const code = generateRecoveryCode();
+  await enablePin(store, key, '739152', { ...RAPIDO, recovery: await wrapRecovery(key, code, RAPIDO) });
+  const { record } = await loadVaultKey(store);
+  assert.deepEqual(await unlockWithRecovery(record, code.toLowerCase().replace(/-/g, ' ')), key);
+  assert.equal(await unlockWithRecovery(record, generateRecoveryCode()), null);
+  assert.equal(await unlockWithRecovery(record, 'corto'), null);
+});
+
+test('cambiare PIN conserva il codice di recupero; generarne uno nuovo invalida il vecchio', async () => {
+  const store = memoryKeyStore();
+  const key = await createVaultKey(store);
+  const vecchio = generateRecoveryCode();
+  await enablePin(store, key, '739152', { ...RAPIDO, recovery: await wrapRecovery(key, vecchio, RAPIDO) });
+  await enablePin(store, key, '555111', RAPIDO);
+  assert.deepEqual(await unlockWithRecovery((await loadVaultKey(store)).record, vecchio), key);
+  const nuovo = generateRecoveryCode();
+  await setRecovery(store, key, nuovo, RAPIDO);
+  const { record } = await loadVaultKey(store);
+  assert.equal(await unlockWithRecovery(record, vecchio), null);
+  assert.deepEqual(await unlockWithRecovery(record, nuovo), key);
+  assert.deepEqual(await unlockWithPin(record, '555111'), key);
 });
