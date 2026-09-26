@@ -10,6 +10,7 @@
 // Chi ottiene il file senza la passphrase NON può leggere nulla: nemmeno noi
 // potremmo, perché la chiave non lascia mai il dispositivo.
 
+import { codedError } from './coded-error.js';
 import { meseLocale } from './date-utils.js';
 
 const KDF_ITERATIONS = 210_000;
@@ -79,7 +80,7 @@ export async function createRecoveryKit(stateObj, { threshold = 2, total = 3 } =
   // chiave che abbiamo già in mano: verificherebbe la cosa sbagliata).
   const probe = await restoreFromShares(envelope, shares.slice(0, threshold).map((s) => s.text));
   if (JSON.stringify(probe) !== JSON.stringify(stateObj)) {
-    throw new Error('Verifica fallita: il backup appena creato non si riapre identico. Non è stato consegnato nulla.');
+    throw codedError('bkVerify', [], 'Verifica fallita: il backup appena creato non si riapre identico. Non è stato consegnato nulla.');
   }
   return { envelope, shares, verified: true };
 }
@@ -88,11 +89,11 @@ export async function createRecoveryKit(stateObj, { threshold = 2, total = 3 } =
 // (spazi, minuscole, righe intere copiate): il parser è tollerante sulla forma
 // e severo sul contenuto.
 export async function restoreFromShares(envelope, shareTexts = []) {
-  if (!envelope || envelope.format !== 'momentum-backup-v2') throw new Error('File di backup non riconosciuto.');
+  if (!envelope || envelope.format !== 'momentum-backup-v2') throw codedError('bkUnknown', [], 'File di backup non riconosciuto.');
   const { decodeShare, combineShares } = await import('./recovery-shares.js');
   const parts = shareTexts.filter((t) => String(t || '').trim()).map(decodeShare);
   const need = envelope.recovery?.threshold ?? 2;
-  if (parts.length < need) throw new Error(`Servono ${need} pezzi diversi: finora ne hai inserito ${parts.length}.`);
+  if (parts.length < need) throw codedError('bkNeedParts', [need, parts.length], `Servono ${need} pezzi diversi: finora ne hai inserito ${parts.length}.`);
   const keyBytes = combineShares(parts);
   const key = await importRawKey(keyBytes);
   try {
@@ -101,7 +102,7 @@ export async function restoreFromShares(envelope, shareTexts = []) {
   } catch {
     // AES-GCM autentica: se arriviamo qui i pezzi erano formalmente validi ma
     // non sono quelli di QUESTO backup (o il file è stato manomesso).
-    throw new Error('Questi pezzi non aprono questo backup: controlla di usare i pezzi dello stesso kit e il file giusto.');
+    throw codedError('bkWrongPieces', [], 'Questi pezzi non aprono questo backup: controlla di usare i pezzi dello stesso kit e il file giusto.');
   }
 }
 
@@ -142,7 +143,7 @@ export function exportPlain(stateObj) {
 // `serve` dice al chiamante cosa manca: 'niente' | 'passphrase' | 'pezzi'.
 export function readBackupFile(text) {
   const raw = String(text || '').trim();
-  if (!raw) throw new Error('Il file e vuoto.');
+  if (!raw) throw codedError('bkEmpty', [], 'Il file è vuoto.');
 
   let parsed = null;
   try { parsed = JSON.parse(raw); } catch { /* non e' JSON: puo' essere un file "DNA" vecchio */ }
@@ -160,7 +161,7 @@ export function readBackupFile(text) {
   const legacy = readLegacyDna(raw);
   if (legacy) return legacy;
 
-  throw new Error('File di backup non riconosciuto.');
+  throw codedError('bkUnknown', [], 'File di backup non riconosciuto.');
 }
 
 function readLegacyDna(raw) {
@@ -201,7 +202,7 @@ function readLegacyDna(raw) {
 
 // Cifra un oggetto stato → busta JSON portabile (versionata).
 export async function encryptBackup(stateObj, passphrase) {
-  if (!passphrase || passphrase.length < 6) throw new Error('Passphrase troppo corta (min 6 caratteri).');
+  if (!passphrase || passphrase.length < 6) throw codedError('bkPassShort', [], 'Passphrase troppo corta (min 6 caratteri).');
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const key = await deriveKey(passphrase, salt);
@@ -222,7 +223,7 @@ export async function encryptBackup(stateObj, passphrase) {
 // (AES-GCM verifica l'autenticità: un file manomesso o la chiave errata
 // falliscono, non restituiscono spazzatura).
 export async function decryptBackup(envelope, passphrase) {
-  if (!envelope || envelope.format !== 'momentum-backup-v1') throw new Error('File di backup non riconosciuto.');
+  if (!envelope || envelope.format !== 'momentum-backup-v1') throw codedError('bkUnknown', [], 'File di backup non riconosciuto.');
   const salt = fromB64(envelope.salt);
   const iv = fromB64(envelope.iv);
   const key = await deriveKey(passphrase, salt);
@@ -230,6 +231,6 @@ export async function decryptBackup(envelope, passphrase) {
     const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, fromB64(envelope.data));
     return JSON.parse(dec.decode(plaintext));
   } catch {
-    throw new Error('Passphrase errata o file danneggiato.');
+    throw codedError('bkWrongPass', [], 'Passphrase errata o file danneggiato.');
   }
 }

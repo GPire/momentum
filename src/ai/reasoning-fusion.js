@@ -209,9 +209,76 @@ export function aggregateNewsSentiment(items = [], { now = Date.now() } = {}) {
   return { score, label, n: scored.length, sourceCount, confidence, onDevice, relayed };
 }
 
+// Testi del quadro "posso investire?" nelle 7 lingue dell'interfaccia.
+const READINESS_TEXT = {
+  it: {
+    none: 'Non hai un avanzo sicuro in questo momento (tolto ciò che il tuo ritmo di spesa userà nei prossimi 21 giorni): prima la tua liquidità, un eventuale investimento può aspettare.',
+    stale: (d) => `, ${d} giorni fa: verifica un dato più recente`,
+    news: (n, s, dev, rel, tone) => ` Le notizie recenti (${n} articoli, ${s} siti distinti${dev ? ', in parte classificati sul dispositivo dai soli titoli' : ''}${rel ? ', in parte valutati da dispositivi collegati' : ''}) hanno un tono ${tone}; non prova la direzione del prezzo.`,
+    tone: { bullish: 'molto positivo', 'somewhat-bullish': 'positivo', bearish: 'molto negativo', 'somewhat-bearish': 'negativo', neutral: 'neutro' },
+    on: (m, d, f, sn) => `Hai ${m} che non ti serviranno nei prossimi 21 giorni, e il mercato (dato al ${d}${f}) era in fase favorevole.${sn} Nessuna garanzia, nessun consiglio d'acquisto: solo il quadro.`,
+    off: (m, d, f, sn) => `Hai ${m} di avanzo sicuro, ma il mercato (dato al ${d}${f}) era in fase debole o volatile: molti preferiscono aspettare stabilità, ma resta una scelta personale.${sn}`,
+    flat: (m, d, f, sn) => `Hai ${m} di avanzo sicuro; il mercato (dato al ${d}${f}) non mostrava una direzione chiara (né forte né debole).${sn}`,
+  },
+  en: {
+    none: "You don't have a safe surplus right now (after what your spending pace will use in the next 21 days): your cash comes first, any investment can wait.",
+    stale: (d) => `, ${d} days ago: check a more recent figure`,
+    news: (n, s, dev, rel, tone) => ` Recent news (${n} articles, ${s} distinct sites${dev ? ', partly classified on the device from headlines only' : ''}${rel ? ', partly assessed by linked devices' : ''}) has a ${tone} tone; it doesn't prove where prices will go.`,
+    tone: { bullish: 'very positive', 'somewhat-bullish': 'positive', bearish: 'very negative', 'somewhat-bearish': 'negative', neutral: 'neutral' },
+    on: (m, d, f, sn) => `You have ${m} you won't need in the next 21 days, and the market (as of ${d}${f}) was in a favourable phase.${sn} No guarantee, no buying advice: just the picture.`,
+    off: (m, d, f, sn) => `You have ${m} of safe surplus, but the market (as of ${d}${f}) was weak or volatile: many prefer to wait for stability, but it's your choice.${sn}`,
+    flat: (m, d, f, sn) => `You have ${m} of safe surplus; the market (as of ${d}${f}) showed no clear direction (neither strong nor weak).${sn}`,
+  },
+  de: {
+    none: 'Du hast gerade keinen sicheren Überschuss (nach dem, was dein Ausgabentempo in den nächsten 21 Tagen braucht): zuerst deine Liquidität, eine Anlage kann warten.',
+    stale: (d) => `, vor ${d} Tagen: prüfe einen aktuelleren Wert`,
+    news: (n, s, dev, rel, tone) => ` Aktuelle Nachrichten (${n} Artikel, ${s} verschiedene Seiten${dev ? ', teils auf dem Gerät nur anhand der Überschriften eingeordnet' : ''}${rel ? ', teils von verbundenen Geräten bewertet' : ''}) haben einen ${tone} Ton; das beweist keine Kursrichtung.`,
+    tone: { bullish: 'sehr positiven', 'somewhat-bullish': 'positiven', bearish: 'sehr negativen', 'somewhat-bearish': 'negativen', neutral: 'neutralen' },
+    on: (m, d, f, sn) => `Du hast ${m}, die du in den nächsten 21 Tagen nicht brauchst, und der Markt (Stand ${d}${f}) war in einer günstigen Phase.${sn} Keine Garantie, keine Kaufempfehlung: nur das Bild.`,
+    off: (m, d, f, sn) => `Du hast ${m} sicheren Überschuss, aber der Markt (Stand ${d}${f}) war schwach oder schwankend: viele warten lieber auf Stabilität, die Entscheidung liegt bei dir.${sn}`,
+    flat: (m, d, f, sn) => `Du hast ${m} sicheren Überschuss; der Markt (Stand ${d}${f}) zeigte keine klare Richtung (weder stark noch schwach).${sn}`,
+  },
+  fr: {
+    none: "Vous n'avez pas d'excédent sûr en ce moment (après ce que votre rythme de dépense utilisera dans les 21 prochains jours) : d'abord votre trésorerie, un placement peut attendre.",
+    stale: (d) => `, il y a ${d} jours : vérifiez une donnée plus récente`,
+    news: (n, s, dev, rel, tone) => ` Les actualités récentes (${n} articles, ${s} sites distincts${dev ? ', en partie classées sur l\'appareil à partir des seuls titres' : ''}${rel ? ', en partie évaluées par des appareils liés' : ''}) ont un ton ${tone} ; cela ne prouve pas la direction des prix.`,
+    tone: { bullish: 'très positif', 'somewhat-bullish': 'positif', bearish: 'très négatif', 'somewhat-bearish': 'négatif', neutral: 'neutre' },
+    on: (m, d, f, sn) => `Vous avez ${m} dont vous n'aurez pas besoin dans les 21 prochains jours, et le marché (au ${d}${f}) était en phase favorable.${sn} Aucune garantie, aucun conseil d'achat : juste le tableau.`,
+    off: (m, d, f, sn) => `Vous avez ${m} d'excédent sûr, mais le marché (au ${d}${f}) était faible ou volatil : beaucoup préfèrent attendre la stabilité, mais le choix vous appartient.${sn}`,
+    flat: (m, d, f, sn) => `Vous avez ${m} d'excédent sûr ; le marché (au ${d}${f}) ne montrait pas de direction claire (ni fort ni faible).${sn}`,
+  },
+  es: {
+    none: 'Ahora mismo no tienes un excedente seguro (descontado lo que tu ritmo de gasto usará en los próximos 21 días): primero tu liquidez, una inversión puede esperar.',
+    stale: (d) => `, hace ${d} días: comprueba un dato más reciente`,
+    news: (n, s, dev, rel, tone) => ` Las noticias recientes (${n} artículos, ${s} sitios distintos${dev ? ', en parte clasificadas en el dispositivo solo por los titulares' : ''}${rel ? ', en parte valoradas por dispositivos vinculados' : ''}) tienen un tono ${tone}; no prueba la dirección del precio.`,
+    tone: { bullish: 'muy positivo', 'somewhat-bullish': 'positivo', bearish: 'muy negativo', 'somewhat-bearish': 'negativo', neutral: 'neutro' },
+    on: (m, d, f, sn) => `Tienes ${m} que no necesitarás en los próximos 21 días, y el mercado (dato del ${d}${f}) estaba en fase favorable.${sn} Sin garantías ni consejos de compra: solo el panorama.`,
+    off: (m, d, f, sn) => `Tienes ${m} de excedente seguro, pero el mercado (dato del ${d}${f}) estaba débil o volátil: muchos prefieren esperar estabilidad, pero es tu decisión.${sn}`,
+    flat: (m, d, f, sn) => `Tienes ${m} de excedente seguro; el mercado (dato del ${d}${f}) no mostraba una dirección clara (ni fuerte ni débil).${sn}`,
+  },
+  nl: {
+    none: 'Je hebt nu geen veilig overschot (na wat je uitgaventempo de komende 21 dagen gebruikt): eerst je liquiditeit, beleggen kan wachten.',
+    stale: (d) => `, ${d} dagen geleden: controleer een recenter cijfer`,
+    news: (n, s, dev, rel, tone) => ` Recent nieuws (${n} artikelen, ${s} verschillende sites${dev ? ', deels op het apparaat ingedeeld op basis van alleen de koppen' : ''}${rel ? ', deels beoordeeld door gekoppelde apparaten' : ''}) heeft een ${tone} toon; dat bewijst de koersrichting niet.`,
+    tone: { bullish: 'zeer positieve', 'somewhat-bullish': 'positieve', bearish: 'zeer negatieve', 'somewhat-bearish': 'negatieve', neutral: 'neutrale' },
+    on: (m, d, f, sn) => `Je hebt ${m} die je de komende 21 dagen niet nodig hebt, en de markt (stand ${d}${f}) zat in een gunstige fase.${sn} Geen garantie, geen koopadvies: alleen het beeld.`,
+    off: (m, d, f, sn) => `Je hebt ${m} veilig overschot, maar de markt (stand ${d}${f}) was zwak of beweeglijk: veel mensen wachten liever op stabiliteit, maar het blijft jouw keuze.${sn}`,
+    flat: (m, d, f, sn) => `Je hebt ${m} veilig overschot; de markt (stand ${d}${f}) liet geen duidelijke richting zien (niet sterk en niet zwak).${sn}`,
+  },
+  pt: {
+    none: 'Neste momento não tem um excedente seguro (descontado o que o seu ritmo de gasto vai usar nos próximos 21 dias): primeiro a sua liquidez, um investimento pode esperar.',
+    stale: (d) => `, há ${d} dias: verifique um dado mais recente`,
+    news: (n, s, dev, rel, tone) => ` As notícias recentes (${n} artigos, ${s} sites distintos${dev ? ', em parte classificadas no dispositivo só pelos títulos' : ''}${rel ? ', em parte avaliadas por dispositivos ligados' : ''}) têm um tom ${tone}; não prova a direção do preço.`,
+    tone: { bullish: 'muito positivo', 'somewhat-bullish': 'positivo', bearish: 'muito negativo', 'somewhat-bearish': 'negativo', neutral: 'neutro' },
+    on: (m, d, f, sn) => `Tem ${m} de que não vai precisar nos próximos 21 dias, e o mercado (dado de ${d}${f}) estava numa fase favorável.${sn} Sem garantias nem conselhos de compra: só o quadro.`,
+    off: (m, d, f, sn) => `Tem ${m} de excedente seguro, mas o mercado (dado de ${d}${f}) estava fraco ou volátil: muitos preferem esperar estabilidade, mas a escolha é sua.${sn}`,
+    flat: (m, d, f, sn) => `Tem ${m} de excedente seguro; o mercado (dado de ${d}${f}) não mostrava uma direção clara (nem forte nem fraco).${sn}`,
+  },
+};
+
 export function investmentReadiness({
   allTx = {}, commitments = [], salary = null, now = Date.now(), assetKey = 'indice',
-  liveRegime = null, newsItems = null,
+  liveRegime = null, newsItems = null, lang = 'it',
 } = {}) {
   const asset = assetKey === 'cripto' ? measuredAssumptions?.btc : measuredAssumptions?.spy;
   // Regime LIVE (rilevato da src/alpha/regime.js sulla serie prezzi appena
@@ -246,14 +313,16 @@ export function investmentReadiness({
   layers.push({ name: 'personal-cash-safety', ok: !!cash, confidence: cash ? Math.max(0.4, cash.confidence) : 0 });
 
   const money = (n) => `${(+n || 0).toFixed(2).replace('.', ',')} €`;
-  const dateOf = (iso) => new Date(iso).toLocaleDateString('it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
+  const LOC = { it: 'it-IT', en: 'en-GB', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', nl: 'nl-NL', pt: 'pt-PT' };
+  const W = READINESS_TEXT[lang] || READINESS_TEXT.it;
+  const dateOf = (iso) => new Date(iso).toLocaleDateString(LOC[lang] || 'it-IT', { day: 'numeric', month: 'short', year: 'numeric' });
 
   let verdict = null;
   if (regimeInfo && cash) {
     const marketAsOf = regimeSource === 'live' ? new Date(now).toISOString() : asset.fetchedAt;
     const staleDays = regimeSource === 'live' ? 0 : Math.round((now - new Date(asset.fetchedAt).getTime()) / 86_400_000);
-    const freshnessNote = regimeSource === 'live' ? '' : `, ${staleDays} giorni fa — verifica un dato più recente`;
-    const sentimentNote = sentiment ? ` Le notizie recenti (${sentiment.n} articoli, ${sentiment.sourceCount} siti distinti${sentiment.onDevice ? ', in parte classificati on-device dai soli titoli' : ''}${sentiment.relayed ? ', in parte valutati da dispositivi collegati' : ''}) hanno un tono ${sentiment.label === 'bullish' ? 'molto positivo' : sentiment.label === 'somewhat-bullish' ? 'positivo' : sentiment.label === 'bearish' ? 'molto negativo' : sentiment.label === 'somewhat-bearish' ? 'negativo' : 'neutro'}; non prova la direzione del prezzo.` : '';
+    const freshnessNote = regimeSource === 'live' ? '' : W.stale(staleDays);
+    const sentimentNote = sentiment ? W.news(sentiment.n, sentiment.sourceCount, sentiment.onDevice, sentiment.relayed, W.tone[sentiment.label] || W.tone.neutral) : '';
     verdict = {
       marketRegime: regimeInfo.regime,
       marketAsOf,
@@ -263,12 +332,12 @@ export function investmentReadiness({
       personalSafeSurplus: cash.safeSurplus,
       canConsider: cash.safeSurplus > 0,
       message: cash.safeSurplus <= 0
-        ? `Non hai un avanzo sicuro in questo momento (tolto ciò che il tuo ritmo di spesa userà nei prossimi 21 giorni): prima la tua liquidità, un eventuale investimento può aspettare.`
+        ? W.none
         : regimeInfo.regime === 'risk-on'
-          ? `Hai ${money(cash.safeSurplus)} che non ti serviranno nei prossimi 21 giorni, e il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) era in fase favorevole.${sentimentNote} Nessuna garanzia, nessun consiglio d'acquisto: solo il quadro.`
+          ? W.on(money(cash.safeSurplus), dateOf(marketAsOf), freshnessNote, sentimentNote)
           : regimeInfo.regime === 'risk-off'
-            ? `Hai ${money(cash.safeSurplus)} di avanzo sicuro, ma il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) era in fase debole/volatile: molti preferiscono aspettare stabilità, ma resta una scelta personale.${sentimentNote}`
-            : `Hai ${money(cash.safeSurplus)} di avanzo sicuro; il mercato (dato al ${dateOf(marketAsOf)}${freshnessNote}) non mostrava una direzione chiara (né forte né debole).${sentimentNote}`,
+            ? W.off(money(cash.safeSurplus), dateOf(marketAsOf), freshnessNote, sentimentNote)
+            : W.flat(money(cash.safeSurplus), dateOf(marketAsOf), freshnessNote, sentimentNote),
     };
   }
 

@@ -10,6 +10,7 @@
 // gli addebiti ricorrenti attesi prima di fine settimana — così il numero
 // non promette soldi che Netflix si porterà via dopodomani.
 // Funzioni pure sui dati (pattern engines.js), nessun DOM.
+import { t } from '../i18n/ui-strings.js';
 import { getWeeklyStatus, getIsoWeekStatus } from './weekly-budget.js';
 import { detectRecurring, detectPriceHikes } from './subscriptions.js';
 import { buildCausalGraph } from './causal-graph.js';
@@ -211,7 +212,7 @@ export function getSweepSuggestion({ allTx, monthlyBudget, savingsGoals = [], la
 // { kind, severity: 'info'|'warn'|'danger', title, body, action?, items? }.
 // Linguaggio volutamente semplice (regola "lo capirebbe un bambino di 8
 // anni"): mai gergo statistico nei testi mostrati.
-export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referenceDate = new Date(), hwDailyLevel = null, staleness = null, savingsGoals = [], lastSweepWeek = null }) {
+export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referenceDate = new Date(), hwDailyLevel = null, staleness = null, savingsGoals = [], lastSweepWeek = null, lang = 'it' }) {
   const insights = [];
   const fmt = n => `${n.toFixed(2).replace('.', ',')}€`;
 
@@ -220,28 +221,28 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
   if (sweep) {
     insights.push({
       kind: 'sweep', severity: 'info',
-      title: `Hai avanzato ${fmt(sweep.amount)} la settimana scorsa`,
+      title: t('advSweepTitle', lang, fmt(sweep.amount)),
       body: sweep.goalName
-        ? `Li metto da parte per "${sweep.goalName}"? Un tocco e il tuo obiettivo fa un passo avanti.`
-        : `Li metto nel salvadanaio? Un tocco e sono al sicuro.`,
-      action: { label: 'Sì, mettili da parte', handler: 'applySweep', payload: sweep },
+        ? t('advSweepBodyGoal', lang, sweep.goalName)
+        : t('advSweepBodyJar', lang),
+      action: { label: t('advSweepAction', lang), handler: 'applySweep', payload: sweep },
     });
   }
 
   const sts = getDailySafeToSpend({ monthTxs, allTx, monthlyBudget, referenceDate });
   if (sts) {
     const chargeNote = sts.reservedForCharges > 0
-      ? ` Ho già messo da parte ${fmt(sts.reservedForCharges)} per gli abbonamenti in arrivo.`
+      ? t('advChargeNote', lang, fmt(sts.reservedForCharges))
       : '';
     insights.push(sts.isOverBudget ? {
       kind: 'safe-to-spend', severity: 'danger',
-      title: 'Fermati: questa settimana hai già speso troppo',
-      body: `Sei oltre di ${fmt(Math.abs(sts.weekRemaining))}. Ogni giorno senza spese ti rimette in pari.`,
+      title: t('advOverTitle', lang),
+      body: t('advOverBody', lang, fmt(Math.abs(sts.weekRemaining))),
       data: sts,
     } : {
       kind: 'safe-to-spend', severity: 'info',
-      title: `Oggi puoi spendere ${fmt(sts.safeToday)}`,
-      body: `Ti restano ${fmt(sts.weekRemaining)} per questa settimana (${sts.daysLeftInWeek} giorni).${chargeNote}`,
+      title: t('advSafeTitle', lang, fmt(sts.safeToday)),
+      body: t('advSafeBody', lang, fmt(sts.weekRemaining), sts.daysLeftInWeek, chargeNote),
       data: sts,
     });
   }
@@ -251,13 +252,13 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
     if (proj.daysRemaining > 0 && proj.spentSoFar > 0) {
       insights.push(proj.willOverspend ? {
         kind: 'month-end', severity: 'warn',
-        title: `Così finisci il mese a ${fmt(proj.projectedDelta)}`,
-        body: `Hai speso ${fmt(proj.spentSoFar)}. Se continui così arrivi a ${fmt(proj.projectedTotal)} su ${fmt(monthlyBudget)} (stima).`,
+        title: t('advOverspendTitle', lang, fmt(proj.projectedDelta)),
+        body: t('advOverspendBody', lang, fmt(proj.spentSoFar), fmt(proj.projectedTotal), fmt(monthlyBudget)),
         data: proj,
       } : {
         kind: 'month-end', severity: 'info',
-        title: `Di questo passo ti avanzano ${fmt(proj.projectedDelta)}`,
-        body: `Hai speso ${fmt(proj.spentSoFar)}. A fine mese saresti a ${fmt(proj.projectedTotal)} su ${fmt(monthlyBudget)} (stima).`,
+        title: t('advLeftoverTitle', lang, fmt(proj.projectedDelta)),
+        body: t('advLeftoverBody', lang, fmt(proj.spentSoFar), fmt(proj.projectedTotal), fmt(monthlyBudget)),
         data: proj,
       });
     }
@@ -267,8 +268,8 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
   if (hikes.length > 0) {
     insights.push({
       kind: 'price-hike', severity: 'warn',
-      title: 'Abbonamenti aumentati di prezzo',
-      body: 'Questi costi sono saliti senza che tu abbia cambiato nulla:',
+      title: t('advHikesTitle', lang),
+      body: t('advHikesBody', lang),
       items: hikes,
     });
   }
@@ -280,11 +281,10 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
     const links = buildCausalGraph(allTx, referenceDate);
     const top = links.find(l => Math.abs(l.r) >= 0.6 && l.samples >= 10);
     if (top) {
-      const verso = top.r > 0 ? 'sale anche' : 'scende';
       insights.push({
         kind: 'causal', severity: 'info',
-        title: 'Le tue spese si muovono insieme',
-        body: `Nei tuoi dati, quando sale ${top.from}, di solito ${verso} ${top.to}${top.lagWeeks > 0 ? ' la settimana dopo' : ' nella stessa settimana'} (visto su ${top.samples} settimane).`,
+        title: t('advCausalTitle', lang),
+        body: t('advCausalBody', lang, top.from, top.r > 0, top.to, top.lagWeeks > 0, top.samples),
         data: top,
       });
     }
@@ -293,9 +293,9 @@ export function getAdvisorInsights({ allTx, monthTxs, monthlyBudget = 0, referen
   if (staleness && staleness.stale && staleness.suggestion) {
     insights.push({
       kind: 'budget-stale', severity: 'info',
-      title: 'Budget da aggiornare',
-      body: `Il tetto attuale è ${staleness.diffPct}% ${staleness.direction} la tua spesa media reale (${fmt(staleness.suggestion.rawAverage)}).`,
-      action: { label: `Aggiorna a ${fmt(staleness.suggestion.suggested)}`, handler: 'applyBudgetSuggestion', payload: staleness.suggestion.suggested },
+      title: t('advStaleTitle', lang),
+      body: t('advStaleBody', lang, staleness.diffPct, staleness.direction === 'sopra' ? t('advAbove', lang) : staleness.direction === 'sotto' ? t('advBelow', lang) : staleness.direction, fmt(staleness.suggestion.rawAverage)),
+      action: { label: t('advStaleAction', lang, fmt(staleness.suggestion.suggested)), handler: 'applyBudgetSuggestion', payload: staleness.suggestion.suggested },
     });
   }
 

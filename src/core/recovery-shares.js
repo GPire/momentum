@@ -22,6 +22,7 @@
 // Nessun DOM, nessuna rete.
 'use strict';
 
+import { codedError } from './coded-error.js';
 import { gfAdd, gfMul, gfDiv } from './gf256.js';
 
 const PREFIX = 'MR1';
@@ -63,7 +64,7 @@ function base32Decode(str) {
   for (const ch of str) {
     const c = DEALIAS[ch] ?? ch;
     const v = ALPHABET.indexOf(c);
-    if (v < 0) throw new Error(`Carattere non valido nel pezzo: "${ch}".`);
+    if (v < 0) throw codedError('rsBadChar', [ch], `Carattere non valido nel pezzo: "${ch}".`);
     buffer = (buffer << 5) | v;
     bits += 5;
     if (bits >= 8) { out.push((buffer >> (bits - 8)) & 0xff); bits -= 8; }
@@ -74,7 +75,7 @@ function base32Decode(str) {
   // prova tutti i typo possibili (7 su 1953 passavano). I bit di riempimento
   // devono essere zero, come li scrive encodeShare.
   if (bits > 0 && (buffer & ((1 << bits) - 1)) !== 0) {
-    throw new Error('L\'ultimo carattere del pezzo non è valido: ricontrollalo.');
+    throw codedError('rsLastChar', [], 'L\'ultimo carattere del pezzo non è valido: ricontrollalo.');
   }
   return Uint8Array.from(out);
 }
@@ -121,23 +122,23 @@ export function splitSecret(secret, { threshold, total, random = defaultRandom }
 // Lagrange valutata in x=0.
 export function combineShares(shares) {
   const list = Array.isArray(shares) ? shares.filter(Boolean) : [];
-  if (list.length < 1) throw new Error('Non hai inserito nessun foglio.');
+  if (list.length < 1) throw codedError('rsNone', [], 'Non hai inserito nessun foglio.');
 
   const threshold = list[0].threshold;
   if (list.length < threshold) {
-    throw new Error(`Servono ${threshold} pezzi per ricostruire: ne hai ${list.length}.`);
+    throw codedError('rsNeed', [threshold, list.length], `Servono ${threshold} pezzi per ricostruire: ne hai ${list.length}.`);
   }
   const kit = kitKey(list[0].kitId);
   for (const sh of list) {
-    if (kitKey(sh.kitId) !== kit) throw new Error('Questi pezzi vengono da backup diversi: usa i pezzi dello stesso kit.');
+    if (kitKey(sh.kitId) !== kit) throw codedError('rsMixed', [], 'Questi pezzi vengono da backup diversi: usa i pezzi dello stesso kit.');
   }
   const seen = new Set();
   for (const sh of list) {
-    if (seen.has(sh.index)) throw new Error(`Il pezzo numero ${sh.index} è stato inserito due volte.`);
+    if (seen.has(sh.index)) throw codedError('rsTwice', [sh.index], `Il pezzo numero ${sh.index} è stato inserito due volte.`);
     seen.add(sh.index);
   }
   const len = list[0].bytes.length;
-  if (list.some((sh) => sh.bytes.length !== len)) throw new Error('I pezzi hanno lunghezze diverse: uno è incompleto.');
+  if (list.some((sh) => sh.bytes.length !== len)) throw codedError('rsLengths', [], 'I pezzi hanno lunghezze diverse: uno è incompleto.');
 
   // Bastano esattamente `threshold` pezzi: usare gli altri non aggiunge nulla.
   const used = list.slice(0, threshold);
@@ -183,7 +184,7 @@ export function encodeShare(share) {
 export function decodeShare(text) {
   const raw = String(text || '').toUpperCase();
   const at = raw.indexOf(PREFIX);
-  if (at < 0) throw new Error('Questo non sembra un pezzo di recupero Momentum (manca la sigla MR1).');
+  if (at < 0) throw codedError('rsNotShare', [], 'Questo non sembra un pezzo di recupero Momentum (manca la sigla MR1).');
   const coda = raw.slice(at + PREFIX.length);
   // Le persone incollano il foglio dentro una frase ("Foglio 2 — Momentum … grazie!").
   // Quello che viene PRIMA è escluso dalla sigla; quello che viene DOPO no: le
@@ -195,7 +196,7 @@ export function decodeShare(text) {
   for (let i = 0; i < coda.length; i++) {
     if (/[0-9A-Z]/.test(coda[i])) { cleaned.push(coda[i]); posOrig.push(i); }
   }
-  if (cleaned.length < 8) throw new Error('Pezzo troppo corto: sembra incompleto.');
+  if (cleaned.length < 8) throw codedError('rsShort', [], 'Pezzo troppo corto: sembra incompleto.');
 
   // Il taglio giusto è quello che finisce su un separatore (o a fine testo) E
   // supera il controllo di integrità: la frase intorno non può passare per caso.
@@ -222,7 +223,7 @@ export function decodeShare(text) {
     // interessa SE è saltato il riempimento o il controllo di integrità —
     // le interessa quale foglio ricontrollare.
     const visibile = cleanedStr[2];
-    throw new Error(`Il pezzo numero ${/[1-9]/.test(visibile) ? visibile : '?'} ha un carattere sbagliato: ricontrollalo, non è ancora utilizzabile.`);
+    throw codedError('rsTypo', [/[1-9]/.test(visibile) ? visibile : '?'], `Il pezzo numero ${/[1-9]/.test(visibile) ? visibile : '?'} ha un carattere sbagliato: ricontrollalo, non è ancora utilizzabile.`);
   }
   // I 3 caratteri leggibili in testa (soglia, totale, numero) sono una comodità
   // per chi guarda il foglio; i valori veri stanno nel corpo protetto dal CRC.
@@ -230,7 +231,7 @@ export function decodeShare(text) {
   // subito che lasciare in mano un pezzo che sembra un altro.
   const head = cleanedStr.slice(0, 3);
   if (head !== `${body[0]}${body[1]}${index}`) {
-    throw new Error(`L'intestazione di questo pezzo dice "${head}" ma il contenuto dice "${body[0]}${body[1]}${index}": ricontrolla la copiatura.`);
+    throw codedError('rsHeader', [head, `${body[0]}${body[1]}${index}`], `L'intestazione di questo pezzo dice "${head}" ma il contenuto dice "${body[0]}${body[1]}${index}": ricontrolla la copiatura.`);
   }
   return {
     threshold: body[0],

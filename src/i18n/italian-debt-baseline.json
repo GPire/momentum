@@ -1,7 +1,6 @@
 {
  "src/ai/calibration-gate.js": 6,
  "src/ai/chat-fallback.js": 12,
- "src/ai/chat.js": 8,
  "src/ai/conformal.js": 12,
  "src/ai/embed-models.js": 3,
  "src/ai/hierarchical-bandit.js": 2,
@@ -18,7 +17,6 @@
  "src/ai/qa-banco-prova.js": 73,
  "src/ai/qa-canonical-bank.js": 28,
  "src/ai/qa-engine.js": 1,
- "src/ai/reasoning-fusion.js": 5,
  "src/ai/rifiuto-strutturale.js": 1,
  "src/ai/semantic-embed.js": 8,
  "src/ai/sentiment-model.js": 2,
@@ -161,7 +159,6 @@
  "src/predict/accountant-export-structured.js": 8,
  "src/predict/accountant-export.js": 8,
  "src/predict/achievements.js": 1,
- "src/predict/advisor.js": 15,
  "src/predict/anytime-experiment.js": 7,
  "src/predict/bank-fees.js": 6,
  "src/predict/bnpl.js": 5,
@@ -210,6 +207,5 @@
  "src/trips/trip-review.js": 4,
  "src/ui/demo-dataset.js": 1,
  "src/ui/mese-strip.js": 1,
- "src/ui/tax-evidence-handoff.js": 15,
- "src/ui/tax-handoff.js": 14
+ "src/ui/tax-evidence-handoff.js": 1
 }

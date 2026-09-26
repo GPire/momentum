@@ -63,6 +63,12 @@ INTENTS.safeToSpend.pt = /(quanto posso gastar|orçamento de hoje|quanto (me )?r
 INTENTS.savings.pt = /(quanto (eu )?poupei|poupança|guardei)/;
 INTENTS.invest.pt = /(quanto posso investir|posso investir|vale a pena investir)/;
 INTENTS.tax.pt = /(quanto para impostos|separar para impostos|impostos|autônomo|mei)/;
+// NL (7ª lingua dell'interfaccia, 26/09/2026)
+INTENTS.spent.nl = /(hoeveel heb ik .{0,20}uitgegeven|hoeveel geef ik uit|mijn uitgaven)/;
+INTENTS.safeToSpend.nl = /(hoeveel kan ik .{0,15}uitgeven|budget voor vandaag|hoeveel blijft er vandaag)/;
+INTENTS.savings.nl = /(hoeveel heb ik gespaard|spaargeld|opzij gezet)/;
+INTENTS.invest.nl = /(hoeveel kan ik (beleggen|investeren)|kan ik (beleggen|investeren)|moet ik (beleggen|investeren))/;
+INTENTS.tax.nl = /(hoeveel voor belasting|opzij voor belasting|belasting|btw|zzp)/;
 
 // Frasi di risposta localizzate (template; i numeri arrivano dal motore).
 const L = {
@@ -126,6 +132,16 @@ const L = {
     noBudget: () => `Primeiro defina um orçamento mensal e eu digo quanto você pode gastar.`,
     unknown: () => `Não entendi. Tente: "quanto gastei este mês?", "quanto posso investir?", "quanto para impostos?".`,
   },
+  nl: {
+    spent: (v) => `Deze maand heb je ${v} uitgegeven.`,
+    safe: (v, d) => `Vandaag kun je ${v} uitgeven (${d} over voor de week).`,
+    safeOver: () => `Vandaag liever niets uitgeven: je zit deze week al boven je budget.`,
+    savings: (v) => `Deze maand heb je ${v} opzij gezet.`,
+    invest: (note) => note,
+    tax: (note) => note,
+    noBudget: () => `Stel eerst een maandbudget in, dan zeg ik hoeveel je kunt uitgeven.`,
+    unknown: () => `Dat heb ik niet begrepen. Probeer: "hoeveel heb ik deze maand uitgegeven?", "hoeveel kan ik beleggen?", "hoeveel voor belasting?".`,
+  },
 };
 
 // Tabelle localizzate per invest/tax: prima tornavano la nota italiana anche
@@ -139,6 +155,7 @@ const INV = {
   fr: { neg: "Rien ne reste ce mois-ci : le budget d'abord.", build: (t, f) => `Complète d'abord ton fonds d'urgence (${t}) : ${f} ce mois-ci.`, ok: (v, p) => `Fonds d'urgence plein : tu peux investir ~${v} (${p}% du surplus).` },
   de: { neg: 'Diesen Monat bleibt nichts übrig: erst das Budget.', build: (t, f) => `Fülle zuerst den Notgroschen (${t}): diesen Monat ${f} dorthin.`, ok: (v, p) => `Notgroschen voll: du kannst ~${v} investieren (${p}% des Überschusses).` },
   pt: { neg: 'Este mês não sobra nada: primeiro o orçamento.', build: (t, f) => `Complete primeiro a reserva de emergência (${t}): este mês ${f} ali.`, ok: (v, p) => `Reserva de emergência cheia: você pode investir ~${v} (${p}% do excedente).` },
+  nl: { neg: 'Deze maand blijft er niets over: eerst het budget.', build: (t, f) => `Vul eerst je noodfonds aan (${t}): deze maand ${f} daarheen.`, ok: (v, p) => `Noodfonds vol: je kunt ~${v} beleggen (${p}% van het overschot).` },
 };
 const TAX = {
   it: { none: 'Nessun incasso in questo periodo.', some: (g, s, d) => `Su ${g} incassati metti da parte ~${s} per il fisco: il tuo vero disponibile è ${d}.` },
@@ -147,6 +164,7 @@ const TAX = {
   fr: { none: 'Aucun revenu sur cette période.', some: (g, s, d) => `Sur ${g} encaissés, mets ~${s} de côté pour les impôts : ton disponible réel est ${d}.` },
   de: { none: 'Keine Einnahmen in diesem Zeitraum.', some: (g, s, d) => `Von ${g} Einnahmen lege ~${s} für Steuern zurück: real verfügbar sind ${d}.` },
   pt: { none: 'Nenhuma receita neste período.', some: (g, s, d) => `De ${g} recebidos, separe ~${s} para impostos: seu disponível real é ${d}.` },
+  nl: { none: 'Geen inkomsten in deze periode.', some: (g, s, d) => `Van ${g} ontvangen, zet ~${s} opzij voor belasting: echt beschikbaar is ${d}.` },
 };
 
 const fmt = n => `${(+n).toFixed(2).replace('.', ',')}€`;

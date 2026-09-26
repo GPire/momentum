@@ -237,6 +237,17 @@ import { t as tCh, resolveUiLanguage, UI_LANGS } from './i18n/ui-strings.js';
 
 // Simboli piccoli come icone SVG della stessa famiglia (regola: mai emoji o
 // simboli di testo come segni di stato).
+// Testo di un errore per l'utente: se il motore ha dato un codice (vedi
+// src/core/coded-error.js) lo si mostra nella lingua scelta, altrimenti il
+// messaggio così com'è.
+function errorText(e) {
+  if (e?.code) {
+    const k = `err_${e.code}`;
+    const txt = tCh(k, __uiLang, ...(e.params || []));
+    if (txt && txt !== k) return txt;
+  }
+  return e?.message || String(e);
+}
 const SVG_CHECK = '<svg class="inline w-3.5 h-3.5 align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const SVG_X = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const SVG_WARN = '<svg class="inline w-3 h-3 align-[-2px] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>';
@@ -10192,7 +10203,7 @@ window.addPriceAlert = async (symbol, kind) => {
     showToast(tCh('alertSet', __uiLang, symbol, direction === 'above', formatTrackedQuote(threshold, kind)), 'success');
     renderPriceAlerts();
   } catch (e) {
-    showToast(e.message, 'error');
+    showToast(errorText(e), 'error');
   }
 };
 
@@ -13488,7 +13499,7 @@ window.openBusinessTrip = (tripId) => {
       let originalCurrencyFields;
       try {
         originalCurrencyFields = buildOriginalCurrencyFields({ amount: amt, originalAmount: state.ocrOriginalAmount, originalCurrency: state.ocrOriginalCurrency, exchangeRate: state.ocrExchangeRate, tripCurrency: trip.receiptPolicy?.currency || 'EUR' });
-      } catch (err) { showToast(err.message, 'error'); return; }
+      } catch (err) { showToast(errorText(err), 'error'); return; }
 
       if (state.editingId !== null) {
         try {
@@ -17218,6 +17229,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
     staleness,
     savingsGoals: VaultDAO.state.savingsGoals || [],
     lastSweepWeek: VaultDAO.state.lastSweepWeek || null,
+    lang: __uiLang,
   }).filter(i => i.kind !== 'safe-to-spend');
 
   // ── BNPL stacking (src/predict/bnpl.js): il numero che nessun Klarna/PayPal
@@ -17233,9 +17245,9 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       rawInsights.push({
         kind: 'bnpl-exposure',
         severity: bnpl.count >= 2 ? 'warn' : 'info',
-        title: bnpl.count === 1 ? `Hai un piano a rate aperto: ${providers}` : `Hai ${bnpl.count} piani a rate aperti: ${providers}`,
-        body: `Ti restano ${formatMoney(bnpl.totalRemaining)} da pagare in tutto${bnpl.nextDue ? `, prossima rata il ${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel}).` : '.'}`,
-        action: { label: 'Gestisci piani', handler: 'openBnplManager', payload: null },
+        title: bnpl.count === 1 ? tCh('bnplOneOpen', __uiLang, providers) : tCh('bnplManyOpen', __uiLang, bnpl.count, providers),
+        body: tCh('bnplRemainingBody', __uiLang, formatMoney(bnpl.totalRemaining), bnpl.nextDue ? `${dayName(bnpl.nextDue.date)} (${bnpl.nextDue.providerLabel})` : null),
+        action: { label: tCh('bnplManage', __uiLang), handler: 'openBnplManager', payload: null },
       });
     }
   } catch (_) {}
@@ -17364,12 +17376,13 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
       salary: resolveSalary(VaultDAO.state, VaultDAO.state.transactions),
       now: realNow.getTime(),
       liveRegime: detectLiveRegimeFor('indice'),
+      lang: __uiLang,
     });
     if (ir.verdict && ir.verdict.canConsider && ir.verdict.personalSafeSurplus >= 50 && ir.verdict.marketStaleDays <= 60) {
       rawInsights.push({
         kind: 'investment-readiness',
         severity: 'info',
-        title: `Avanzo sicuro: ${formatMoney(ir.verdict.personalSafeSurplus)}`,
+        title: tCh('safeSurplusTitle', __uiLang, formatMoney(ir.verdict.personalSafeSurplus)),
         body: ir.verdict.message,
       });
     }
@@ -17510,7 +17523,7 @@ window.restoreEncryptedBackup = async (file) => {
   let letto;
   try {
     letto = readBackupFile(await file.text());
-  } catch (e) { showToast(e.message, 'error'); return; }
+  } catch (e) { showToast(errorText(e), 'error'); return; }
 
   let restored = null;
   try {
@@ -17526,7 +17539,7 @@ window.restoreEncryptedBackup = async (file) => {
     } else {
       restored = letto.state;
     }
-  } catch (e) { showToast(e.message, 'error'); return; }
+  } catch (e) { showToast(errorText(e), 'error'); return; }
 
   if (!restored) { showToast(tCh('restoreEmpty', __uiLang), 'error'); return; }
 
@@ -17941,7 +17954,7 @@ function rkRender() {
     document.getElementById('rk-uno-ok').addEventListener('click', async () => {
       try {
         RK.kit = await createRecoveryKit(await includeDocumentBackup(VaultDAO.state, DurableStore), { threshold: 1, total: 1 });
-      } catch (e) { showToast(e.message, 'error'); return; }
+      } catch (e) { showToast(errorText(e), 'error'); return; }
       VaultDAO.state.recoveryKit = { threshold: 1, total: 1, createdAt: new Date().toISOString(), placements: [] };
       VaultDAO.save();
       RK.fase = 'passo'; RK.passo = 1;
@@ -18067,7 +18080,7 @@ window.openRecoveryKit = async () => {
   try {
     kit = await createRecoveryKit(await includeDocumentBackup(VaultDAO.state, DurableStore), { threshold: 2, total: 3 });
   } catch (e) {
-    showToast(e.message, 'error');
+    showToast(errorText(e), 'error');
     return;
   }
   const envelopeBlob = new Blob([JSON.stringify(kit.envelope, null, 2)], { type: 'application/json' });
@@ -18138,7 +18151,7 @@ window.openRecoveryRestore = () => {
     try {
       const restored = await restoreFromShares(envelope, pezzi());
       window.reviewBackupRestore(restored);
-    } catch (e) { showToast(e.message, 'error'); }
+    } catch (e) { showToast(errorText(e), 'error'); }
   });
 };
 
@@ -18280,7 +18293,7 @@ window.exportPlainBackup = async () => {
   link.click();
   URL.revokeObjectURL(link.href);
   showToast(tCh('plainCopySaved', __uiLang), 'success');
-  } catch (e) { showToast(e.message, 'error'); }
+  } catch (e) { showToast(errorText(e), 'error'); }
 };
 // Il vecchio nome resta agganciato: se un pulsante o una scorciatoia lo chiama
 // ancora, deve fare la cosa giusta invece di sparire.

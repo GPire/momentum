@@ -12,8 +12,15 @@ export function findItalianStringsWide(source) {
   const out = [];
   const lines = source.split('\n');
   let inBlock = false;
+  let langIndent = null; // dentro un blocco `it: {` … `},` su più righe
   lines.forEach((line, i) => {
     const t = line.trim();
+    if (langIndent !== null) {
+      if (new RegExp(`^${langIndent}\\},?$`).test(line)) langIndent = null;
+      return;
+    }
+    const apre = line.match(/^(\s*)(it|en|es|fr|de|nl|pt)\s*:\s*\{\s*$/);
+    if (apre) { langIndent = apre[1]; return; }
     if (inBlock) { if (t.includes('*/')) inBlock = false; return; }
     if (t.startsWith('/*')) { if (!t.includes('*/')) inBlock = true; return; }
     if (t.startsWith('//') || t.startsWith('*')) return;
