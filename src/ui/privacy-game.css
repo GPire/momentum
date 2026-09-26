@@ -1,0 +1,10 @@
+/* Scena "I tuoi dati restano qui" dopo l'onboarding: stesso cosmo delle altre
+   schermate, un punto che invita a essere trascinato, un premio visibile. */
+#ota-overlay { isolation:isolate; background:#02030a; }
+#ota-overlay .release-cosmos { z-index:-1; }
+#ota-overlay.invito .privacy-scene:not(.dragging) .ps-pull:not(.springing) { opacity:1; animation:ps-invito 1.9s cubic-bezier(.45,0,.35,1) infinite; }
+@keyframes ps-invito { 0%,100% { transform:translate3d(0,0,40px); } 50% { transform:translate3d(30px,-16px,40px); } }
+#ota-overlay .privacy-scene.provato .ps-dome { box-shadow:0 0 64px color-mix(in srgb,#72dfbf 45%,transparent), inset 0 0 32px color-mix(in srgb,#72dfbf 24%,transparent); transition:box-shadow .5s; }
+#ota-privacy-hint, #privacy-proof-hint { transition:color .3s, transform .35s cubic-bezier(.22,1,.36,1), opacity .45s; }
+#ota-privacy-hint.provato, #privacy-proof-hint.provato { color:#72dfbf; transform:scale(1.05); }
+@media (prefers-reduced-motion:reduce) { #ota-overlay.invito .ps-pull { animation:none !important; opacity:1; } #ota-privacy-hint.provato, #privacy-proof-hint.provato { transform:none; } }

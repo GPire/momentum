@@ -715,6 +715,13 @@ RELEASES.push({
     { colore: 'primary', icona: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>', titolo: 'Privacy e termini più chiari', testo: 'Privacy Policy e Termini aggiornati, anche in inglese: cosa resta sul dispositivo, per quanto tempo si conserva ogni dato, come disdire e recesso di 14 giorni.', titoloKey: 'whatsNewLegalTitle', testoKey: 'whatsNewLegalBody' },
   ],
 });
+RELEASES.push({
+  versione: '2026-09-26e',
+  voci: [
+    { colore: 'purple', icona: '<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>', titolo: 'Sblocco più bello, e più chiaro', testo: 'La schermata del PIN ha il cielo e il pianeta di Momentum: i punti si accendono mentre scrivi e il lucchetto si apre quando è giusto.', titoloKey: 'whatsNewLockDesignTitle', testoKey: 'whatsNewLockDesignBody' },
+    { colore: 'green', icona: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', titolo: 'La voce resta sul telefono', testo: 'Dove il browser lo permette, la dettatura viene trascritta sul dispositivo: né l\'audio né il testo escono. Altrimenti te lo diciamo prima e scegli tu.', titoloKey: 'whatsNewVoiceLocalTitle', testoKey: 'whatsNewVoiceLocalBody' },
+  ],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

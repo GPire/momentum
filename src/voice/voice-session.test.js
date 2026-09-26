@@ -7,18 +7,33 @@ globalThis.document = { querySelector: () => null, getElementById: () => null, a
 const { VoiceCore, VoiceParser, SPEECH_LOCALE, spokenCategory } = await import('./voice.js');
 const { VaultDAO } = await import('../core/vault.js');
 class Recognition {
+  static async available() { return 'available'; }
   starts = 0;
+  processLocally = false;
   start() { this.starts++; }
   stop() {}
   abort() {}
 }
 const container = { querySelector: () => null };
-test('rapid taps before onstart request only one recognition session', () => {
+test('rapid taps before onstart request only one recognition session, transcribed on the device', async () => {
   window.SpeechRecognition = Recognition;
   VoiceCore.init(container);
-  VoiceCore.toggle();
-  VoiceCore.toggle();
+  await Promise.all([VoiceCore.toggle(), VoiceCore.toggle()]);
   assert.equal(VoiceCore.recognition.starts, 1);
+  assert.equal(VoiceCore.recognition.processLocally, true);
+});
+
+test('without on-device transcription and without the user saying yes, the microphone never starts', async () => {
+  class SoloOnline { starts = 0; start() { this.starts++; } stop() {} abort() {} }
+  window.SpeechRecognition = SoloOnline;
+  VaultDAO.state.voiceCloudOk = false;
+  VoiceCore.init(container);
+  await VoiceCore.toggle();
+  assert.equal(VoiceCore.recognition.starts, 0);
+  VaultDAO.state.voiceCloudOk = true;
+  await VoiceCore.toggle();
+  assert.equal(VoiceCore.recognition.starts, 1);
+  window.SpeechRecognition = Recognition;
 });
 test('callbacks retained by an old recognizer cannot reset the new session', () => {
   VoiceCore.init(container);

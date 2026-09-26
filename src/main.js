@@ -11,6 +11,8 @@ const updatePrivateSyncStatus = (peer, value) => {
   }
 };
 import './ui/release-experience.css';
+import './ui/vault-lock.css';
+import './ui/privacy-game.css';
 import { mountInvoiceJourney } from './ui/invoice-journey.js';
 import { taxHandoffGuide } from './ui/tax-handoff.js';
 import { taxServices, taxServiceGuide, taxTransmissionCopy } from './ui/tax-services.js';
@@ -18855,11 +18857,14 @@ const initPrivacyProof = (scene, hint = null, autoInvito = true) => {
     if (ora - ultimoHaptic > 260) { ultimoHaptic = ora; try { haptic('light'); } catch (_) {} }
     if (!respinto) {
       respinto = true;
-      if (hint) hint.textContent = 'Ci hai provato. Non escono.';
+      scene.classList.add('provato');
+      try { haptic('medium'); } catch (_) {}
+      if (hint) { hint.textContent = tCh('bootPrivacyProven', __uiLang); hint.classList.add('provato'); }
     }
   };
 
   scene.addEventListener('pointerdown', (e) => {
+    scene.closest('#ota-overlay')?.classList.remove('invito');
     attivo = true;
     // Dichiarato sul nodo: la schermata di apertura non deve sparire MENTRE
     // il dito sta ancora tirando. Portare via lo schermo a metà di un gesto è
@@ -18898,6 +18903,7 @@ const initPrivacyProof = (scene, hint = null, autoInvito = true) => {
     // Il rientro è una MOLLA (CSS), non una linea retta: lineare sembrerebbe
     // "l'app me l'ha annullato", la molla sembra respinto.
     pull.classList.add('springing');
+    scene.dataset.rilascio = String(Date.now());
     poni(0, 0);
     setTimeout(() => pull.classList.remove('springing'), 640);
   };
@@ -19138,7 +19144,7 @@ const endGenesis = () => {
         if (logBox) logBox.innerHTML = `<p>${logs[idx]}</p>`;
         // L'invito compare esattamente sulla riga che parla dei dati: la frase
         // e il gesto che la dimostra arrivano nello stesso istante.
-        if (idx === 1 && otaHint) otaHint.classList.remove('hidden-hint');
+        if (idx === 1 && otaHint) { otaHint.classList.remove('hidden-hint'); ota?.classList.add('invito'); }
         idx++;
       } else {
         clearInterval(interval);
@@ -19147,7 +19153,9 @@ const endGenesis = () => {
         // deve poter bloccare l'ingresso nell'app per sempre.
         const attesaIniziata = Date.now();
         const chiudi = () => {
-          if (otaScene?.dataset.dragging === '1' && Date.now() - attesaIniziata < 8000) {
+          // Chi ha appena giocato si gode il premio per un attimo prima di entrare.
+          const appenaGiocato = Date.now() - (+otaScene?.dataset.rilascio || 0) < 1400;
+          if ((otaScene?.dataset.dragging === '1' || appenaGiocato) && Date.now() - attesaIniziata < 8000) {
             setTimeout(chiudi, 220); return;
           }
           if (ota) ota.classList.remove('active');
@@ -25388,17 +25396,30 @@ function chiediPinAvvio(record, { retry = false } = {}) {
     const input = document.getElementById('vault-unlock-pin');
     const btn = document.getElementById('vault-unlock-btn');
     const err = document.getElementById('vault-unlock-error');
-    if (!box || !form || !input || !btn || !err) { resolve(null); return; }
+    const dots = box?.querySelector('.lock-dots');
+    if (!box || !form || !input || !btn || !err || !dots) { resolve(null); return; }
     box.querySelectorAll('[data-i18n-key]').forEach((el) => { el.textContent = tCh(el.dataset.i18nKey, __uiLang); });
     box.classList.remove('hidden');
-    box.style.display = 'flex';
+    box.classList.add('active');
+    const disegnaPunti = (n = input.value.length) => {
+      const tot = Math.max(PIN_MIN_LENGTH, n);
+      dots.innerHTML = Array.from({ length: tot }, (_, i) => `<span class="${i < n ? 'on' : ''}"></span>`).join('');
+    };
+    disegnaPunti();
+    input.addEventListener('input', () => { form.classList.remove('errore'); disegnaPunti(); });
+    const movimentoRidotto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const apri = (key) => {
+      box.classList.add('aperto');
+      setTimeout(() => { box.classList.remove('active', 'aperto'); box.classList.add('hidden'); resolve(key); }, movimentoRidotto ? 0 : 950);
+    };
     const bioBtn = document.getElementById('vault-unlock-bio');
     if (bio.available && bioBtn) {
-      bioBtn.textContent = testoBiometria(bio.kind);
+      bioBtn.dataset.kind = bio.kind;
+      bioBtn.querySelector('span').textContent = testoBiometria(bio.kind);
       bioBtn.classList.remove('hidden');
       bioBtn.onclick = async () => {
         const key = await unlockWithBiometric(NativeBiometric, opzioniPromptBio());
-        if (key) { box.style.display = 'none'; box.classList.add('hidden'); resolve(key); }
+        if (key) apri(key);
       };
     }
     input.focus();
@@ -25406,17 +25427,31 @@ function chiediPinAvvio(record, { retry = false } = {}) {
     let attendiFino = 0;
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!input.value) { input.focus(); return; }
       if (Date.now() < attendiFino) { err.textContent = tCh('vaultUnlockWait', __uiLang, Math.ceil((attendiFino - Date.now()) / 1000)); return; }
       btn.disabled = true;
+      input.readOnly = true;
+      form.classList.add('lavoro');
       btn.textContent = tCh('vaultPinWorking', __uiLang);
       err.textContent = '';
       const key = await unlockWithPin(record, input.value);
+      input.readOnly = false;
       btn.disabled = false;
+      form.classList.remove('lavoro');
       btn.textContent = tCh('vaultUnlockBtn', __uiLang);
-      input.value = '';
-      if (key) { box.style.display = 'none'; box.classList.add('hidden'); resolve(key); return; }
+      if (key) { apri(key); return; }
       errori++;
+      // Il campo si svuota subito (chi riscrive in fretta non perde cifre); i
+      // punti sbagliati restano accesi in rosso solo per il tempo della scossa.
+      const sbagliati = input.value.length;
+      input.value = '';
       input.focus();
+      form.classList.remove('errore');
+      void form.offsetWidth;
+      form.classList.add('errore');
+      disegnaPunti(sbagliati);
+      try { navigator.vibrate?.(60); } catch { /* facoltativo */ }
+      setTimeout(() => { if (!input.value) { disegnaPunti(); form.classList.remove('errore'); } }, movimentoRidotto ? 0 : 450);
       // Rallenta chi prova a indovinare davanti allo schermo: 30 s, poi raddoppia fino a 5 minuti.
       if (errori >= 5) {
         attendiFino = Date.now() + Math.min(300, 30 * 2 ** (errori - 5)) * 1000;

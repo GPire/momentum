@@ -9,6 +9,7 @@ import { predictAmount } from '../predict/amount-memory.js';
 import { detectDeviceLanguage } from '../i18n/detect.js';
 import { suggestVoiceCorrection } from './voice-learning.js';
 import { t as tVoice } from '../i18n/ui-strings.js';
+import { prepareSpeech } from './speech-privacy.js';
 
 // Locale pieno che il Web Speech API richiede (BCP-47), a partire dal codice
 // corto già usato ovunque nell'app per il QA testuale — un'unica mappa,
@@ -46,6 +47,24 @@ function linguaVoceAttiva() {
 // ==========================================
 // VOICECORE™ v2 (🎙️)
 // ==========================================
+// Unica volta in cui la voce lascerebbe il dispositivo: la persona lo sa e
+// sceglie. Stesso vetro e stessi pulsanti degli altri avvisi dell'app.
+function chiediVoceOnline(lingua) {
+  return new Promise((resolve) => {
+    if (typeof window.openModal !== 'function') { resolve(false); return; }
+    window.openModal(`<div class="p-5 space-y-4 text-center">
+      <div class="release-orbit mx-auto" aria-hidden="true" style="width:56px;height:56px"><i></i><b></b></div>
+      <h3 class="text-lg font-bold">${tVoice('voiceCloudTitle', lingua)}</h3>
+      <p class="text-sm text-[var(--on-surface-secondary)]">${tVoice('voiceCloudBody', lingua)}</p>
+      <button type="button" id="voice-cloud-ok" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${tVoice('voiceCloudContinue', lingua)}</button>
+      <button type="button" id="voice-cloud-no" class="w-full py-2.5 text-sm font-bold rounded-xl border border-[var(--glass-border)]">${tVoice('voiceCloudType', lingua)}</button>
+    </div>`);
+    const fine = (v) => { try { window.closeModal(); } catch (_) {} resolve(v); };
+    document.getElementById('voice-cloud-ok')?.addEventListener('click', () => fine(true), { once: true });
+    document.getElementById('voice-cloud-no')?.addEventListener('click', () => fine(false), { once: true });
+  });
+}
+
 const VoiceCore = {
   recognition: null,
   isListening: false,
@@ -339,12 +358,21 @@ const VoiceCore = {
       }
     };
   },
-  toggle() {
+  async toggle() {
     if (this.recognition) {
       if (this._starting) return;
       if (this.isListening) this.recognition.stop();
       else {
         this._starting = true;
+        const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const scelta = await prepareSpeech(SpeechRec, this.recognition.lang, {
+          cloudAllowed: VaultDAO?.state?.voiceCloudOk === true,
+          askCloud: () => chiediVoceOnline(this._lingua),
+          onInstalling: () => showToast(tVoice('voicePreparingLocal', this._lingua), 'info'),
+        });
+        if (!scelta.proceed) { this._starting = false; return; }
+        if (scelta.remember) { VaultDAO.state.voiceCloudOk = true; VaultDAO.save(); }
+        try { this.recognition.processLocally = scelta.local; } catch (_) { /* browser senza la proprietà */ }
         try { this.recognition.start(); }
         catch (error) {
           this._starting = false;
