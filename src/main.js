@@ -4757,7 +4757,7 @@ window.deleteCalendarEvent = (id) => {
       VaultDAO.save();
       window.renderCalendarEvents();
       AudioSynth.play('success');
-      showToast("Scadenza rimossa.", "info");
+      showToast(tCh('deadlineRemoved', __uiLang), "info");
     }
   } catch(err) { console.error(err); }
 };
@@ -4915,7 +4915,7 @@ window.exportEventsToICS = () => {
     showToast(tCh('calendarExported', __uiLang), "success");
   } catch(err) {
     console.error("ICS export error:", err);
-    showToast("Errore durante l'esportazione ICS.", "error");
+    showToast(tCh('icsExportError', __uiLang), "error");
   }
 };
 
@@ -5776,7 +5776,7 @@ window.openRegistraAcquistoIva = () => {
       </div>
       <button id="acq-save" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Registra acquisto</button>
       <div class="w-full flex items-center gap-2 text-[10px] text-[var(--on-surface-secondary)] uppercase tracking-wide">
-        <div class="flex-1 h-px bg-[var(--glass-border)]"></div>oppure<div class="flex-1 h-px bg-[var(--glass-border)]"></div>
+        <div class="flex-1 h-px bg-[var(--glass-border)]"></div>${tCh('or', __uiLang)}<div class="flex-1 h-px bg-[var(--glass-border)]"></div>
       </div>
       <input id="acq-xml-input" type="file" accept=".xml" class="hidden" name="acq-xml-input" />
       <button id="acq-xml-btn" type="button" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] text-sm">${tCh('purchaseImportXml', __uiLang)}</button>
@@ -5954,10 +5954,10 @@ window.openF24Precompilato = () => {
         ${righe.map((r) => `
         <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3.5 py-3">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${escapeHtml(r.sezione)} · codice <span class="text-[var(--gold)]">${escapeHtml(r.codiceTributo)}</span></span>
+            <span class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)]">${escapeHtml(r.sezione)} · ${tCh('f24Code', __uiLang)} <span class="text-[var(--gold)]">${escapeHtml(r.codiceTributo)}</span></span>
             <span class="font-mono font-bold text-sm">${formatMoney(r.importo)}</span>
           </div>
-          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(r.etichetta)} · anno ${escapeHtml(r.annoRiferimento)} · scadenza ${escapeHtml(r.scadenza)}</div>
+          <div class="text-[11px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(r.etichetta)} · ${tCh('f24Year', __uiLang)} ${escapeHtml(r.annoRiferimento)} · ${tCh('f24Due', __uiLang)} ${escapeHtml(r.scadenza)}</div>
           ${r.nota ? `<div class="text-[10px] text-amber-300/80 mt-1.5 leading-snug">${escapeHtml(r.nota)}</div>` : ''}
         </div>`).join('')}
         <div class="flex items-center justify-between px-1 pt-1">
@@ -7354,7 +7354,7 @@ window.openTaxLevel1Simulate = () => {
            sempre annuale per il calcolo, il testo del bottone dice cosa sta
            per convertire, mai un cambio silenzioso. -->
       <div class="flex gap-1.5 p-1 rounded-full bg-black/30 border border-[var(--glass-border)]">
-        <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">All'anno</button>
+        <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">${tCh('perYear', __uiLang)}</button>
         <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">${tCh('perMonth', __uiLang)}</button>
       </div>
       <!-- Stepper +/- disegnato apposta invece delle frecce native del
@@ -7607,7 +7607,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
         <div id="tl1-kit-text" class="text-[11px] text-[var(--on-surface-secondary)] leading-relaxed whitespace-pre-line select-all">${tl1KitText(last)}</div>
         <button type="button" id="tl1-kit-copy" class="mt-2.5 w-full btn-action justify-center text-[11px] font-bold py-2">
           <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copia — incollalo nel modulo o mandalo al commercialista
+          ${tCh('pivaKitCopy', __uiLang)}
         </button>
       </div>` : '';
   window.openModal(`
@@ -7727,7 +7727,7 @@ window.openTaxRegimePicker = () => {
   const cur = VaultDAO.state.taxRegime;
   window.openModal(`
     <div class="tax-workspace-step tax-regime-choice p-1">
-      <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
+      <h3 class="text-lg font-black mb-1">${tCh('taxRegime', __uiLang)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('regimeChooseYours', __uiLang)}</p>
       <div class="space-y-2">
         ${Object.entries(REGIMI).map(([k, v]) => `
@@ -7749,7 +7749,7 @@ window.setTaxRegime = (regime) => {
   // regime gratis da quei due punti. Il gate va sulla funzione che attiva
   // davvero la feature, non solo su UNA delle sue porte d'ingresso.
   if (!requireProFeature('fisco_italia')) return;
-  VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast('Regime fiscale impostato.', 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard();
+  VaultDAO.state.taxRegime = regime; VaultDAO.state.taxActiveCountry = 'it'; VaultDAO.save(); showToast(tCh('taxRegimeSet', __uiLang), 'success'); pingFeature('italy_piva_activated'); renderTaxSettings(); renderTax(monthKey(new Date())); renderTaxEs(monthKey(new Date())); renderAnalysis(); renderDashboard();
 };
 
 // VERIFICA ELEGGIBILITÀ FORFETTARIO (2026-09-06, src/predict/tax.js:
@@ -9740,7 +9740,7 @@ window.showAssetComps = async (symbol) => {
     // degli agganci a Office che degli screenshot" — vogliono la tabella
     // dentro il proprio modello Excel, non solo una frase da leggere).
     window.__lastCompsResult = r;
-    const exportBtn = r.disponibile ? `<button onclick="window.downloadCompsCsv()" class="mt-1.5 text-[10px] font-bold text-indigo-300 underline">Esporta CSV →</button>` : '';
+    const exportBtn = r.disponibile ? `<button onclick="window.downloadCompsCsv()" class="mt-1.5 text-[10px] font-bold text-indigo-300 underline">${tCh('exportCsv', __uiLang)} →</button>` : '';
     box.innerHTML = r.disponibile
       ? `<div class="p-2 rounded-lg border border-indigo-500/25 bg-indigo-950/10 text-indigo-200 text-[10px] leading-snug">${escapeHtml(testo)}${exportBtn}</div>`
       : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(testo)}</p>`;
@@ -9909,7 +9909,7 @@ function renderWatchlist() {
   if (!list.length) { el.innerHTML = ''; return; }
   const live = window.__livePrices || {};
   el.innerHTML = list.map((w, index) => `<div class="flex items-center justify-between gap-2 text-[10px] px-2.5 py-1.5 rounded-lg" style="background:rgba(255,255,255,0.03)">
-    <span><b>${escapeHtml(w.symbol || '')}</b> · ${escapeHtml(w.name || '')} ${Number.isFinite(live[w.symbol]) ? `— <span class="text-[var(--gold)] font-mono">${formatTrackedQuote(live[w.symbol], w.kind)}</span>` : '<span class="text-slate-500">in aggiornamento...</span>'}</span>
+    <span><b>${escapeHtml(w.symbol || '')}</b> · ${escapeHtml(w.name || '')} ${Number.isFinite(live[w.symbol]) ? `— <span class="text-[var(--gold)] font-mono">${formatTrackedQuote(live[w.symbol], w.kind)}</span>` : `<span class="text-slate-500">${tCh('updating', __uiLang)}</span>`}</span>
     <button onclick="window.removeFromWatchlistAt(${index})" class="text-rose-300">${ICON_REMOVE_SM}</button>
   </div>`).join('');
 }
@@ -11374,7 +11374,7 @@ window.openSplitGroup = (openId = null) => {
     $('#sg-currency')?.addEventListener('change', (e) => { form.currency = e.target.value; render(); });
     $('#sg-addexp')?.addEventListener('click', async (e) => {
       const amtInserito = splitAmount(form.amount);
-      if (!(amtInserito > 0)) { $('#sg-amt')?.focus(); showToast('Inserisci quanto è stato speso.', 'error'); return; }
+      if (!(amtInserito > 0)) { $('#sg-amt')?.focus(); showToast(tCh('splitNeedAmount', __uiLang), 'error'); return; }
       const inv = form.involved || members.map(m => m.id);
       const custom = form.custom ? shareDraft() : null;
       if (custom && !custom.valid) { showShareStatus(); return; }
@@ -11491,7 +11491,7 @@ window.openExpenseChat = (groupId, expenseId) => {
         <div class="card p-3">${msgRows}</div>
         <div class="flex gap-2">
           <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${escapeHtml(tCh('expenseCommentPh', __uiLang))}" name="ec-text" />
-          <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">Invia</button>
+          <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">${tCh('send', __uiLang)}</button>
         </div>
         <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? 'Segna come risolto' : 'Contesta questa spesa'}</button>
       </div>`);
@@ -15165,7 +15165,7 @@ window.openCreateInvoice = (prefillClient) => {
       const segno = type === 'pct-sconto' ? -1 : 1;
       const val = +((baseFissa * raw / 100) * segno).toFixed(2);
       computedEl.classList.remove('hidden');
-      computedEl.textContent = `= ${eur(val)} sul totale`;
+      computedEl.textContent = tCh('ofTotal', __uiLang, eur(val));
     };
     const onChange = () => { refresh(); updateVociTotal(); updateComputedHint(); };
     typeBtn.addEventListener('click', () => {
@@ -18099,7 +18099,7 @@ window.openRecoveryRestore = () => {
         <span id="rr-filename">${tCh('rrChooseFile', __uiLang)}</span>
         <input id="rr-file" type="file" accept=".momentum,application/json" class="hidden" name="rr-file">
       </label>
-      <textarea id="rr-shares" rows="5" placeholder="${escapeHtml(tCh('rrPastePh', __uiLang))}" class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3" name="rr-shares" aria-label="Incolla qui il primo foglio, vai a capo, incolla il secondo."></textarea>
+      <textarea id="rr-shares" rows="5" placeholder="${escapeHtml(tCh('rrPastePh', __uiLang))}" class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3" name="rr-shares" aria-label="${escapeHtml(tCh('rrPastePh', __uiLang))}"></textarea>
       <div id="rr-status" class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('rrNoSheet', __uiLang)}</div>
       <button id="rr-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${tCh('rrGo', __uiLang)}</button>
     </div>`);
@@ -18159,7 +18159,7 @@ window.exportTrainingData = () => {
   a.download = `momentum-training-data-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(a.href);
-  showToast(`${examples.length} esempi esportati per il riaddestramento.`, 'success');
+  showToast(tCh('retrainExported', __uiLang, examples.length), 'success');
 };
 
 // Punto d'ingresso UNICO dei tap sui nudge dell'advisor (Wave 1 v10): premia
@@ -18198,7 +18198,7 @@ window.applySweep = (sweep) => {
   }, { dedupWindowHours: 0.25 });
   VaultDAO.state.lastSweepWeek = sweep.weekKey; // campo additivo
   VaultDAO.save();
-  showToast(`Segnato. Ora sposta davvero ${formatMoney(sweep.amount)} sul tuo conto risparmio — Momentum non tocca la banca.`, 'success');
+  showToast(tCh('sweepMarked', __uiLang, formatMoney(sweep.amount)), 'success');
   renderDashboard();
   renderAnalysis({ skipHeavyForecast: true });
 };
@@ -18220,7 +18220,7 @@ window.confirmAnomalyMine = (id) => {
     window.momentumOrchestrator.classify(t.description, t.amount, new Date(t.date));
     window.momentumOrchestrator.learn(t.description, t.category, t.amount, new Date(t.date));
   }
-  showToast('Ok, ho imparato che è una spesa tua.', 'success');
+  showToast(tCh('learnedMine', __uiLang), 'success');
   renderAnalysis({ skipHeavyForecast: true });
 };
 // "Non la riconosco": marca la tx come sospetta (campo additivo, MAI tocca
@@ -18230,7 +18230,7 @@ window.flagAnomalySuspect = (id) => {
   if (!t) return;
   t.suspect = true;
   VaultDAO.save();
-  showToast('Segnata come sospetta. Controllala sul tuo conto.', 'info');
+  showToast(tCh('flaggedCheck', __uiLang), 'info');
   renderAnalysis({ skipHeavyForecast: true });
 };
 
@@ -18278,7 +18278,7 @@ window.exportPlainBackup = async () => {
   link.download = `momentum-IN-CHIARO-${new Date().toISOString().slice(0, 10)}.momentum`;
   link.click();
   URL.revokeObjectURL(link.href);
-  showToast('Copia salvata. Non e cifrata: tienila in un posto sicuro.', 'success');
+  showToast(tCh('plainCopySaved', __uiLang), 'success');
   } catch (e) { showToast(e.message, 'error'); }
 };
 // Il vecchio nome resta agganciato: se un pulsante o una scorciatoia lo chiama
@@ -18414,7 +18414,7 @@ window.revealVaultData = kind => {
   focus?.focus({ preventScroll: true });
 };
 window.nukeVault = async () => {
-  if (confirm("Distruggere l'intero database locale? Questa azione è irreversibile.")) {
+  if (confirm(tCh('nukeConfirm', __uiLang))) {
     localStorage.clear();
     try { localStorage.setItem(VAULT_WIPED_KEY, '1'); } catch (_) {}
     // Bug reale corretto il 2026-08-29: prima si cancellava solo
@@ -19578,8 +19578,8 @@ document.addEventListener('click', (e) => {
   const url = document.getElementById('quickadd-guide-url')?.textContent;
   if (!url || !navigator.clipboard?.writeText) return;
   navigator.clipboard.writeText(url)
-    .then(() => showToast('Indirizzo copiato.', 'success'))
-    .catch(() => showToast('Copia non riuscita: seleziona il testo a mano.', 'error'));
+    .then(() => showToast(tCh('addressCopied', __uiLang), 'success'))
+    .catch(() => showToast(tCh('copyFailedManual', __uiLang), 'error'));
 });
 renderQuickAddGuideCard();
 
@@ -20444,12 +20444,12 @@ const navigate = (view) => {
     // formulazioni simili future, non solo quella esatta insegnata.
     const cop = qaLearningCoverage(VaultDAO.state.qaLearning);
     const coverageLine = cop.famiglieRiconosciute > 0
-      ? `<div class="mb-2 text-[var(--primary)]">Il QA riconosce ormai ${cop.famiglieRiconosciute} modo${cop.famiglieRiconosciute === 1 ? '' : 'i'} diverso${cop.famiglieRiconosciute === 1 ? '' : 'i'} in cui fai le domande${cop.famiglieInAttesaDiConferma ? ` (+${cop.famiglieInAttesaDiConferma} in attesa di una seconda conferma)` : ''}.</div>`
+      ? `<div class="mb-2 text-[var(--primary)]">${tCh('qaFamilies', __uiLang, cop.famiglieRiconosciute, cop.famiglieInAttesaDiConferma)}</div>`
       : '';
     const log = (VaultDAO.state.mlData.cloudFallbackLog || []).slice().reverse();
     box.innerHTML = coverageLine + (log.length
       ? log.map(e => `<div>"${String(e.q).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]))}"</div>`).join('')
-      : '<div class="text-slate-500">Ancora nessuna — appariranno qui man mano che fai domande fuori dai tuoi soldi.</div>');
+      : `<div class="text-slate-500">${tCh('qaNoneYet', __uiLang)}</div>`);
   }
   window.renderCloudFallbackLogPanel = renderCloudFallbackLogPanel;
   // Ingresso SCAGLIONATO del contenuto della sezione (ri-attiva l'animazione ad
@@ -20961,14 +20961,14 @@ function offerToSendP2PAnswer(answerCode, groupName) {
       <div class="w-12 h-12 mx-auto rounded-2xl grid place-items-center bg-[color-mix(in_srgb,var(--primary)_15%,transparent)] border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] join-badge">
         <svg class="w-6 h-6 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>
       </div>
-      <h3 class="text-base font-black">Collegamento diretto pronto</h3>
-      <p class="text-[12px] text-[var(--on-surface-secondary)]">Manda questa risposta a chi ti ha invitato: da quando la incolla, le vostre spese si sincronizzano da sole quando siete online insieme, senza ri-condividere il link.</p>
+      <h3 class="text-base font-black">${tCh('p2pReady', __uiLang)}</h3>
+      <p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('p2pSendBack', __uiLang)}</p>
       <textarea readonly class="w-full h-16 bg-black/30 border border-[var(--glass-border)] rounded-xl p-2 text-[10px] font-mono select-all">${answerCode}</textarea>
       <div class="grid grid-cols-2 gap-2">
-        <button id="p2p-copy" class="btn-action py-2.5 text-[12px] font-bold rounded-xl">Copia</button>
+        <button id="p2p-copy" class="btn-action py-2.5 text-[12px] font-bold rounded-xl">${tCh('copy', __uiLang)}</button>
         <button id="p2p-wa" class="btn-action py-2.5 text-[12px] font-bold rounded-xl">WhatsApp</button>
       </div>
-      <button id="p2p-skip" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">Salta, va bene anche senza</button>
+      <button id="p2p-skip" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">${tCh('p2pSkip', __uiLang)}</button>
     </div>`);
   const msg = `Risposta per collegare Momentum su «${groupName}»:\n${answerCode}`;
   $('#p2p-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(answerCode); showToast('Risposta copiata.', 'success'); haptic('light'); closeModal(); });
@@ -21212,21 +21212,21 @@ async function gestisciDeviceHello(peerId, publicKeyAltrui, exchangePublicKeyAlt
       if (exchangePublicKeyAltrui) lista = setTrustedExchangeKey(lista, publicKeyAltrui, exchangePublicKeyAltrui);
       VaultDAO.state.trustedDevices = lista;
       VaultDAO.save();
-      showToast('Dispositivo riconosciuto: non ti verrà più chiesto.', 'success');
+      showToast(tCh('deviceRecognized', __uiLang), 'success');
     }
     closeModal();
     delete window.confermaFiduciaDispositivo;
   };
   openModal(`
     <div class="p-5 space-y-4 text-center">
-      <h3 class="text-lg font-bold">Sono le stesse tre parole sull'altro schermo?</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">Guardale anche sull'altro dispositivo: se coincidono, il collegamento è sicuro. Se sono diverse, qualcun altro potrebbe essersi messo in mezzo — non confermare.</p>
+      <h3 class="text-lg font-bold">${tCh('threeWordsQ', __uiLang)}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('threeWordsBody', __uiLang)}</p>
       <div class="flex justify-center gap-3 py-2">
         ${parole.map((p) => `<span class="px-3 py-2 rounded-xl bg-black/30 border border-[var(--glass-border)] font-mono text-base font-bold">${escapeHtml(p)}</span>`).join('')}
       </div>
       <div class="flex gap-2">
-        <button onclick="window.confermaFiduciaDispositivo(false)" class="btn-action flex-1 text-xs opacity-70">Sono diverse</button>
-        <button onclick="window.confermaFiduciaDispositivo(true)" class="btn-action flex-1 text-xs">Sì, sono uguali</button>
+        <button onclick="window.confermaFiduciaDispositivo(false)" class="btn-action flex-1 text-xs opacity-70">${tCh('threeWordsDiff', __uiLang)}</button>
+        <button onclick="window.confermaFiduciaDispositivo(true)" class="btn-action flex-1 text-xs">${tCh('threeWordsSame', __uiLang)}</button>
       </div>
     </div>
   `);
@@ -21397,21 +21397,21 @@ window.openSharedLearning = () => {
     <div class="flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.5"/>', '--primary')}
       <div>
-        <h3 class="text-lg font-black leading-tight">Far crescere l'intelligenza insieme</h3>
-        <p class="card-sub !mb-0 mt-1.5">I tuoi dispositivi possono insegnarsi a vicenda a riconoscere i negozi. Non escono spese, importi né date: solo "questa parola è di questa categoria".</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('slTitle', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('slIntro', __uiLang)}</p>
       </div>
       <div class="w-full text-left">
-        <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)] mb-1.5">Esattamente questo uscirebbe (${uscirebbero.length} voci)</div>
+        <div class="text-[10px] font-bold uppercase tracking-wide text-[var(--on-surface-secondary)] mb-1.5">${tCh('slWouldLeave', __uiLang, uscirebbero.length)}</div>
         <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2 max-h-44 overflow-y-auto">
-          ${righe || '<p class="text-[11px] text-[var(--on-surface-secondary)] py-2">Ancora niente: servono più dispositivi che vedano lo stesso negozio prima che una voce diventi condivisibile.</p>'}
+          ${righe || `<p class="text-[11px] text-[var(--on-surface-secondary)] py-2">${tCh('slNothingYet', __uiLang)}</p>`}
         </div>
-        ${trattenuti.length ? `<p class="text-[10px] text-emerald-300/90 mt-2 leading-snug">${trattenuti.length} voci restano ferme qui: le ha viste un solo dispositivo, e da sole potrebbero identificarti. Non escono mai.</p>` : ''}
+        ${trattenuti.length ? `<p class="text-[10px] text-emerald-300/90 mt-2 leading-snug">${tCh('slHeldBack', __uiLang, trattenuti.length)}</p>` : ''}
       </div>
       <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${tCh('sharedLearningScope', __uiLang)}</p>
       <div class="w-full text-left text-xs">${previewOutgoing(buildDistillationDigest(localDistillationPredict), { limit: 52 }).map(line => `<p>${escapeHtml(line)}</p>`).join('')}</div>
       ${attivo
-        ? `<button onclick="window.setSharedLearning(false)" class="btn-action w-full py-3 font-bold rounded-xl">Disattiva</button>`
-        : `<button onclick="window.setSharedLearning(true)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Attiva l'apprendimento condiviso</button>`}
+        ? `<button onclick="window.setSharedLearning(false)" class="btn-action w-full py-3 font-bold rounded-xl">${tCh('slDisable', __uiLang)}</button>`
+        : `<button onclick="window.setSharedLearning(true)" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('slEnable', __uiLang)}</button>`}
     </div>`);
 };
 window.setSharedLearning = (on) => {
@@ -21420,9 +21420,9 @@ window.setSharedLearning = (on) => {
   if (on) {
     const n = shareLexiconIfAllowed();
     shareDistillationIfAllowed();
-    showToast(n > 0 ? `Attivo — condiviso con ${n} dispositivo${n > 1 ? 'i' : ''}.` : 'Attivo: condividerò al prossimo collegamento.', 'success');
+    showToast(tCh('slOnToast', __uiLang, n), 'success');
   } else {
-    showToast('Disattivato: da adesso non esce più nulla.', 'info');
+    showToast(tCh('slOffToast', __uiLang), 'info');
   }
   window.openSharedLearning();
 };
@@ -21431,7 +21431,7 @@ window.openMeshPairing = () => {
   pingFeature('mesh_pairing_opened');
   openModal(`
     <div class="p-4 space-y-4">
-      <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>Collega un dispositivo</h3>
+      <h3 class="text-lg font-bold inline-flex items-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 5a3 3 0 0 0-3 3c-1.7 0-3 1.3-3 3s1.3 3 3 3a3 3 0 0 0 6 0c1.7 0 3-1.3 3-3s-1.3-3-3-3a3 3 0 0 0-3-3z"/><path d="M12 5v14"/></svg>${tCh('meshConnect', __uiLang)}</h3>
       <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('meshPrivateBoundary', __uiLang)}</p>
       <!-- DIAGNOSI DI RETE PREDITTIVA (src/mesh/nat-probe.js): il punto di
            abbandono numero uno della sincronizzazione è la rotella che gira
@@ -21441,19 +21441,19 @@ window.openMeshPairing = () => {
       <div id="mesh-net-diag" class="rounded-xl border border-[var(--glass-border)] bg-black/20 px-3 py-2.5">
         <div class="flex items-center gap-2">
           <span class="w-1.5 h-1.5 rounded-full bg-[var(--on-surface-secondary)] animate-pulse"></span>
-          <span class="text-[11px] text-[var(--on-surface-secondary)]">Sto guardando che rete hai…</span>
+          <span class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('meshProbing', __uiLang)}</span>
         </div>
       </div>
       <div class="flex gap-2">
-        <button onclick="window.meshCreateInvite()" class="btn-action flex-1 text-xs">1a. Crea invito (questo dispositivo)</button>
+        <button onclick="window.meshCreateInvite()" class="btn-action flex-1 text-xs">${tCh('meshCreateInvite', __uiLang)}</button>
       </div>
-      <textarea id="mesh-code-out" readonly placeholder="Il codice da copiare sull'altro dispositivo apparirà qui..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-out" aria-label="Il codice da copiare sull'altro dispositivo apparirà qui..."></textarea>
+      <textarea id="mesh-code-out" readonly placeholder="${escapeHtml(tCh('meshInvitePh', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-out" aria-label="${escapeHtml(tCh('meshInvitePh', __uiLang))}"></textarea>
       <div class="border-t border-[var(--outline)] pt-3">
-        <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">Incolla qui il codice ricevuto dall'altro dispositivo:</p>
-        <textarea id="mesh-code-in" placeholder="Codice dall'altro dispositivo..." class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-in" aria-label="Codice dall'altro dispositivo..."></textarea>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mb-2">${tCh('meshPasteHere', __uiLang)}</p>
+        <textarea id="mesh-code-in" placeholder="${escapeHtml(tCh('meshCodePh', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl p-3 text-[10px] font-mono h-20" name="mesh-code-in" aria-label="${escapeHtml(tCh('meshCodePh', __uiLang))}"></textarea>
         <div class="flex gap-2 mt-2">
-          <button onclick="window.meshJoin()" class="btn-action flex-1 text-xs">1b. Ho ricevuto un INVITO</button>
-          <button onclick="window.meshAcceptAnswer()" class="btn-action flex-1 text-xs">2a. Ho ricevuto la RISPOSTA</button>
+          <button onclick="window.meshJoin()" class="btn-action flex-1 text-xs">${tCh('meshReceivedInvite', __uiLang)}</button>
+          <button onclick="window.meshAcceptAnswer()" class="btn-action flex-1 text-xs">${tCh('meshReceivedAnswer', __uiLang)}</button>
         </div>
       </div>
     </div>
@@ -21541,32 +21541,32 @@ window.meshCreateInvite = async () => {
     const code = await _meshPairing.createInvite();
     const out = document.getElementById('mesh-code-out');
     if (out) out.value = code;
-    showToast('Invito creato: copialo sull\'altro dispositivo.', 'success');
-  } catch (e) { console.error(e); showToast('Errore nella creazione dell\'invito.', 'error'); }
+    showToast(tCh('meshInviteCreated', __uiLang), 'success');
+  } catch (e) { console.error(e); showToast(tCh('meshInviteError', __uiLang), 'error'); }
 };
 
 // Dispositivo B: incolla l'invito, genera la risposta
 window.meshJoin = async () => {
   try {
     const code = document.getElementById('mesh-code-in')?.value?.trim();
-    if (!code) { showToast('Incolla prima il codice di invito.', 'error'); return; }
+    if (!code) { showToast(tCh('meshPasteInviteFirst', __uiLang), 'error'); return; }
     _meshPairing = new PairingSignaling();
     const answer = await _meshPairing.acceptInvite(code, channel => meshAdoptChannel(_meshPairing.pc, channel));
     const out = document.getElementById('mesh-code-out');
     if (out) out.value = answer;
-    showToast('Risposta creata: rimandala al primo dispositivo.', 'success');
-  } catch (e) { console.error(e); showToast('Codice di invito non valido.', 'error'); }
+    showToast(tCh('meshAnswerCreated', __uiLang), 'success');
+  } catch (e) { console.error(e); showToast(tCh('meshInviteInvalid', __uiLang), 'error'); }
 };
 
 // Dispositivo A, passo 2: incolla la risposta di B → canale aperto
 window.meshAcceptAnswer = async () => {
   try {
     const code = document.getElementById('mesh-code-in')?.value?.trim();
-    if (!code || !_meshPairing) { showToast('Prima crea l\'invito, poi incolla la risposta.', 'error'); return; }
+    if (!code || !_meshPairing) { showToast(tCh('meshCreateFirst', __uiLang), 'error'); return; }
     const channel = await _meshPairing.acceptAnswer(code);
     meshAdoptChannel(_meshPairing.pc, channel);
     closeModal();
-  } catch (e) { console.error(e); showToast('Codice di risposta non valido.', 'error'); }
+  } catch (e) { console.error(e); showToast(tCh('meshAnswerInvalid', __uiLang), 'error'); }
 };
 
 window.openGoalEditor = () => {
@@ -21705,7 +21705,7 @@ window.applyBudgetSuggestion = (value) => {
   VaultDAO.state.monthlyBudgetAt = Date.now();
   delete VaultDAO.state.budgetDeclined;
   VaultDAO.save();
-  showToast(`Budget aggiornato a ${formatMoney(value)}.`, 'success');
+  showToast(tCh('budgetUpdated', __uiLang, formatMoney(value)), 'success');
   renderDashboard(); // stesso motivo del punto sopra: il budget vive in Dashboard
   renderAnalysis();
 };
@@ -21944,15 +21944,15 @@ const initApp = () => {
       <div class="p-4 sm:p-5 lg:p-0 flex flex-col items-center text-center gap-3 join-pop">
         <span class="qa-wait-orb" style="width:64px;height:64px;"><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-pulse"></span><span class="qa-pulse"></span><span class="qa-pulse"></span></span>
         <div>
-          <h3 class="text-lg font-black leading-tight">Cosa ne pensi di Momentum?</h3>
-          <p class="card-sub !mb-0">Due righe bastano. Nessuna spesa, saldo o dato personale lascia mai questo telefono — solo quello che scrivi qui sotto.</p>
+          <h3 class="text-lg font-black leading-tight">${tCh('fbTitle', __uiLang)}</h3>
+          <p class="card-sub !mb-0">${tCh('fbIntro', __uiLang)}</p>
         </div>
         <div id="fb-stars" class="flex gap-1.5 my-1">
           ${[1, 2, 3, 4, 5].map(n => `<button type="button" data-star="${n}" class="fb-star p-1" aria-label="${n} stelle"><svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.7 5.9 6.3.6-4.8 4.3 1.4 6.2-5.6-3.3-5.6 3.3 1.4-6.2-4.8-4.3 6.3-.6z"/></svg></button>`).join('')}
         </div>
-        <textarea id="fb-text" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-sm" placeholder="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)" name="fb-text" aria-label="Cosa funziona, cosa no, cosa vorresti diverso… (facoltativo)"></textarea>
-        <button id="fb-send" class="btn-action btn-primary w-full py-3 font-bold rounded-xl" disabled>Invia</button>
-        <button id="fb-skip" class="text-[11px] text-[var(--on-surface-secondary)]">Non ora</button>
+        <textarea id="fb-text" class="w-full h-24 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl p-3 text-sm" placeholder="${escapeHtml(tCh('fbPh', __uiLang))}" name="fb-text" aria-label="${escapeHtml(tCh('fbPh', __uiLang))}"></textarea>
+        <button id="fb-send" class="btn-action btn-primary w-full py-3 font-bold rounded-xl" disabled>${tCh('send', __uiLang)}</button>
+        <button id="fb-skip" class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('notNowCap', __uiLang)}</button>
       </div>`);
     const sendBtn = $('#fb-send');
     document.querySelectorAll('.fb-star').forEach(star => {
@@ -21991,15 +21991,15 @@ const initApp = () => {
               <div class="w-14 h-14 rounded-2xl grid place-items-center bg-emerald-500/15 border border-emerald-500/30 join-badge">
                 <svg class="w-7 h-7 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
               </div>
-              <h3 class="text-base font-black">Grazie!</h3>
-              <p class="card-sub !mb-0">Ogni feedback aiuta davvero a migliorare Momentum.</p>
+              <h3 class="text-base font-black">${tCh('thanks', __uiLang)}</h3>
+              <p class="card-sub !mb-0">${tCh('fbHelps', __uiLang)}</p>
             </div>`;
         }
         setTimeout(() => closeModal(), 1600);
       } catch (_) {
-        showToast('Non sono riuscito a inviarlo ora. Riprova tra poco.', 'error');
+        showToast(tCh('fbSendFailed', __uiLang), 'error');
         sendBtn.disabled = false;
-        sendBtn.textContent = 'Invia';
+        sendBtn.textContent = tCh('send', __uiLang);
       }
     });
   };
@@ -22232,7 +22232,7 @@ const initApp = () => {
       </div>
       <div class="flex justify-between mt-1 text-[11px] text-slate-500">
         <span>Speso ${formatMoney(proj.spentSoFar)}</span>
-        ${budget > 0 ? `<span>Budget ${formatMoney(budget)}</span>` : ''}
+        ${budget > 0 ? `<span>${tCh('budgetLabel', __uiLang, formatMoney(budget))}</span>` : ''}
         <span>Proiezione ${formatMoney(proj.projectedTotal)}</span>
       </div>
     </div>`;
@@ -22468,8 +22468,8 @@ const initApp = () => {
           disegnatoClassico = true;
           try {
             const { svgStoricoPercentili } = await import('./alpha/screener-settore.js');
-            classicoWrap.innerHTML = svgStoricoPercentili(ticker) || '<p class="text-[10px] opacity-60">Nessun grafico classico disponibile per questo titolo.</p>';
-          } catch (_) { classicoWrap.innerHTML = '<p class="text-[10px] opacity-60">Grafico classico non disponibile.</p>'; }
+            classicoWrap.innerHTML = svgStoricoPercentili(ticker) || `<p class="text-[10px] opacity-60">${tCh('chartNoClassicTicker', __uiLang)}</p>`;
+          } catch (_) { classicoWrap.innerHTML = `<p class="text-[10px] opacity-60">${tCh('chartClassicUnavailable', __uiLang)}</p>`; }
         }
         // "Percentile" (beginner) e "Valori" (banker) sono la STESSA vista
         // Lightweight Charts, ridisegnata nell'unità richiesta — non due
@@ -22558,8 +22558,8 @@ const initApp = () => {
           disegnatoClassico = true;
           try {
             const { svgResiduiMensili } = await import('./alpha/titolo-causale.js');
-            classicoWrap.innerHTML = svgResiduiMensili(punti, nomeTitolo) || '<p class="text-[10px] opacity-60">Nessun grafico classico disponibile.</p>';
-          } catch (_) { classicoWrap.innerHTML = '<p class="text-[10px] opacity-60">Grafico classico non disponibile.</p>'; }
+            classicoWrap.innerHTML = svgResiduiMensili(punti, nomeTitolo) || `<p class="text-[10px] opacity-60">${tCh('chartNoClassic', __uiLang)}</p>`;
+          } catch (_) { classicoWrap.innerHTML = `<p class="text-[10px] opacity-60">${tCh('chartClassicUnavailable', __uiLang)}</p>`; }
         }
         nuovoWrap.classList.toggle('hidden', vuoleClassico);
         classicoWrap.classList.toggle('hidden', !vuoleClassico);
@@ -22607,10 +22607,10 @@ const initApp = () => {
       <div class="space-y-1.5">${formatCloudAnswer(res.answer, tone.strong)}</div>${chart}
       ${percentileChartId ? `<div class="mt-2.5">
         <div class="flex items-center justify-between mb-1">
-          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">Andamento del percentile nel tempo (bilanci SEC reali)</p>
+          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">${tCh('chartPercentileOverTime', __uiLang)}</p>
           <div class="flex gap-1 shrink-0">
-            <button type="button" class="qa-chart-tab is-active text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="percentile" title="Come si confronta col settore — si legge senza sapere niente di finanza">Percentile</button>
-            <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="valori" title="Il numero vero, in %, per chi legge da esperto">Valori</button>
+            <button type="button" class="qa-chart-tab is-active text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="percentile" title="${escapeHtml(tCh('chartPercentileTip', __uiLang))}">${tCh('chartPercentile', __uiLang)}</button>
+            <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="valori" title="${escapeHtml(tCh('chartValuesTip', __uiLang))}">${tCh('chartValues', __uiLang)}</button>
             <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${percentileChartId}" data-view="classico">Classico</button>
           </div>
         </div>
@@ -22620,7 +22620,7 @@ const initApp = () => {
       </div>` : ''}
       ${causaleChartId ? `<div class="mt-2.5">
         <div class="flex items-center justify-between mb-1">
-          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">Quanto è "suo", mese per mese (residuo dal mercato)</p>
+          <p class="text-[9px] font-bold uppercase tracking-wide opacity-60">${tCh('chartOwnResidual', __uiLang)}</p>
           <div class="flex gap-1 shrink-0">
             <button type="button" class="qa-chart-tab is-active text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${causaleChartId}" data-view="grafico">Grafico</button>
             <button type="button" class="qa-chart-tab text-[9px] font-bold px-1.5 py-0.5 rounded-full" data-chart="${causaleChartId}" data-view="classico">Classico</button>
@@ -22660,8 +22660,8 @@ const initApp = () => {
       <div class="flex items-center gap-3">
         <span class="qa-wait-orb"><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-spark"></span><span class="qa-pulse"></span><span class="qa-pulse"></span><span class="qa-pulse"></span></span>
         <div>
-          <p class="text-violet-100 font-bold text-[13px]">Momo sta cercando la risposta</p>
-          <p class="text-violet-400 text-[10px] mt-0.5">Fuori da Momentum, per te<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
+          <p class="text-violet-100 font-bold text-[13px]">${tCh('qaMomoSearching', __uiLang)}</p>
+          <p class="text-violet-400 text-[10px] mt-0.5">${tCh('qaOutsideForYou', __uiLang)}<span class="qa-thinking-dots">${'<span></span>'.repeat(3)}</span></p>
         </div>
       </div>`;
     replayQaAnimation();
@@ -23029,7 +23029,7 @@ const initApp = () => {
     const items = (window.__lastNewsItemsBySymbol || {})[symbol] || [];
     if (!target || !items.length) return;
     if (btn) { btn.disabled = true; btn.textContent = 'Riassumo...'; }
-    target.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Chiedo alla tua AI...</p>`;
+    target.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('qaAskingYourAi', __uiLang)}</p>`;
     try {
       const { askCloudFallbackChain } = await import('./ai/chat-fallback.js');
       const keys = VaultDAO.state.liveDataKeys || {};
@@ -23079,7 +23079,7 @@ const initApp = () => {
     return `<div class="qa-learned-badge mt-2.5 p-2.5 rounded-xl border border-sky-500/20 bg-sky-500/[0.04] flex items-center gap-2.5">
       <span class="shrink-0 w-7 h-7 rounded-full bg-sky-500/10 text-sky-300 flex items-center justify-center">${ICON_QA_KEY}</span>
       <div class="flex-1 min-w-0">
-        <p class="text-[10px] text-sky-200/80 leading-snug">Il prezzo di ${escapeHtml(asset.name || asset.symbol)} serve una chiave gratuita — nessuna carta, circa un minuto.</p>
+        <p class="text-[10px] text-sky-200/80 leading-snug">${tCh('assetPriceNeedsKey', __uiLang, escapeHtml(asset.name || asset.symbol))}</p>
       </div>
       <button id="qa-add-stock-key" class="shrink-0 text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors">Aggiungila →</button>
     </div>`;
@@ -23618,8 +23618,8 @@ const initApp = () => {
       <div class="flex items-center gap-1 mb-1" title="${String(message).replace(/"/g, '&quot;')}">
         <h4 class="text-[10px] font-bold text-rose-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_WARN} Aiuto esterno</h4>
       </div>
-      <p class="text-rose-200/90">L'aiuto extra non risponde in questo momento.</p>
-      <button id="qa-fix-key" class="mt-2 text-[10px] underline text-rose-300">Controlla il collegamento →</button>`;
+      <p class="text-rose-200/90">${tCh('qaExtraDown', __uiLang)}</p>
+      <button id="qa-fix-key" class="mt-2 text-[10px] underline text-rose-300">${tCh('qaCheckLink', __uiLang)} →</button>`;
     document.getElementById('qa-fix-key')?.addEventListener('click', () => {
       document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
       setTimeout(() => window.openApiKeyGuide?.('gemini'), 250);
@@ -23749,7 +23749,7 @@ const initApp = () => {
       const esc = (s) => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
       const righe = v.osservazioni.map(o => `<li class="mt-1">${esc(o.testo)}${o.limite ? `<span class="block text-[10px] opacity-70 mt-0.5">${esc(o.limite)}</span>` : ''}</li>`).join('');
       box.innerHTML = `<div class="card p-4 sm:p-5">
-        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2"/><circle cx="12" cy="12" r="4"/></svg>Ho guardato i mercati per te</h3>
+        <h3 class="eyebrow"><svg viewBox="0 0 24 24"><path d="M12 3v2M12 19v2M5 12H3M21 12h-2"/><circle cx="12" cy="12" r="4"/></svg>${tCh('qaLookedMarkets', __uiLang)}</h3>
         <ul class="text-xs leading-relaxed list-none">${righe}</ul>
         <p class="text-[10px] opacity-60 mt-2">Ho controllato ${v.controllate} indicatori${v.efficaci ? ` (${v.efficaci} direzioni davvero distinte)` : ''} su ${esc(String(anni))} anni. Non è un consiglio: è cosa è già successo.</p>
       </div>`;
@@ -23873,7 +23873,7 @@ const initApp = () => {
         // cripto, e mai spendere una chiamata cloud a indovinare un nome
         // che la ricerca reale ha già escluso.
         qaAnswer.className = 'text-xs mt-3 p-3 rounded-xl bg-sky-950/15 border border-sky-500/20 text-sky-100';
-        qaAnswer.innerHTML = `<p class="text-[var(--on-surface-secondary)]">Non ho trovato un asset reale corrispondente a "${escapeHtml(question)}" — potrebbe non essere un nome/ticker noto, o le fonti gratuite non l'hanno trovato in questo momento. Prova con il nome completo (es. "Apple" invece di un ticker meno comune) o cerca in Analisi Tensor → Cerca un asset.</p>`;
+        qaAnswer.innerHTML = `<p class="text-[var(--on-surface-secondary)]">${tCh('assetNotFound', __uiLang, escapeHtml(question))}</p>`;
         replayQaAnimation();
         window.renderQaSuggestions?.();
         return;
@@ -24727,7 +24727,7 @@ async function initMomentumRealAI() {
     momentumMeshNode.onSyncReceived = (txs) => {
       const added = VaultDAO.applySyncMerge(txs);
       if (added > 0) window.__tripLiveRefresh?.();
-      if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(`${added} transazioni sincronizzate da un tuo dispositivo.`, 'success'); }
+      if (added > 0) { renderDashboard(); renderAnalysis({ skipHeavyForecast: true }); showToast(tCh('syncTxAdded', __uiLang, added), 'success'); }
       return added;
     };
     momentumMeshNode.onPeerConnected = () => {
@@ -24872,7 +24872,7 @@ async function initMomentumRealAI() {
         }
         VaultDAO.state.carryBag = sacco;
         VaultDAO.save();
-        if (aperti > 0) showToast(`${aperti} aggiornament${aperti > 1 ? 'i' : 'o'} arrivat${aperti > 1 ? 'i' : 'o'} da un altro dispositivo.`, 'success');
+        if (aperti > 0) showToast(tCh('syncUpdates', __uiLang, aperti), 'success');
       } catch (e) { console.warn('Pacchetti a staffetta non elaborati:', e); }
     };
     // Ricezione del lessico condiviso: si accetta solo cio' che almeno DUE
@@ -24975,7 +24975,7 @@ async function initMomentumRealAI() {
       if (changed) {
         VaultDAO.save();
         if (allChanges.length) allChanges.slice(0, 3).forEach(msg => showToast(msg, 'success'));
-        else showToast('Un gruppo condiviso è stato aggiornato da un tuo dispositivo.', 'success');
+        else showToast(tCh('sharedGroupUpdated', __uiLang), 'success');
         // Se il pannello di divisione è aperto ORA (marcatori stabili di
         // renderList/renderDetail nel modale), si ridisegna subito: è questo
         // che rende il sync "live" — MAI se è aperto un modale diverso
@@ -25105,7 +25105,7 @@ async function initMomentumRealAI() {
           renderNetWorth();
           // Notifica PRECISA: quali simboli, non un "prezzi aggiornati" generico.
           const list = updatedSymbols.slice(0, 4).join(', ') + (updatedSymbols.length > 4 ? ` +${updatedSymbols.length - 4}` : '');
-          showToast(`Prezzi aggiornati da un tuo dispositivo: ${list}.`, 'success');
+          showToast(tCh('syncPrices', __uiLang, list), 'success');
         }
       } catch (_) {}
     };
@@ -25361,7 +25361,7 @@ async function initMomentumRealAI() {
           try {
             const rec = reconcileModelsWithHistory(MODEL_SIGNATURE);
             if (rec.reconciled && rec.count > 0) {
-              showToast(`Aggiornamento applicato ✓ i tuoi dati sono al sicuro — l'AI si sta riallineando su ${rec.count} operazioni.`, 'success');
+              showToast(tCh('updateApplied', __uiLang, rec.count), 'success');
             }
           } catch (e) { console.warn('reconcile modelli:', e); }
         })
