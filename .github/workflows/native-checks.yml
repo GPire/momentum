@@ -29,6 +29,10 @@ jobs:
       - run: chmod +x android/gradlew
       - run: ./gradlew assembleDebug lintDebug
         working-directory: android
+      # Pacchetto per il Play Store (AAB), non firmato finché non esiste
+      # android/keystore.properties: prova che la variante di rilascio compila.
+      - run: ./gradlew bundleRelease
+        working-directory: android
   ios-simulator:
     runs-on: xcode-27
     timeout-minutes: 30
@@ -53,6 +57,10 @@ jobs:
       - run: npx cap sync ios
       - name: Build for installed iOS Simulator SDK
         run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -resultBundlePath native-qa/build.xcresult CODE_SIGNING_ALLOWED=NO build
+      # Stessa app per iPhone e iPad reali in configurazione di rilascio
+      # (minimo iOS 15), senza firma: la firma arriva con l'account Apple.
+      - name: Build Release for iPhone and iPad devices
+        run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
       - name: Preserve native verification evidence
         if: always()
         uses: actions/upload-artifact@v4
