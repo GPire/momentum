@@ -33,6 +33,7 @@ import { TRIP_TELEMETRY_EVENTS } from '../src/core/trip-telemetry-events.js';
 // STESSI elenchi del client (src/core/telemetry.js:PLATFORMS/INSTALL_SOURCES),
 // duplicati qui per lo stesso motivo di FEATURE_KEYS sotto: il worker non si
 // fida mai di un valore arbitrario mandato dal client.
+export const PSEUDONYMOUS_RETENTION_S = 395 * 86400;
 const PLATFORMS = new Set(['ios', 'android', 'mac', 'windows', 'altro']);
 const INSTALL_SOURCES = new Set(['invito', 'diretto']);
 
@@ -216,22 +217,26 @@ export async function handleRequest(request, env) {
       return new Response('ok');
     }
     if (!id || typeof id !== 'string' || id.length > 128) return new Response('id mancante o non valido.', { status: 400 });
+    // Limitazione della conservazione (GDPR art. 5.1.e): ogni chiave che contiene
+    // l'identificativo pseudonimo scade dopo 13 mesi, come raccomandato per la
+    // misurazione dell'audience; prima non scadeva mai.
+    const conservazione = { expirationTtl: PSEUDONYMOUS_RETENTION_S };
     if (event === 'presence') {
       await env.MOMENTUM_TELEMETRY.put(`presence:${id}`, '1', {expirationTtl:600,metadata:{seenAt:Date.now()}});
     } else if (event === 'pwa_installed' || event === 'standalone_opened') {
-      await env.MOMENTUM_TELEMETRY.put(`${event}:${id}`, '1');
+      await env.MOMENTUM_TELEMETRY.put(`${event}:${id}`, '1', conservazione);
     } else if (event === 'install') {
-      await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()));
+      await env.MOMENTUM_TELEMETRY.put(`install:${id}`, String(Date.now()), conservazione);
       // platform/source sono opzionali (client più vecchi non li mandano
       // ancora) e SOLO se dentro l'elenco chiuso — mai un valore libero.
-      if (PLATFORMS.has(platform)) await env.MOMENTUM_TELEMETRY.put(`install_platform:${platform}:${id}`, '1');
-      if (INSTALL_SOURCES.has(source)) await env.MOMENTUM_TELEMETRY.put(`install_source:${source}:${id}`, '1');
+      if (PLATFORMS.has(platform)) await env.MOMENTUM_TELEMETRY.put(`install_platform:${platform}:${id}`, '1', conservazione);
+      if (INSTALL_SOURCES.has(source)) await env.MOMENTUM_TELEMETRY.put(`install_source:${source}:${id}`, '1', conservazione);
     } else if (event === 'active' && /^\d{4}-\d{2}$/.test(month || '')) {
-      await env.MOMENTUM_TELEMETRY.put(`active:${month}:${id}`, String(Date.now()));
+      await env.MOMENTUM_TELEMETRY.put(`active:${month}:${id}`, String(Date.now()), conservazione);
     } else if (event === 'active_day' && /^\d{4}-\d{2}-\d{2}$/.test(day || '')) {
-      await env.MOMENTUM_TELEMETRY.put(`active_day:${day}:${id}`, String(Date.now()));
+      await env.MOMENTUM_TELEMETRY.put(`active_day:${day}:${id}`, String(Date.now()), conservazione);
     } else if (event === 'feature' && /^\d{4}-\d{2}$/.test(month || '') && FEATURE_KEYS.has(key)) {
-      await env.MOMENTUM_TELEMETRY.put(`feature:${key}:${month}:${id}`, String(Date.now()));
+      await env.MOMENTUM_TELEMETRY.put(`feature:${key}:${month}:${id}`, String(Date.now()), conservazione);
     } else {
       return new Response('event non valido.', { status: 400 });
     }

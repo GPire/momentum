@@ -6,6 +6,8 @@
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Momentum uses Face ID to unlock your encrypted data on this device.</string>
 	<key>CFBundleDisplayName</key>
         <string>Momentum</string>
 	<key>CFBundleExecutable</key>

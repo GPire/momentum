@@ -382,6 +382,13 @@ async function sealLegacyCopies() {
   try { if (typeof caches !== 'undefined') await caches.delete(IOS_HANDOFF_CACHE); } catch { /* nessuna cache */ }
 }
 
+async function chiaveApreIDati() {
+  let campione = localStorage.getItem(VAULT_MAIN_KEY);
+  if (!isSealed(campione)) { try { campione = await DurableStore.get('state', 'main'); } catch { campione = null; } }
+  if (!isSealed(campione)) return true;
+  try { JSON.parse(openSealed(campione)); return true; } catch { return false; }
+}
+
 // ==========================================
 // VAULTDAO STORAGE LAYER
 // ==========================================
@@ -538,10 +545,24 @@ const VaultDAO = {
     this.locked = false;
     const r = await loadVaultKey(store);
     this.keyStatus = r.status;
-    if (r.status === 'ready') { setVaultKey(r.key); return r; }
+    // Ogni chiave si prova sui dati PRIMA di usarla: una chiave sbagliata
+    // (es. voce del Keychain invalidata) farebbe sembrare vuoto l'archivio,
+    // e un salvataggio successivo lo coprirebbe.
+    if (r.status === 'ready') {
+      setVaultKey(r.key);
+      if (await chiaveApreIDati()) return r;
+      setVaultKey(null);
+      this.locked = true;
+      return { status: 'broken' };
+    }
     if (r.status === 'pin') {
-      const key = requestPin ? await requestPin(r.record) : null;
-      if (key) { setVaultKey(key); this.keyStatus = 'ready'; return { ...r, status: 'ready' }; }
+      for (let tentativo = 0; tentativo < 2 && requestPin; tentativo++) {
+        const key = await requestPin(r.record, { retry: tentativo > 0 });
+        if (!key) break;
+        setVaultKey(key);
+        if (await chiaveApreIDati()) { this.keyStatus = 'ready'; return { ...r, status: 'ready' }; }
+        setVaultKey(null);
+      }
       this.locked = true;
       return r;
     }

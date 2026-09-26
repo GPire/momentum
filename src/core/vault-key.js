@@ -100,3 +100,11 @@ export async function destroyVaultKey(store = idbKeyStore()) {
   try { await store.del(RECORD_ID); } catch { /* cancellazione richiesta dall'utente: si prosegue */ }
   try { await store.del(KEK_RECORD_ID); } catch { /* idem */ }
 }
+
+// Face ID / impronta come scorciatoia del PIN (mai al suo posto): il flag sta
+// nel record avvolto dal PIN, la chiave vera nel Keychain/Keystore di sistema.
+export async function setBiometricFlag(store = idbKeyStore(), on) {
+  const rec = await store.get(RECORD_ID);
+  if (rec?.mode !== 'pin') throw new Error('biometric requires pin');
+  await store.put(RECORD_ID, { ...rec, biometric: !!on });
+}

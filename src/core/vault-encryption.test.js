@@ -101,3 +101,22 @@ test('primo avvio assoluto: chiave creata, primo salvataggio già cifrato', asyn
   assert.equal(VaultDAO.save(), true);
   assert.ok(isSealed(ls.getItem('omega_core_db')));
 });
+
+test('chiave che non apre i dati (es. Keychain invalidato): si ripiega sul PIN, mai un archivio vuoto salvato sopra', async () => {
+  const ls = fakeLocalStorage();
+  ls.setItem('omega_core_db', legacy());
+  const store = memoryKeyStore();
+  await boot(ls, { store });
+  const { key } = await loadVaultKey(store);
+  await enablePin(store, key, '739152', { iterations: 1000 });
+  const tentativi = [];
+  await boot(ls, { store, requestPin: async (record, { retry }) => { tentativi.push(retry); return retry ? unlockWithPin(record, '739152') : crypto.getRandomValues(new Uint8Array(32)); } });
+  assert.deepEqual(tentativi, [false, true]);
+  assert.equal(VaultDAO.locked, false);
+  assert.equal(txCount(), 1);
+  const primaDelTentativo = ls.getItem('omega_core_db');
+  await boot(ls, { store, requestPin: async () => crypto.getRandomValues(new Uint8Array(32)) });
+  assert.equal(VaultDAO.locked, true);
+  assert.equal(VaultDAO.save(), false);
+  assert.equal(ls.getItem('omega_core_db'), primaDelTentativo);
+});

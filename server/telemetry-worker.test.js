@@ -272,3 +272,19 @@ test('legacy first starts stay historical; existing installed apps are recognize
  assert.equal(after.firstSeenDevices,1);assert.equal(after.installedDevicesObserved,2);
  assert.equal(after.confirmedPwaInstallDevices,1);assert.equal(after.standaloneObservedDevices,2);
 });
+
+test('conservazione: ogni evento con identificativo pseudonimo scade dopo 13 mesi (GDPR art. 5.1.e)', async () => {
+  const scritti = [];
+  const env = { MOMENTUM_TELEMETRY: { put: async (k, v, o) => { scritti.push([k, o]); }, get: async () => null, list: async () => ({ keys: [], list_complete: true }) } };
+  const worker = (await import('./telemetry-worker.js')).default;
+  const { PSEUDONYMOUS_RETENTION_S } = await import('./telemetry-worker.js');
+  const invia = (body) => worker.fetch(new Request('https://t.example/', { method: 'POST', body: JSON.stringify(body), headers: { origin: 'https://momentum-finance.pages.dev', 'content-type': 'application/json' } }), env);
+  await invia({ id: 'x1', event: 'install', platform: 'ios', source: 'direct' });
+  await invia({ id: 'x1', event: 'active', month: '2026-09' });
+  await invia({ id: 'x1', event: 'active_day', day: '2026-09-26' });
+  await invia({ id: 'x1', event: 'pwa_installed' });
+  const conId = scritti.filter(([k]) => k.includes(':x1'));
+  assert.ok(conId.length >= 4);
+  for (const [k, o] of conId) assert.equal(o?.expirationTtl, PSEUDONYMOUS_RETENTION_S, k);
+  assert.equal(PSEUDONYMOUS_RETENTION_S, 395 * 86400);
+});

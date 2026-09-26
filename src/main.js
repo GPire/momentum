@@ -320,7 +320,10 @@ import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, verifyStoredLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR, PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR } from './core/subscription.js';
 import { openValue } from './core/vault-cipher.js';
-import { destroyVaultKey, enablePin, disablePin, unlockWithPin, loadVaultKey, PIN_MIN_LENGTH } from './core/vault-key.js';
+import { destroyVaultKey, enablePin, disablePin, unlockWithPin, loadVaultKey, setBiometricFlag, PIN_MIN_LENGTH } from './core/vault-key.js';
+import { biometricAvailability, enableBiometric, unlockWithBiometric, disableBiometric } from './core/vault-biometric.js';
+import { createAutoLock, autoLockMinutes, AUTO_LOCK_CHOICES_MIN } from './core/auto-lock.js';
+import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 import { deviceLicenseCode, verifyRevocationList } from './core/license.js';
 import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations } from './core/license-client.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
@@ -25356,8 +25359,19 @@ async function initMomentumRealAI() {
 // ── Blocco con PIN (src/core/vault-key.js) ─────────────────────────────
 // La schermata di sblocco è statica in index.html: compare prima che il
 // Vault venga letto, perché senza PIN non c'è nulla da leggere.
-function chiediPinAvvio(record) {
-  return new Promise((resolve) => {
+const appNativa = () => window.Capacitor?.isNativePlatform?.() === true;
+const testoBiometria = (kind) => tCh(kind === 'face' ? 'vaultBioFace' : kind === 'fingerprint' ? 'vaultBioFinger' : 'vaultBioOther', __uiLang);
+const opzioniPromptBio = () => ({ reason: tCh('vaultBioReason', __uiLang), title: tCh('vaultBioReason', __uiLang), negativeButtonText: tCh('vaultBioUsePin', __uiLang) });
+
+function chiediPinAvvio(record, { retry = false } = {}) {
+  return new Promise(async (resolve) => {
+    // Face ID / impronta prima del PIN, se attivata; al secondo giro (chiave
+    // biometrica che non apre i dati) si va dritti al PIN.
+    const bio = record?.biometric && appNativa() && !retry ? await biometricAvailability(NativeBiometric) : { available: false };
+    if (bio.available) {
+      const key = await unlockWithBiometric(NativeBiometric, opzioniPromptBio());
+      if (key) { resolve(key); return; }
+    }
     const box = document.getElementById('vault-unlock');
     const form = document.getElementById('vault-unlock-form');
     const input = document.getElementById('vault-unlock-pin');
@@ -25367,6 +25381,15 @@ function chiediPinAvvio(record) {
     box.querySelectorAll('[data-i18n-key]').forEach((el) => { el.textContent = tCh(el.dataset.i18nKey, __uiLang); });
     box.classList.remove('hidden');
     box.style.display = 'flex';
+    const bioBtn = document.getElementById('vault-unlock-bio');
+    if (bio.available && bioBtn) {
+      bioBtn.textContent = testoBiometria(bio.kind);
+      bioBtn.classList.remove('hidden');
+      bioBtn.onclick = async () => {
+        const key = await unlockWithBiometric(NativeBiometric, opzioniPromptBio());
+        if (key) { box.style.display = 'none'; box.classList.add('hidden'); resolve(key); }
+      };
+    }
     input.focus();
     let errori = 0;
     let attendiFino = 0;
@@ -25403,8 +25426,14 @@ async function renderVaultLockCard() {
     status.textContent = tCh('vaultLockStatusDevice', __uiLang);
     actions.innerHTML = bottone('vaultLockEnable', 'enable', true);
   } else if (r.status === 'pin') {
-    status.textContent = tCh('vaultLockStatusPin', __uiLang);
-    actions.innerHTML = bottone('vaultLockChange', 'change', false) + bottone('vaultLockDisable', 'disable', false);
+    const bio = appNativa() ? await biometricAvailability(NativeBiometric) : { available: false };
+    status.textContent = tCh('vaultLockStatusPin', __uiLang) + (r.record.biometric && bio.available ? ` ${tCh('vaultBioOn', __uiLang)}` : '');
+    const minuti = autoLockMinutes(VaultDAO.state.autoLockMinutes);
+    const scelta = AUTO_LOCK_CHOICES_MIN.map((m) => `<option value="${m}"${m === minuti ? ' selected' : ''}>${m ? tCh('vaultAutoLockMin', __uiLang, m) : tCh('vaultAutoLockOff', __uiLang)}</option>`).join('');
+    actions.innerHTML = `<button type="button" onclick="window.lockVaultNow()" class="btn-action w-full font-bold text-sm">${tCh('vaultLockNow', __uiLang)}</button>`
+      + (bio.available ? `<button type="button" onclick="window.toggleVaultBiometric(${!r.record.biometric})" class="w-full text-sm font-bold py-2.5 rounded-xl border border-[var(--glass-border)]">${r.record.biometric ? tCh('vaultBioDisable', __uiLang) : testoBiometria(bio.kind)}</button>` : '')
+      + `<label class="block text-xs font-bold mt-1">${tCh('vaultAutoLockLabel', __uiLang)}<select onchange="window.setAutoLockMinutes(Number(this.value))" class="modal-input !mb-0 mt-1">${scelta}</select></label>`
+      + bottone('vaultLockChange', 'change', false) + bottone('vaultLockDisable', 'disable', false);
   } else {
     status.textContent = tCh('vaultLockStatusOff', __uiLang);
     actions.innerHTML = '';
@@ -25413,12 +25442,12 @@ async function renderVaultLockCard() {
 
 window.openVaultPin = (mode) => {
   const campo = (id, key, ac) => `<label class="block text-xs font-bold text-left">${tCh(key, __uiLang)}<input id="${id}" type="password" autocomplete="${ac}" class="modal-input !mb-0 mt-1"></label>`;
-  const titolo = { enable: 'vaultLockEnable', change: 'vaultLockChange', disable: 'vaultLockDisable' }[mode];
+  const titolo = { enable: 'vaultLockEnable', change: 'vaultLockChange', disable: 'vaultLockDisable', bio: 'vaultBioOther' }[mode];
   window.openModal(`<form id="vp-form" class="p-5 space-y-3" autocomplete="off">
     <h3 class="text-lg font-bold">${tCh(titolo, __uiLang)}</h3>
     ${mode === 'enable' ? `<p class="text-xs text-amber-300">${tCh('vaultPinWarn', __uiLang)}</p>` : ''}
     ${mode !== 'enable' ? campo('vp-current', 'vaultPinCurrent', 'current-password') : ''}
-    ${mode !== 'disable' ? campo('vp-new', 'vaultPinNew', 'new-password') + campo('vp-confirm', 'vaultPinConfirm', 'new-password') : ''}
+    ${mode === 'enable' || mode === 'change' ? campo('vp-new', 'vaultPinNew', 'new-password') + campo('vp-confirm', 'vaultPinConfirm', 'new-password') : ''}
     <p id="vp-error" role="alert" class="text-xs text-rose-300 min-h-[1rem]"></p>
     <button type="submit" class="btn-action w-full font-bold">${tCh('vaultPinSave', __uiLang)}</button>
   </form>`);
@@ -25428,7 +25457,7 @@ window.openVaultPin = (mode) => {
     const err = document.getElementById('vp-error');
     const btn = form.querySelector('button[type=submit]');
     const val = (id) => document.getElementById(id)?.value || '';
-    if (mode !== 'disable') {
+    if (mode === 'enable' || mode === 'change') {
       if (val('vp-new').length < PIN_MIN_LENGTH) { err.textContent = tCh('vaultPinShort', __uiLang); return; }
       if (val('vp-new') !== val('vp-confirm')) { err.textContent = tCh('vaultPinMismatch', __uiLang); return; }
     }
@@ -25441,10 +25470,20 @@ window.openVaultPin = (mode) => {
         ? (r.status === 'ready' ? r.key : null)
         : (r.status === 'pin' ? await unlockWithPin(r.record, val('vp-current')) : null);
       if (!key) { ripristina(mode === 'enable' ? 'vaultPinError' : 'vaultPinWrongCurrent'); return; }
-      if (mode === 'disable') await disablePin(undefined, key);
-      else await enablePin(undefined, key, val('vp-new'));
+      if (mode === 'disable') {
+        await disablePin(undefined, key);
+        if (appNativa()) await disableBiometric(NativeBiometric);
+      } else if (mode === 'bio') {
+        await enableBiometric(NativeBiometric, key, opzioniPromptBio());
+        await setBiometricFlag(undefined, true);
+      } else {
+        // Un PIN nuovo riscrive il record: la biometria va riattivata in modo esplicito.
+        if (mode === 'change' && appNativa()) await disableBiometric(NativeBiometric);
+        await enablePin(undefined, key, val('vp-new'));
+      }
       window.closeModal();
-      showToast(tCh(mode === 'disable' ? 'vaultPinRemoved' : 'vaultPinDone', __uiLang), 'success');
+      showToast(tCh(mode === 'disable' ? 'vaultPinRemoved' : mode === 'bio' ? 'vaultBioEnabled' : 'vaultPinDone', __uiLang), 'success');
+      if (mode !== 'bio') avviaBloccoInattivita();
       renderVaultLockCard();
     } catch (error) {
       console.error('PIN Vault:', error);
@@ -25453,6 +25492,39 @@ window.openVaultPin = (mode) => {
   });
   document.getElementById(mode === 'enable' ? 'vp-new' : 'vp-current')?.focus();
 };
+
+window.toggleVaultBiometric = async (on) => {
+  if (on) { window.openVaultPin('bio'); return; }
+  await disableBiometric(NativeBiometric);
+  await setBiometricFlag(undefined, false).catch(() => {});
+  showToast(tCh('vaultBioDisabled', __uiLang), 'info');
+  renderVaultLockCard();
+};
+
+// Blocco: si salva, si attende la copia durevole e si ricarica. Il ricaricamento
+// cancella dalla memoria chiave e dati; al riavvio serve di nuovo PIN o biometria.
+window.lockVaultNow = async () => {
+  try { VaultDAO.save(); await VaultDAO.flushDurable(); } catch (e) { console.error('Blocco: salvataggio prima del blocco fallito:', e); }
+  location.reload();
+};
+
+window.setAutoLockMinutes = (min) => {
+  VaultDAO.state.autoLockMinutes = autoLockMinutes(min);
+  VaultDAO.save();
+  __bloccoInattivita?.setTimeoutMs(VaultDAO.state.autoLockMinutes * 60_000);
+};
+
+let __bloccoInattivita = null;
+async function avviaBloccoInattivita() {
+  const r = await loadVaultKey();
+  if (r.status !== 'pin') { __bloccoInattivita = null; return; }
+  if (__bloccoInattivita) { __bloccoInattivita.setTimeoutMs(autoLockMinutes(VaultDAO.state.autoLockMinutes) * 60_000); return; }
+  const blocco = createAutoLock({ timeoutMs: autoLockMinutes(VaultDAO.state.autoLockMinutes) * 60_000, onLock: () => { if (__bloccoInattivita === blocco) window.lockVaultNow(); } });
+  __bloccoInattivita = blocco;
+  for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) document.addEventListener(ev, () => blocco.activity(), { passive: true, capture: true });
+  document.addEventListener('visibilitychange', () => (document.hidden ? blocco.hidden() : blocco.visible()));
+  setInterval(() => blocco.tick(), 15_000);
+}
 
 function avvisaVaultBloccato() {
   window.openModal(`<div class="p-5 space-y-4 text-center">
@@ -25473,6 +25545,7 @@ const startMomentum = () => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
     if (VaultDAO.locked) avvisaVaultBloccato();
     renderVaultLockCard().catch(() => {});
+    if (!VaultDAO.locked) avviaBloccoInattivita().catch(() => {});
     verificaLicenzaAvvio().catch(() => {});
     bindVaultDurability({
       doc: document, win: window, vault: VaultDAO,
