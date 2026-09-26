@@ -1,7 +1,10 @@
 // Transport-independent pilot SDK. Raw numerical gradients require explicit consent.
-// Clipping/signatures limit impact and authenticate origin; they do not provide
-// differential privacy, secure aggregation, or protection against colluding signers.
+// Clipping/signatures limit impact and authenticate origin. When the manifest
+// declares `dp: { noiseMultiplier, delta }` each update is also privatized on the
+// device (Gaussian mechanism, see private-aggregation.js); secure aggregation of
+// sums is in private-aggregation.js. Colluding signers are still not handled.
 import { signChallenge, verifyChallenge } from '../mesh/device-trust.js';
+import { privatize, gaussianEpsilon } from './private-aggregation.js';
 
 const FORMAT = 'momentum-gradient-v1';
 const FIELDS = ['format', 'modelId', 'baseVersion', 'roundId', 'contributorKey', 'gradient', 'signature'];
@@ -12,9 +15,16 @@ function checkManifest(m) {
     || !Number.isInteger(m.dimensions) || m.dimensions < 1 || m.dimensions > 65536
     || !Number.isFinite(m.clipNorm) || m.clipNorm <= 0 || m.clipNorm > 1e6
     || !Number.isInteger(m.minContributors) || m.minContributors < 3
-    || !Number.isInteger(m.maxContributors) || m.maxContributors < m.minContributors || m.maxContributors > 100) {
+    || !Number.isInteger(m.maxContributors) || m.maxContributors < m.minContributors || m.maxContributors > 100
+    || (m.dp !== undefined && !(m.dp?.noiseMultiplier > 0 && m.dp?.delta > 0 && m.dp?.delta < 1))) {
     throw new TypeError('Invalid federation manifest');
   }
+}
+
+// Garanzia dichiarata del round, mai implicita.
+export function roundPrivacy(manifest) {
+  checkManifest(manifest);
+  return manifest.dp ? gaussianEpsilon(manifest.dp.noiseMultiplier, manifest.dp.delta) : null;
 }
 
 function vector(value, dimensions) {
@@ -46,6 +56,10 @@ export async function createGradientUpdate({ manifest, identity, gradient, conse
     roundId: manifest.roundId, contributorKey: identity.publicKey,
     gradient: clipped(gradient, manifest.clipNorm),
   };
+  // Il rumore si aggiunge DOPO il taglio e PRIMA della firma: il gradiente vero
+  // non lascia mai il dispositivo. Il risultato si ritaglia per restare nei limiti
+  // controllati dall'aggregatore.
+  if (manifest.dp) message.gradient = clipped(privatize(message.gradient, manifest.clipNorm, manifest.dp.noiseMultiplier), manifest.clipNorm);
   message.signature = await signChallenge(identity.privateKey, signingText(message));
   return message;
 }

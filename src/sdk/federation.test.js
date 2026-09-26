@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { generateIdentity } from '../mesh/device-trust.js';
-import { createGradientUpdate, aggregateGradientRound } from './federation.js';
+import { createGradientUpdate, aggregateGradientRound, roundPrivacy } from './federation.js';
 
 const manifest = { modelId: 'linear-demo', baseVersion: 'v1', roundId: 'round-1', dimensions: 2, clipNorm: 1, minContributors: 3, maxContributors: 20 };
 const identities = await Promise.all(Array.from({ length: 4 }, generateIdentity));
@@ -56,4 +56,18 @@ test('real numerical gradients from three synthetic clients improve held-out squ
   assert.equal(round.accepted, true);
   assert.ok(loss(candidate) < loss(base));
   assert.deepEqual(base, [0, 0], 'Aggregation must not silently promote a model');
+});
+
+test('round con privacy differenziale: il gradiente inviato non è quello vero e la garanzia è dichiarata', async () => {
+  const dp = { ...manifest, dp: { noiseMultiplier: 5, delta: 1e-5 } };
+  const vero = [0.3, -0.4];
+  const inviati = await Promise.all([0, 1, 2].map((i) => createGradientUpdate({ manifest: dp, identity: identities[i], gradient: vero, consent: true })));
+  assert.ok(inviati.every((m) => m.gradient.some((x, j) => Math.abs(x - vero[j]) > 1e-9)));
+  const priv = roundPrivacy(dp);
+  assert.equal(priv.proven, true);
+  assert.ok(priv.epsilon < 1);
+  assert.equal(roundPrivacy(manifest), null);
+  const round = await aggregateGradientRound({ manifest: dp, trustedKeys, updates: inviati });
+  assert.equal(round.accepted, true);
+  assert.throws(() => roundPrivacy({ ...manifest, dp: { noiseMultiplier: -1, delta: 1e-5 } }));
 });

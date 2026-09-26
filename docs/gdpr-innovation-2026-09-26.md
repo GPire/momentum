@@ -26,8 +26,12 @@ modello con **privacy differenziale** (rumore calibrato, ε dichiarato) e
 **aggregazione sicura** (il server vede solo la somma di molti dispositivi)
 sono il modo standard per imparare da milioni di utenti senza dati personali.
 - Oggi: il peer mesh aggiunge già rumore di Laplace (ε = 2) agli aggiornamenti.
-- Manca: l'SDK di federazione (`src/sdk/federation.js`) dichiara di non avere
-  né privacy differenziale né aggregazione sicura. È il prossimo lavoro.
+- Fatto (26/09): l'SDK di federazione applica privacy differenziale gaussiana
+  sul dispositivo quando il round la dichiara (ε calcolato e dichiarato, prova
+  formale solo per ε ≤ 1) e `src/sdk/private-aggregation.js` offre
+  l'aggregazione sicura a maschere accoppiate (somma esatta mod 2^32,
+  l'aggregatore vede solo il totale). Limite: nessun recupero dei partecipanti
+  caduti; il round si scarta.
 
 ### 3. Telemetria per capire e migliorare l'app
 Le Linee guida cookie del Garante (10 giugno 2021) equiparano agli strumenti
@@ -72,7 +76,7 @@ Telemetria con testo libero o dati finanziari, incroci fra identificativi,
 utenti per addestrare modelli centrali senza anonimizzazione dimostrabile.
 
 ## Prossimi lavori proposti, in ordine di impatto
-1. Privacy differenziale + aggregazione sicura nell'SDK di federazione.
+1. ~~Privacy differenziale + aggregazione sicura nell'SDK di federazione~~ fatto.
 2. Invito "Aiuta Momentum a imparare" con segnali d'uso più ricchi e aggregati.
-3. Verifica art. 50 AI Act nell'assistente.
-4. Controllo in Vault per revocare la scelta sulla voce online.
+3. ~~Verifica art. 50 AI Act nell'assistente~~ fatto: etichetta "risposta di un'IA esterna" in 7 lingue.
+4. ~~Controllo in Vault per revocare la scelta sulla voce online~~ fatto.
