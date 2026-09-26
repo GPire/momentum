@@ -60,8 +60,10 @@ gli acquisti in-app: aggiungere Purchases (App Functionality).
    statistiche siano minimizzate come quelle "tecniche". Da confermare con un
    consulente privacy; se serve, basta invertire il default (codice già
    pronto per l'opt-out).
-3. **Prezzi IVA inclusa su Stripe**: configurare i 4 prezzi con
-   `tax_behavior: inclusive`, e decidere con il commercialista IVA italiana
+3. **Prezzi IVA inclusa su Stripe**: pronto `scripts/stripe-setup.mjs`
+   (crea i 4 prezzi `tax_behavior: inclusive` con lookup_key, prova senza
+   `--apply`, stampa i comandi wrangler). Resta a te lanciarlo con la tua
+   chiave e decidere con il commercialista IVA italiana
    sotto €10.000 di vendite UE o OSS sopra.
 4. **Registro dei trattamenti** (art. 30) e **nomine dei responsabili**
    (DPA di Cloudflare, Stripe, Formspree): da firmare/accettare nei rispettivi
@@ -73,7 +75,7 @@ gli acquisti in-app: aggiungere Purchases (App Functionality).
    AES-GCM, PBKDF2) per proteggere i dati dell'utente; rispondere al
    questionario di App Store Connect con la documentazione Apple
    (https://developer.apple.com/documentation/security/complying-with-encryption-export-regulations).
-7. **Localizzazione della frase di Face ID**: oggi solo in inglese
-   (`Info.plist`); tradurla con `InfoPlist.strings` nelle 7 lingue in Xcode.
+7. ~~Localizzazione della frase di Face ID~~ fatto il 26/09: `InfoPlist.strings`
+   in 7 lingue registrati nel progetto Xcode, `CFBundleLocalizations` dichiarato.
 8. **Acquisti in-app** (StoreKit 2 e Play Billing): da costruire quando
    esistono gli account; sulle app native il pagamento web è già nascosto.

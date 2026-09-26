@@ -1,0 +1,2 @@
+/* Frase mostrata da iOS la prima volta che Momentum chiede Face ID. */
+"NSFaceIDUsageDescription" = "O Momentum usa o Face ID para desbloquear os seus dados cifrados neste dispositivo.";
