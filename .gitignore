@@ -18,3 +18,4 @@ bench/panel-avvisi.json
 # committata: chi la possiede può emettere licenze PRO valide a chiunque.
 # Solo la chiave PUBBLICA (già dentro src/core/license.js) va nel repo.
 bench/license-signing-key.json
+bench/license-server-key.json

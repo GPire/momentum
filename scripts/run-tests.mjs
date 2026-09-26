@@ -23,7 +23,8 @@ const serverDepsPronte = major >= 22 && existsSync(join('server', 'auth', 'node_
 if (!serverDepsPronte) {
   console.log(`server/*.test.js saltati (richiede Node 22+ e 'npm ci' dentro server/auth — Node attuale: ${process.versions.node}${major >= 22 ? ', dipendenze non installate' : ''}).`);
 }
-const files = [...collectTests('src'), ...(serverDepsPronte ? collectTests('server') : [])];
+// server/license non ha dipendenze né node:sqlite: gira sempre, anche su Node 20.
+const files = [...collectTests('src'), ...(serverDepsPronte ? collectTests('server') : collectTests(join('server', 'license')))];
 // Separate processes still isolate globals; inherited handles avoid restricted
 // environments that cannot create the test runner's IPC pipes.
 if (process.argv.includes('--serial-files')) {

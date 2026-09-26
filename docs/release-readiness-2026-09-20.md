@@ -1212,3 +1212,14 @@ sbloccato, PRO Investor ancora attivo dopo il ricaricamento; eliminata solo
 la chiave del dispositivo (dati e licenza intatti) → nuovo codice, licenza
 non più valida. Bug trovato così e corretto: la verifica d'avvio girava prima
 del caricamento del Vault. Nessuna prova su dispositivi fisici o store.
+
+### Pagamenti web e ciclo di vita delle licenze — 26 settembre 2026
+
+Ricerca costi, architettura, prove e passi di attivazione in
+[payments-2026-09-26.md](payments-2026-09-26.md). Servizio `/api/license/*`
+costruito e verificato dal vivo col runtime Cloudflare locale; **non
+operativo in produzione** finché non esistono account Stripe, KV `LICENSES` e
+segreti (`GET /api/license/readiness` lo dice). Corretto un blocco reale di
+produzione: `_routes.json` escludeva `/api/*`, quindi le funzioni di mercato
+(SEC, notizie, trimestrali) non rispondevano. Acquisti negli store nativi non
+ancora costruiti.

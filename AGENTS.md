@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Pagamenti, 26 settembre 2026:** web/PWA con Stripe tramite
+> `server/license/worker.js` (`/api/license/*`), che emette le stesse licenze
+> per dispositivo; rinnovo, revoca e cambio durata. Store nativi: billing di
+> Apple/Google, non ancora costruito. `_routes.json` deve includere `/api/*`:
+> senza, le funzioni `functions/api/*` non ricevono richieste in produzione.
+> Leggere [payments-2026-09-26.md](docs/payments-2026-09-26.md).
+
 > **Licenze per dispositivo + PRO Investor €6,99, 26 settembre 2026:** ogni
 > licenza nuova è legata al codice del dispositivo (Vault → Momentum PRO) ed
 > emessa con `bench/issue-license.mjs --device=...`; il piano si legge SOLO da

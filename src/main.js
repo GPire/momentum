@@ -319,7 +319,8 @@ import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, ch
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, verifyStoredLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR, PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR } from './core/subscription.js';
-import { deviceLicenseCode } from './core/license.js';
+import { deviceLicenseCode, verifyRevocationList } from './core/license.js';
+import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations } from './core/license-client.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
@@ -19783,14 +19784,15 @@ document.getElementById('pro-license-activate-btn')?.addEventListener('click', a
   try {
     let deviceCode = null;
     try { deviceCode = await codiceDispositivoLicenza(); } catch { deviceCode = null; }
-    const r = await activateLicense(code, VaultDAO.state, { deviceCode });
+    const rev = VaultDAO.state.licenseRevocations?.token ? await verifyRevocationList(VaultDAO.state.licenseRevocations.token) : { valid: false };
+    const r = await activateLicense(code, VaultDAO.state, { deviceCode, revokedIds: rev.valid ? new Set(rev.ids) : null });
     if (r.attivata) {
       VaultDAO.save();
       input.value = '';
       showToast(tCh('proActivatedToast', __uiLang), 'success');
       renderProLicenseCard();
     } else if (errorEl) {
-      const chiave = { altro_dispositivo: 'licenseErrOtherDevice', non_legata: 'licenseErrUnbound', scaduto: 'licenseErrExpired', dispositivo_non_verificabile: 'licenseErrDevice' }[r.codice] || 'licenseErrInvalid';
+      const chiave = { altro_dispositivo: 'licenseErrOtherDevice', non_legata: 'licenseErrUnbound', scaduto: 'licenseErrExpired', dispositivo_non_verificabile: 'licenseErrDevice', revocata: 'licenseErrRevoked' }[r.codice] || 'licenseErrInvalid';
       errorEl.textContent = tCh(chiave, __uiLang);
       errorEl.classList.remove('hidden');
     }
@@ -21070,10 +21072,82 @@ async function verificaLicenzaAvvio() {
       try { await navigator.clipboard.writeText(info.codice); showToast(tCh('proDeviceCodeCopied', __uiLang), 'success'); } catch { /* il codice resta selezionabile a mano */ }
     });
   }
-  if (VaultDAO.state.license) {
-    await verifyStoredLicense(VaultDAO.state, { deviceCode: info?.codice || null });
+  const deviceCode = info?.codice || null;
+  const riverifica = async () => {
+    const rev = VaultDAO.state.licenseRevocations?.token ? await verifyRevocationList(VaultDAO.state.licenseRevocations.token) : { valid: false };
+    await verifyStoredLicense(VaultDAO.state, { deviceCode, revokedIds: rev.valid ? new Set(rev.ids) : null });
     renderProLicenseCard();
     if (typeof renderDashboard === 'function') renderDashboard();
+  };
+  if (VaultDAO.state.license) await riverifica();
+
+  const params = new URLSearchParams(location.search);
+  const sessione = params.get('license_session') || VaultDAO.state.pendingLicenseSession || null;
+  if (params.has('license_session') || params.has('license_cancel')) {
+    params.delete('license_session'); params.delete('license_cancel');
+    history.replaceState(null, '', `${location.pathname}${params.toString() ? `?${params}` : ''}${location.hash}`);
+  }
+  if (sessione && deviceCode) {
+    showToast(tCh('proClaimWaiting', __uiLang), 'info');
+    const lic = await claimLicense(sessione);
+    const r = lic ? await activateLicense(lic, VaultDAO.state, { deviceCode }) : null;
+    if (r?.attivata) {
+      delete VaultDAO.state.pendingLicenseSession;
+      showToast(tCh('proActivatedToast', __uiLang), 'success');
+    } else {
+      VaultDAO.state.pendingLicenseSession = sessione;
+      showToast(tCh('proClaimDelayed', __uiLang), 'info');
+    }
+    VaultDAO.save();
+    renderProLicenseCard();
+  }
+
+  // Rinnovo e revoche: solo per chi ha una licenza, solo online.
+  if (VaultDAO.state.license && navigator.onLine !== false) {
+    const nuovo = await updateRevocations(VaultDAO.state.licenseRevocations);
+    if (nuovo && nuovo !== VaultDAO.state.licenseRevocations) {
+      VaultDAO.state.licenseRevocations = nuovo;
+      VaultDAO.save();
+      await riverifica();
+    }
+    if (needsRefresh(VaultDAO.state.license)) {
+      const rinnovata = await refreshLicense(VaultDAO.state.license.key);
+      if (rinnovata && (await activateLicense(rinnovata, VaultDAO.state, { deviceCode })).attivata) {
+        VaultDAO.save();
+        renderProLicenseCard();
+      }
+    }
+  }
+
+  // Sull'app nativa gli acquisti passano dagli store (regole Apple/Google):
+  // il pagamento web si mostra solo nella PWA e solo se il servizio è attivo.
+  const nativa = window.Capacitor?.isNativePlatform?.() === true;
+  const buy = document.getElementById('pro-buy');
+  if (buy && deviceCode && !nativa && await paymentsAvailable()) {
+    let periodo = 'year';
+    const eur = (v) => v.toFixed(2).replace('.', ',');
+    const disegna = () => {
+      buy.querySelectorAll('.pro-period').forEach((b) => {
+        const attivo = b.dataset.proPeriod === periodo;
+        b.classList.toggle('border-[var(--gold)]', attivo); b.classList.toggle('text-[var(--gold)]', attivo);
+        b.classList.toggle('border-[var(--glass-border)]', !attivo); b.classList.toggle('text-[var(--on-surface-secondary)]', !attivo);
+        b.setAttribute('aria-pressed', String(attivo));
+      });
+      const prezzo = (m, a) => periodo === 'year' ? tCh('proPerYear', __uiLang, eur(a)) : tCh('proPerMonth', __uiLang, eur(m));
+      document.getElementById('pro-buy-pro').textContent = tCh('proBuyPro', __uiLang, prezzo(PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR));
+      document.getElementById('pro-buy-investor').textContent = tCh('proBuyInvestor', __uiLang, prezzo(PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR));
+    };
+    buy.querySelectorAll('.pro-period').forEach((b) => b.addEventListener('click', () => { periodo = b.dataset.proPeriod; disegna(); }));
+    const compra = (tier) => async (e) => {
+      const bottone = e.currentTarget;
+      bottone.disabled = true;
+      try { location.href = await startCheckout({ deviceCode, tier, period: periodo }); }
+      catch { showToast(tCh('proBuyError', __uiLang), 'error'); bottone.disabled = false; }
+    };
+    document.getElementById('pro-buy-pro').addEventListener('click', compra('PRO'));
+    document.getElementById('pro-buy-investor').addEventListener('click', compra('PRO_INVESTOR'));
+    disegna();
+    buy.classList.remove('hidden');
   }
 }
 

@@ -5540,6 +5540,16 @@
                        quando il profilo dichiarato usa davvero i mercati —
                        vedi renderProLicenseCard() in main.js. -->
                   <p id="pro-license-profile-hint" class="hidden text-[11px] text-[var(--gold)] mb-1"></p>
+                  <div id="pro-buy" class="hidden flex flex-col gap-2 mb-2">
+                    <div class="flex gap-2" role="group">
+                      <button type="button" data-pro-period="year" class="pro-period flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border" data-i18n-key="proBuyYearly">Annuale</button>
+                      <button type="button" data-pro-period="month" class="pro-period flex-1 text-[11px] font-bold px-2.5 py-2 rounded-lg border" data-i18n-key="proBuyMonthly">Mensile</button>
+                    </div>
+                    <button type="button" id="pro-buy-pro" class="btn-action w-full font-bold text-sm"></button>
+                    <button type="button" id="pro-buy-investor" class="w-full font-bold text-sm py-3 rounded-xl border border-[var(--gold)] text-[var(--gold)]"></button>
+                    <p class="text-[11px] text-[var(--on-surface-secondary)]" data-i18n-key="proBuyNote">Pagamento su Stripe. Momentum riceve solo il codice di questo dispositivo, mai i dati della carta. Puoi disdire quando vuoi.</p>
+                    <p class="text-[11px] font-bold mt-1" data-i18n-key="proHaveCode">Hai già un codice?</p>
+                  </div>
                   <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" name="pro-license-input" aria-label="Incolla il codice di attivazione" data-i18n-placeholder="proLicenseInputPh" data-i18n-aria="proLicenseInputPh" />
                   <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm" data-i18n-key="proLicenseActivate">Attiva</button>
                   <p id="pro-license-error" class="hidden text-xs text-rose-300"></p>

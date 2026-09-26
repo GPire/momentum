@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyLicenseKey, deviceLicenseCode, LEGACY_UNBOUND_BEFORE } from './license.js';
+import { verifyLicenseKey, verifyRevocationList, deviceLicenseCode, LEGACY_UNBOUND_BEFORE } from './license.js';
 
 const DEV = 'ABCD-EFGH-JKMN-PQRS';
 
@@ -135,4 +135,24 @@ test('deviceLicenseCode: deterministico, 16 caratteri leggibili in 4 gruppi, div
   assert.match(ca, /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){3}$/);
   assert.equal(await deviceLicenseCode(a), ca);
   assert.notEqual(await deviceLicenseCode(b), ca);
+});
+
+test('revoca: una licenza il cui id è nell\'elenco revocato non sblocca più nulla', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null, dev: DEV, id: 'lic-1' });
+  assert.equal((await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV, revokedIds: new Set(['altra']) })).valid, true);
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV, revokedIds: new Set(['lic-1']) });
+  assert.equal(r.valid, false);
+  assert.equal(r.codice, 'revocata');
+});
+
+test('elenco revoche: valido solo se firmato dalla chiave giusta e non più vecchio di quello già noto', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const estranea = await coppiaDiTest();
+  const elenco = await firma(privateKey, { v: 1, issuedAt: 2000, ids: ['a', 'b'] });
+  const ok = await verifyRevocationList(elenco, { publicKeyB64 });
+  assert.deepEqual([ok.valid, ok.ids], [true, ['a', 'b']]);
+  assert.equal((await verifyRevocationList(elenco, { publicKeyB64: estranea.publicKeyB64 })).valid, false);
+  assert.equal((await verifyRevocationList(elenco, { publicKeyB64, notBefore: 3000 })).valid, false);
+  assert.equal((await verifyRevocationList(await firma(privateKey, { v: 1, issuedAt: 1, ids: [1] }), { publicKeyB64 })).valid, false);
 });

@@ -18,10 +18,14 @@
 'use strict';
 import { writeFileSync, existsSync } from 'node:fs';
 
-const OUT = new URL('./license-signing-key.json', import.meta.url);
+// --server: chiave separata per il servizio che emette licenze dopo un pagamento
+// (segreto LICENSE_SIGNING_JWK su Cloudflare). Compromessa, si sostituisce
+// senza invalidare le licenze firmate a mano con l'altra chiave.
+const SERVER = process.argv.includes('--server');
+const OUT = new URL(SERVER ? './license-server-key.json' : './license-signing-key.json', import.meta.url);
 
 if (existsSync(OUT)) {
-  console.error('bench/license-signing-key.json esiste già — cancellalo a mano prima di rigenerare (ogni licenza già emessa con la chiave vecchia smetterebbe di verificare).');
+  console.error(`${OUT.pathname} esiste già — cancellalo a mano prima di rigenerare (ogni licenza già emessa con la chiave vecchia smetterebbe di verificare).`);
   process.exit(1);
 }
 
@@ -33,8 +37,8 @@ const b64url = (bytes) => Buffer.from(bytes).toString('base64url');
 
 writeFileSync(OUT, JSON.stringify({ v: 1, privateKeyJwk: jwkPriv, publicKeyRawB64: b64url(rawPub) }, null, 2));
 
-console.log('Chiave privata scritta in bench/license-signing-key.json — NON committarla, NON condividerla.');
+console.log(`Chiave privata scritta in ${OUT.pathname} — NON committarla, NON condividerla.`);
 console.log('');
-console.log('Chiave PUBBLICA — incollala in src/core/license.js (costante LICENSE_PUBLIC_KEY_B64):');
+console.log(SERVER ? 'Chiave PUBBLICA — src/core/license.js, LICENSE_SERVER_PUBLIC_KEY_B64:' : 'Chiave PUBBLICA — incollala in src/core/license.js (costante LICENSE_PUBLIC_KEY_B64):');
 console.log('');
 console.log(b64url(rawPub));
