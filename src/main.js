@@ -2085,7 +2085,7 @@ const attachFormListeners = (container, prefill = null) => {
         <button type="button" class="pillola-intuito shrink-0" data-quick-idx="${i}" style="--icon-c:${c.color};--i:${i}">
           <span class="pillola-scintilla"></span>
           <span class="pillola-corpo">
-            ${i === 0 && s.reason ? `<span class="pillola-motivo">${s.reason}</span>` : '<span class="pillola-motivo pillola-motivo-generico">un\'abitudine tua</span>'}
+            ${i === 0 && s.reason ? `<span class="pillola-motivo">${s.reason}</span>` : `<span class="pillola-motivo pillola-motivo-generico">${tCh('pillHabitGeneric', __uiLang)}</span>`}
             <span class="pillola-riga1">
               <span class="truncate max-w-[120px]">${s.description}</span>
               <span class="font-mono font-bold">${formatMoney(s.amount)}</span>
@@ -2354,7 +2354,7 @@ const attachFormListeners = (container, prefill = null) => {
         window.__brakeConfirmed = true;
         setTimeout(() => { window.__brakeConfirmed = false; }, 4000); // il consenso vale pochi secondi
         AudioSynth.play('friction'); haptic('heavy');
-        showToast(`${b.message} Tocca di nuovo per confermare.`, 'error');
+        showToast(`${b.message} ${tCh('tapAgainToConfirm', __uiLang)}`, 'error');
         return;
       }
     }
@@ -2564,7 +2564,7 @@ async function consumeSharedContent() {
       const raw = (await testo.res.text()).trim();
       const parsed = raw ? parseNotificationText('', raw) : null;
       if (!parsed) {
-        if (raw) showToast('Testo condiviso ma non riconosciuto: aggiungilo a mano.', 'info');
+        if (raw) showToast(tCh('sharedTextUnrecognized', __uiLang), 'info');
         return;
       }
       const result = window.momentumOrchestrator?.classify
@@ -2658,7 +2658,7 @@ async function consumeJoinLink() {
     // Pulisci subito l'URL (query E hash): mai ri-consumare al reload (idempotenza).
     history.replaceState(null, '', location.pathname);
     const g = await readGroupCode(raw);
-    if (!g) { showToast('Il link del gruppo non è valido o è incompleto.', 'error'); return; }
+    if (!g) { showToast(tCh('groupLinkInvalid', __uiLang), 'error'); return; }
     // Se siamo ancora nell'onboarding, aspetta che l'app sia pronta (l'utente
     // deve prima entrare) — riprova a breve senza perdere l'invito.
     if (!document.getElementById('app-core') || document.getElementById('app-core').classList.contains('hidden')) {
@@ -4752,7 +4752,7 @@ window.addCalendarEvent = () => {
 
 window.deleteCalendarEvent = (id) => {
   try {
-    if (confirm("Rimuovere questa scadenza dal calendario?")) {
+    if (confirm(tCh('calendarRemoveConfirm', __uiLang))) {
       VaultDAO.state.events = VaultDAO.state.events.filter(e => e.id !== id);
       VaultDAO.save();
       window.renderCalendarEvents();
@@ -4806,7 +4806,7 @@ window.renderCalendarEvents = () => {
   // non serve più contarli a mano) e dà l'export .ics di tutti in un tocco.
   const header = `<div class="flex items-center justify-between mb-2 px-0.5">
     <span class="text-[10px] font-bold uppercase tracking-wider text-[var(--on-surface-secondary)]">${sum.active + sum.predicted} in programma${sum.done ? ` · ${sum.done} fatt${sum.done > 1 ? 'i' : 'o'}` : ''}</span>
-    ${sum.active ? `<button onclick="window.exportEventsToICS()" class="text-[10px] font-bold text-[var(--primary)] hover:underline">Esporta nel calendario</button>` : ''}
+    ${sum.active ? `<button onclick="window.exportEventsToICS()" class="text-[10px] font-bold text-[var(--primary)] hover:underline">${tCh('calendarExport', __uiLang)}</button>` : ''}
   </div>`;
 
   list.innerHTML = header + rows.map(ev => {
@@ -4892,7 +4892,7 @@ window.exportSingleEventToICS = (ev) => {
     icsContent += buildVEventBlock(ev);
     icsContent += "END:VCALENDAR\r\n";
     downloadICS(icsContent, `momentum_${(ev.title || ev.description || 'evento').slice(0,20).replace(/\W+/g,'_')}.ics`);
-    showToast("Tocca il file scaricato per aggiungerlo al Calendario del dispositivo.", "info");
+    showToast(tCh('calendarIcsTap', __uiLang), "info");
   } catch (err) {
     console.error("ICS single export error:", err);
   }
@@ -4902,7 +4902,7 @@ window.exportEventsToICS = () => {
   try {
     const events = VaultDAO.state.events || [];
     if (events.length === 0) {
-      showToast("Nessun promemoria da esportare.", "info");
+      showToast(tCh('calendarNothingToExport', __uiLang), "info");
       return;
     }
 
@@ -4912,7 +4912,7 @@ window.exportEventsToICS = () => {
 
     downloadICS(icsContent, 'momentum_scadenze.ics');
     AudioSynth.play('success');
-    showToast("Calendario (.ics) esportato con successo!", "success");
+    showToast(tCh('calendarExported', __uiLang), "success");
   } catch(err) {
     console.error("ICS export error:", err);
     showToast("Errore durante l'esportazione ICS.", "error");
@@ -4977,7 +4977,7 @@ window.runAIOverflowSweep = () => {
     const sweepAmt = computeSafeSweepEstimate(liquidity, inv, VaultDAO.state.currentDate);
 
     if (sweepAmt <= 0) {
-      showToast("Nessun avanzo disponibile da mettere al sicuro (tolti gli impegni in arrivo).", "info");
+      showToast(tCh('sweepNothing', __uiLang), "info");
       AudioSynth.play('friction');
       return;
     }
@@ -5002,7 +5002,7 @@ window.runAIOverflowSweep = () => {
     haptic('heavy');
     renderDashboard();
     renderAnalysis();
-    showToast(`Segnato. Ora sposta davvero ${formatMoney(sweepAmt)} sul tuo conto risparmio — Momentum non tocca la banca.`, "success");
+    showToast(tCh('sweepMarked', __uiLang, formatMoney(sweepAmt)), "success");
   } catch (err) { console.error(err); }
 };
 
@@ -5420,7 +5420,7 @@ function renderTaxCashBlocks(proj, regime) {
         const prossime = upcomingIvaLiquidazioni(invoices, anno, periodicita, { now: new Date(), acquisti: acquistiIva });
         if (prossime[0]) {
           const p = prossime[0];
-          html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Prossima liquidazione IVA (${periodicita}) il ${escapeHtml(p.scadenza)}: ${escapeHtml(formatMoney(p.totaleDaVersare))} — metti via ~${escapeHtml(formatMoney(p.daMettereViaASettimana))} a settimana. ${escapeHtml(p.ivaCreditoNota)}</div>`;
+          html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${tCh('vatNextSettlement', __uiLang, periodicita, escapeHtml(p.scadenza), escapeHtml(formatMoney(p.totaleDaVersare)), escapeHtml(formatMoney(p.daMettereViaASettimana)))} ${escapeHtml(p.ivaCreditoNota)}</div>`;
         }
         html += `<button onclick="window.openRegistraAcquistoIva()" class="mt-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Registra un acquisto (IVA detraibile)${acquistiIva.filter(a => new Date(a.data).getFullYear() === anno).length ? ` · ${acquistiIva.filter(a => new Date(a.data).getFullYear() === anno).length} quest'anno` : ''}</button>`;
         const previsione = previsioneSuperamentoSogliaTrimestrale(invoices, anno, { now: new Date() });
@@ -5574,7 +5574,7 @@ function renderTaxCashBlocks(proj, regime) {
     // qualcosa da dire: se non hai mai dichiarato un versamento e non c'è
     // niente in scadenza, questa riga sarebbe solo rumore.
     if (riserva.versato > 0) {
-      html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">Di questi, <span class="font-mono font-bold text-[var(--positive)]">${formatMoney(riserva.versato)}</span> risultano già versati da te. <button onclick="window.openVersamentiFiscali()" class="underline">Correggi</button></div>`;
+      html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug">${tCh('taxAlreadyPaid', __uiLang, `<span class="font-mono font-bold text-[var(--positive)]">${formatMoney(riserva.versato)}</span>`)} <button onclick="window.openVersamentiFiscali()" class="underline">${tCh('taxCorrect', __uiLang)}</button></div>`;
     } else if (deadlines.length || overdue.length) {
       html += `<div class="text-[11px] text-[var(--on-surface-secondary)] mt-1.5 leading-snug"><button onclick="window.openVersamentiFiscali()" class="underline">Ne hai già versata una?</button> Dimmelo e smetto di contarla.</div>`;
     }
@@ -5585,15 +5585,15 @@ function renderTaxCashBlocks(proj, regime) {
     // già un motivo reale sotto gli occhi) e mai più di una volta ogni 14
     // giorni se l'utente lo ignora, invece di ripetersi ad ogni render.
     if (VaultDAO.state.taxNotifyOptIn) {
-      html += `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">Ti avviso solo se c'è un motivo vero — anche ad app chiusa di recente.</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">disattiva</button></div>`;
+      html += `<div class="flex items-center justify-between gap-2 mt-1.5"><span class="text-[10px] text-emerald-300/90">${tCh('taxNotifyOnNote', __uiLang)}</span><button onclick="window.disableTaxNotifications()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">${tCh('taxNotifyOff', __uiLang)}</button></div>`;
     } else if (urgent) {
       const oggi = new Date().toISOString().slice(0, 10);
       const ultimoRifiuto = VaultDAO.state.taxNotifyDismissedAt;
       const giorniDaRifiuto = ultimoRifiuto ? Math.round((new Date(oggi) - new Date(ultimoRifiuto)) / 86400000) : Infinity;
       if (giorniDaRifiuto >= 14) {
         html += `<div class="flex items-center gap-2 mt-1.5">
-          <button onclick="window.enableTaxNotifications()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">Avvisami anche se chiudo l'app</button>
-          <button onclick="window.dismissTaxNotifyPrompt()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">non ora</button>
+          <button onclick="window.enableTaxNotifications()" class="text-[11px] font-bold px-3 py-1.5 rounded-lg border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)]">${tCh('taxNotifyEnable', __uiLang)}</button>
+          <button onclick="window.dismissTaxNotifyPrompt()" class="text-[10px] text-[var(--on-surface-secondary)] underline shrink-0">${tCh('notNow', __uiLang)}</button>
         </div>`;
       }
     }
@@ -5756,10 +5756,10 @@ window.openRegistraAcquistoIva = () => {
       ${tl1Icon('<path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/><path d="M9 9h1M14 9h1M9 13h1M14 13h1"/>', '--primary')}
       <div>
         <h3 class="text-lg font-black leading-tight">Registra un acquisto</h3>
-        <p class="card-sub !mb-0 mt-1.5">Una spesa con fattura e IVA detraibile (materiali, strumenti, servizi) riduce davvero l'IVA da versare — non solo un promemoria.</p>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('purchaseVatSub', __uiLang)}</p>
       </div>
       <div class="w-full flex flex-col gap-2.5 text-left">
-        <input id="acq-desc" type="text" placeholder="Cosa hai comprato (es. Laptop, hosting)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-desc" aria-label="Cosa hai comprato (es. Laptop, hosting)" />
+        <input id="acq-desc" type="text" placeholder="${tCh('purchaseDescPh', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-desc" aria-label="${tCh('purchaseDescPh', __uiLang)}" />
         <div class="grid grid-cols-2 gap-2.5">
           <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="Imponibile €" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="acq-imponibile" aria-label="Imponibile €" />
           <input id="acq-data" type="date" value="${oggi}" max="${oggi}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-data" />
@@ -5779,8 +5779,8 @@ window.openRegistraAcquistoIva = () => {
         <div class="flex-1 h-px bg-[var(--glass-border)]"></div>oppure<div class="flex-1 h-px bg-[var(--glass-border)]"></div>
       </div>
       <input id="acq-xml-input" type="file" accept=".xml" class="hidden" name="acq-xml-input" />
-      <button id="acq-xml-btn" type="button" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] text-sm">Importa fattura ricevuta (XML)</button>
-      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug -mt-1">Il file che scarichi dal cassetto fiscale o ricevi dal fornitore: Momentum legge fornitore, data, imponibile e aliquota, e li registra da solo — resta sul tuo dispositivo, nessun upload.</p>
+      <button id="acq-xml-btn" type="button" class="w-full py-3 font-bold rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)] hover:border-[var(--gold)] hover:text-[var(--gold)] text-sm">${tCh('purchaseImportXml', __uiLang)}</button>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug -mt-1">${tCh('purchaseImportXmlNote', __uiLang)}</p>
       ${(VaultDAO.state.acquistiIva || []).length ? `
       <div class="w-full text-left mt-1">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide mb-1.5">Già registrati</div>
@@ -5819,7 +5819,7 @@ window.openRegistraAcquistoIva = () => {
       const parsed = parseFatturaPaXML(testo);
       if (parsed.errore) { showToast(parsed.errore, 'error'); return; }
       const nuove = fatturaPassivaToAcquisti(parsed);
-      if (!nuove.length) { showToast('Nessuna riga con IVA trovata in questa fattura.', 'error'); return; }
+      if (!nuove.length) { showToast(tCh('purchaseNoVatLines', __uiLang), 'error'); return; }
       VaultDAO.state.acquistiIva = [...(VaultDAO.state.acquistiIva || []), ...nuove];
       VaultDAO.save();
       showToast(`${nuove.length > 1 ? `${nuove.length} righe importate` : 'Fattura importata'} da ${parsed.fornitore} — registro acquisti aggiornato.`, 'success');
@@ -5827,7 +5827,7 @@ window.openRegistraAcquistoIva = () => {
       renderAnalysis();
     } catch (err) {
       console.warn('Import fattura passiva fallito:', err);
-      showToast('Non sono riuscito a leggere questo file: controlla che sia l\'XML della fattura, non un altro formato.', 'error');
+      showToast(tCh('purchaseXmlUnreadable', __uiLang), 'error');
     }
   });
 };
@@ -5976,7 +5976,7 @@ window.openF24Precompilato = () => {
       await navigator.clipboard.writeText(testoCopiabile);
       showToast(tCh('f24CopiedToast', __uiLang), 'success');
     } catch {
-      showToast('Copia non riuscita: seleziona il testo manualmente.', 'error');
+      showToast(tCh('copyFailedManual', __uiLang), 'error');
     }
   });
 };
@@ -6915,7 +6915,7 @@ function tl1CostoTempo(costo, costoTono, tempo, tempoTono) {
 function tl1Checklist(id, items) {
   return `<div class="w-full text-left">
     <div class="flex items-center justify-between mb-1.5">
-      <span class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Cosa ti serve, prima di iniziare</span>
+      <span class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">${tCh('whatYouNeedFirst', __uiLang)}</span>
       <span id="${id}-count" class="text-[10px] font-bold text-[var(--gold)]">0/${items.length}</span>
     </div>
     <div class="tl1-checklist-progress mb-2"><div id="${id}-bar" style="width:0%"></div></div>
@@ -7345,8 +7345,8 @@ window.openTaxLevel1Simulate = () => {
       ${tl1Icon('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>', '--gold')}
       ${tl1Dots(1)}
       <div>
-        <h3 class="text-lg font-black leading-tight">Se aprissi la Partita IVA…</h3>
-        <p class="card-sub !mb-0 mt-1.5">Quanto pensi di fatturare? Anche una stima approssimativa va bene.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('pivaIfOpen', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('pivaHowMuch', __uiLang)}</p>
       </div>
       <!-- Problema reale: molte persone pensano in termini MENSILI ("mi
            pagano 2000 al mese"), non annuali — costringerle a fare la
@@ -7355,7 +7355,7 @@ window.openTaxLevel1Simulate = () => {
            per convertire, mai un cambio silenzioso. -->
       <div class="flex gap-1.5 p-1 rounded-full bg-black/30 border border-[var(--glass-border)]">
         <button type="button" id="tl1-periodo-anno" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all bg-[var(--primary)] text-white">All'anno</button>
-        <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">Al mese</button>
+        <button type="button" id="tl1-periodo-mese" class="flex-1 text-[11px] font-bold py-1.5 rounded-full transition-all text-[var(--on-surface-secondary)]">${tCh('perMonth', __uiLang)}</button>
       </div>
       <!-- Stepper +/- disegnato apposta invece delle frecce native del
            browser (grigie, cambiano forma per OS, mai in stile con l'app). -->
@@ -7369,12 +7369,12 @@ window.openTaxLevel1Simulate = () => {
            sarebbe gergo per chi sta ancora decidendo — resta un dettaglio
            apribile, mai un campo che blocca il passo successivo. -->
       <details class="w-full text-left">
-        <summary class="cursor-pointer text-[11px] text-[var(--on-surface-secondary)] underline">Cosa farai, di preciso? (facoltativo, cambia la stima)</summary>
+        <summary class="cursor-pointer text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('pivaWhatExactly', __uiLang)}</summary>
         <!-- Non "cerca il tuo codice ATECO" (gergo), ma "descrivi il lavoro"
              — la ricerca trova lei il codice, l'utente non deve saperlo a
              memoria. Elenco parziale e onesto: link allo strumento ufficiale
              sempre visibile, mai un'unica fonte di verità nostra. -->
-        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 mb-1">Descrivi in due parole cosa farai (es. "vendo online", "faccio l'elettricista") e trovo io il codice ATECO più vicino:</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 mb-1">${tCh('pivaDescribe', __uiLang)}</p>
         <div class="relative">
           <input id="tl1-ateco-search" type="text" placeholder="Es. faccio consulenza informatica…" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-ateco-search" />
           <div id="tl1-ateco-hits" class="hidden mt-1.5 rounded-xl border border-[var(--glass-border)] bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-56 overflow-y-auto"></div>
@@ -7383,7 +7383,7 @@ window.openTaxLevel1Simulate = () => {
           <span id="tl1-ateco-picked-label"></span>
           <button type="button" id="tl1-ateco-picked-clear" class="text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)]" aria-label="Rimuovi">✕</button>
         </div>
-        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">Non lo trovi o vuoi il codice esatto? <a href="${ATECO_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline text-[var(--primary)]">Cercalo sullo strumento ufficiale gratuito</a>, o scegli solo la categoria qui sotto:</p>
+        <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${tCh('pivaNotFound', __uiLang)} <a href="${ATECO_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline text-[var(--primary)]">${tCh('pivaOfficialTool', __uiLang)}</a>${tCh('pivaOrCategory', __uiLang)}</p>
         <div class="mt-2">${tl1Select('tl1-ateco',
           Object.entries(ATECO_COEFFICIENTI).map(([k, v]) => ({ value: k, label: v.label })),
           'professionisti')}</div>
@@ -7400,14 +7400,14 @@ window.openTaxLevel1Simulate = () => {
              casse — nascosto per chiunque altro, mai un campo in più senza
              un motivo reale (contributoEnpam in tax.js). -->
         <div id="tl1-eta-wrap" class="hidden mt-2">
-          <input type="number" id="tl1-eta" inputmode="numeric" min="18" max="100" placeholder="La tua età (serve per la Quota A ENPAM)" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-eta" aria-label="La tua età" />
+          <input type="number" id="tl1-eta" inputmode="numeric" min="18" max="100" placeholder="${tCh('pivaAgePh', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-eta" aria-label="${tCh('yourAge', __uiLang)}" />
         </div>
         <label class="flex items-center gap-2 mt-2 text-[11px] text-[var(--on-surface-secondary)] cursor-pointer select-none">
           <input type="checkbox" id="tl1-dipendente" class="w-3.5 h-3.5 rounded accent-[var(--primary)]" name="tl1-dipendente" />
           Lavoro già come dipendente (o ho un'altra copertura previdenziale obbligatoria) — INPS al 24% invece di 26,07%
         </label>
       </details>
-      <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Scopri cosa ti resterebbe</button>
+      <button id="tl1-go" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('pivaSeeWhatLeft', __uiLang)}</button>
       <button onclick="window.openTaxLevel1()" class="btn-action tax-back-action">${taxJourneyCopy(__uiLang).back}</button>
     </div>`);
   const input = document.getElementById('tl1-amount');
@@ -7512,7 +7512,7 @@ const TL1_STRATEGY_ICONS = {
   dipendente: '<rect x="4" y="7" width="16" height="13" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/>', // valigetta (doppio lavoro)
 };
 window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
-  if (!(fatturato > 0)) { showToast('Inserisci una stima di fatturato per continuare.', 'error'); return; }
+  if (!(fatturato > 0)) { showToast(tCh('pivaEnterEstimate', __uiLang), 'error'); return; }
   const s = simulateNewPartitaIva(fatturato, { ateco, cassaPropria: extra.cassaPropria, altraCoperturaPrevidenziale: extra.altraCoperturaPrevidenziale, eta: extra.eta });
   // Strategie legittime (mai trucchi inventati): ogni voce è verificata su
   // fonte ufficiale e posta come domanda da fare al commercialista, non come
@@ -7536,7 +7536,7 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
       <div class="w-full rounded-2xl border border-[var(--glass-border)] bg-[color-mix(in_srgb,#10b981_8%,var(--surface-elevated))] p-4">
         <div class="text-[10px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Ti resterebbero circa</div>
         <div id="tl1-result-number" class="text-4xl font-black text-emerald-400 my-1">${Math.round(s.netMensile).toLocaleString('it-IT')}€<span class="text-sm font-bold text-[var(--on-surface-secondary)]">/mese</span></div>
-        <div class="text-[11px] text-[var(--on-surface-secondary)]">${Math.round(s.netAnnuo).toLocaleString('it-IT')}€/anno, dopo tasse e contributi</div>
+        <div class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('pivaNetYear', __uiLang, Math.round(s.netAnnuo).toLocaleString(__uiLang))}</div>
       </div>
       <div class="text-xs text-[var(--on-surface-secondary)] text-left w-full">Regime consigliato: <b class="text-[var(--on-surface)]">${s.regimeLabel}</b>. ${s.suggestion.reason}</div>
       <div class="w-full rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-200 text-left flex items-start gap-2">
@@ -7544,12 +7544,12 @@ window.openTaxLevel1Result = (fatturato, ateco, extra = {}) => {
         <span>${s.primoAnnoNote}</span>
       </div>
       ${strategieHTML}
-      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Stima, non consulenza fiscale: verifica sempre col commercialista prima di aprire la Partita IVA.</div>
+      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">${tCh('pivaEstimateNote', __uiLang)}</div>
       <button onclick="window.openTaxLevel1HowToOpen()" class="btn-action w-full py-3.5 font-bold rounded-xl justify-between">
-        <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>Ok, come si apre davvero?</span>
+        <span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>${tCh('pivaHowForReal', __uiLang)}</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
       </button>
-      <button onclick="window.openTaxLevel1Simulate()" class="btn-action tax-back-action">← Rifai con un altro importo</button>
+      <button onclick="window.openTaxLevel1Simulate()" class="btn-action tax-back-action">← ${tCh('pivaRetry', __uiLang)}</button>
       <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
     </div>`);
   // Micro-animazione: il numero arriva con un pop invece di comparire di
@@ -7602,7 +7602,7 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
   const kitHTML = last ? `
       <div id="tl1-kit" class="w-full text-left rounded-2xl border border-[var(--glass-border)] bg-black/20 p-3.5">
         <div class="flex items-center justify-between gap-2 mb-2">
-          <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide">Il tuo riepilogo, pronto da incollare</div>
+          <div class="text-[10px] font-bold text-[var(--gold)] uppercase tracking-wide">${tCh('pivaSummaryReady', __uiLang)}</div>
         </div>
         <div id="tl1-kit-text" class="text-[11px] text-[var(--on-surface-secondary)] leading-relaxed whitespace-pre-line select-all">${tl1KitText(last)}</div>
         <button type="button" id="tl1-kit-copy" class="mt-2.5 w-full btn-action justify-center text-[11px] font-bold py-2">
@@ -7614,15 +7614,15 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
     <div class="tax-workspace-step flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center modal-section-in">
       ${tl1Icon('<path d="M9 12l2 2 4-4M7.8 3.6a9 9 0 1 1-4.2 4.2"/>', '--primary')}
       <div>
-        <h3 class="text-lg font-black leading-tight">Come si apre, davvero</h3>
-        <p class="card-sub !mb-0 mt-1.5">Due strade diverse, in base a cosa farai. Scegli la tua — Momentum ti indica quella esatta, tu premi invio dalla tua PEC o firma digitale.</p>
+        <h3 class="text-lg font-black leading-tight">${tCh('pivaHowToOpen', __uiLang)}</h3>
+        <p class="card-sub !mb-0 mt-1.5">${tCh('pivaTwoRoads', __uiLang)}</p>
       </div>
       <!-- "Modalità esperta": chi legge questa guida può essere un
            commercialista o chi apre la prima P.IVA della sua vita — stesso
            contenuto per entrambi, ma i riferimenti normativi restano un
            dettaglio apribile, mai il default che intimidisce chi non è del
            mestiere. -->
-      <button type="button" id="tl1-expert-toggle" class="text-[10px] font-bold text-[var(--on-surface-secondary)] underline self-end -mt-2">Sei del mestiere? Mostra i riferimenti normativi</button>
+      <button type="button" id="tl1-expert-toggle" class="text-[10px] font-bold text-[var(--on-surface-secondary)] underline self-end -mt-2">${tCh('pivaExpertToggle', __uiLang)}</button>
       <div class="w-full flex flex-col gap-2.5">
         <details class="w-full text-left rounded-2xl border ${!consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${!consigliaImpresa ? 'open' : ''}>
           <summary class="cursor-pointer list-none p-3.5 flex items-center gap-3">
@@ -7630,23 +7630,23 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
               <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-3V5a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v2H4a1 1 0 0 0-1 1v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8a1 1 0 0 0-1-1z"/><path d="M9 7V5h6v2"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-black flex items-center gap-1.5">Libero professionista${!consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">il tuo caso</span>` : ''}</div>
-              <div class="text-[10px] text-[var(--on-surface-secondary)]">Niente Registro Imprese — Modello AA9/12</div>
+              <div class="text-sm font-black flex items-center gap-1.5">${tCh('pivaFreelancer', __uiLang)}${!consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">${tCh('pivaYourCase', __uiLang)}</span>` : ''}</div>
+              <div class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('pivaNoRegister', __uiLang)}</div>
             </div>
             <svg class="tl1-guide-chevron w-4 h-4 shrink-0 text-[var(--on-surface-secondary)] transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div class="px-3.5 pb-3.5 flex flex-col gap-2.5 border-t border-[var(--glass-border)] pt-3">
-            ${tl1CostoTempo('Gratis', 'green', '24–48 ore', 'green')}
-            ${tl1Checklist('tl1-check-libero', ['Codice fiscale', 'Il tuo codice ATECO (già trovato sopra, se l\'hai cercato)', 'Un indirizzo per l\'attività (va bene anche la tua residenza)', 'PEC attiva (se non ce l\'hai, un provider costa in media ~35€/anno)'])}
-            ${tl1Step(1, 'Tieni pronti codice fiscale, il tuo codice ATECO e l\'indirizzo dell\'attività.')}
-            ${tl1Step(2, 'Compila il <b class="text-[var(--on-surface)]">Modello AA9/12</b> (apertura P.IVA persona fisica), scaricabile dal sito dell\'Agenzia delle Entrate.')}
-            ${tl1Step(3, 'Invialo via <b class="text-[var(--on-surface)]">PEC</b> alla Direzione Provinciale competente, oggetto "Dichiarazione di inizio attività", <b class="text-[var(--on-surface)]">entro 30 giorni</b> dall\'inizio dell\'attività — con firma digitale, oppure firma autografa + copia di un documento d\'identità allegata.')}
-            ${tl1Step(4, 'Ricevi il numero di Partita IVA in risposta: da lì puoi già fatturare.')}
+            ${tl1CostoTempo(tCh('free', __uiLang), 'green', tCh('hours24to48', __uiLang), 'green')}
+            ${tl1Checklist('tl1-check-libero', [tCh('pivaChkTaxCode', __uiLang), tCh('pivaChkAteco', __uiLang), tCh('pivaChkAddress', __uiLang), tCh('pivaChkPec', __uiLang)])}
+            ${tl1Step(1, tCh('pivaStepL1', __uiLang))}
+            ${tl1Step(2, tCh('pivaStepL2', __uiLang))}
+            ${tl1Step(3, tCh('pivaStepL3', __uiLang))}
+            ${tl1Step(4, tCh('pivaStepL4', __uiLang))}
             <a href="https://www.agenziaentrate.gov.it/portale/schede/istanze/aa9_11-apertura-variazione-chiusura-pf/modello-e-istr-pi-pf" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] underline">
-              Modello AA9/12 su agenziaentrate.gov.it
+              ${tCh('pivaLinkAa9', __uiLang)}
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
             </a>
-            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: obbligo di dichiarazione di inizio attività IVA — art. 35, DPR 633/1972.</div>
+            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">${tCh('pivaRefL', __uiLang)}</div>
           </div>
         </details>
         <details class="w-full text-left rounded-2xl border ${consigliaImpresa ? 'border-[var(--primary)]' : 'border-[var(--glass-border)]'} bg-black/20 overflow-hidden" ${consigliaImpresa ? 'open' : ''}>
@@ -7655,41 +7655,41 @@ window.openTaxLevel1HowToOpen = (atecoArg) => {
               <svg class="w-4.5 h-4.5 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-6h6v6"/></svg>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-sm font-black flex items-center gap-1.5">Impresa / artigianato${consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">il tuo caso</span>` : ''}</div>
-              <div class="text-[10px] text-[var(--on-surface-secondary)]">Serve il Registro Imprese — Comunicazione Unica</div>
+              <div class="text-sm font-black flex items-center gap-1.5">${tCh('pivaBusiness', __uiLang)}${consigliaImpresa ? ` <span class="text-[9px] font-bold text-[var(--primary)] bg-[var(--primary)]/15 rounded-full px-1.5 py-0.5">${tCh('pivaYourCase', __uiLang)}</span>` : ''}</div>
+              <div class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('pivaNeedsRegister', __uiLang)}</div>
             </div>
             <svg class="tl1-guide-chevron w-4 h-4 shrink-0 text-[var(--on-surface-secondary)] transition-transform duration-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
           </summary>
           <div class="px-3.5 pb-3.5 flex flex-col gap-2.5 border-t border-[var(--glass-border)] pt-3">
-            ${tl1CostoTempo('Diritti CCIAA + PEC (~35€/anno se non li hai)', 'amber', 'Alcuni giorni lavorativi', 'amber')}
-            ${tl1Checklist('tl1-check-impresa', ['Codice fiscale e dati anagrafici', 'Il tuo codice ATECO', 'Sede dell\'attività', 'Firma digitale', 'PEC attiva'])}
-            ${tl1Step(1, 'Tieni pronti i dati dell\'attività: sede, codice ATECO, eventuali requisiti per attività artigianali.')}
-            ${tl1Step(2, 'Presenta la <b class="text-[var(--on-surface)]">Comunicazione Unica d\'Impresa (ComUnica)</b> sul portale del Registro delle Imprese: un\'unica pratica apre insieme Partita IVA, iscrizione al Registro Imprese, posizione INPS e INAIL.')}
-            ${tl1Step(3, 'Serve una <b class="text-[var(--on-surface)]">firma digitale</b> — o un intermediario abilitato (es. commercialista) che la presenti per te.')}
-            ${tl1Step(4, 'La Camera di Commercio smista tutto agli altri enti automaticamente: ricevi conferma e numero di Partita IVA.')}
+            ${tl1CostoTempo(tCh('pivaCostBiz', __uiLang), 'amber', tCh('fewWorkingDays', __uiLang), 'amber')}
+            ${tl1Checklist('tl1-check-impresa', [tCh('pivaChkTaxCodeData', __uiLang), tCh('pivaChkAtecoShort', __uiLang), tCh('pivaChkSeat', __uiLang), tCh('pivaChkDigitalSig', __uiLang), tCh('pivaChkPecShort', __uiLang)])}
+            ${tl1Step(1, tCh('pivaStepB1', __uiLang))}
+            ${tl1Step(2, tCh('pivaStepB2', __uiLang))}
+            ${tl1Step(3, tCh('pivaStepB3', __uiLang))}
+            ${tl1Step(4, tCh('pivaStepB4', __uiLang))}
             <a href="https://registroimprese.infocamere.it" target="_blank" rel="noopener" class="mt-1 inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--primary)] underline">
-              Comunicazione Unica su registroimprese.infocamere.it
+              ${tCh('pivaLinkComunica', __uiLang)}
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
             </a>
-            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">Riferimento normativo: Comunicazione Unica obbligatoria dal 2010 — art. 9, L. 40/2007 (conversione D.L. 7/2007).</div>
+            <div class="tl1-expert text-[10px] text-[var(--on-surface-secondary)] border-t border-[var(--glass-border)] pt-2 mt-1">${tCh('pivaRefB', __uiLang)}</div>
           </div>
         </details>
       </div>
       ${kitHTML}
-      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">Momentum ti indica la strada esatta ma non può presentare la pratica al posto tuo: firma digitale e PEC restano sempre tue, non passano mai dai nostri server.</div>
-      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">Ho capito</button>
+      <div class="text-[10px] text-[var(--on-surface-secondary)] opacity-70">${tCh('pivaCannotFile', __uiLang)}</div>
+      <button onclick="window.closeModal()" class="btn-action btn-primary w-full py-3.5 font-bold rounded-xl">${tCh('gotIt', __uiLang)}</button>
     </div>`);
   document.getElementById('tl1-kit-copy')?.addEventListener('click', async () => {
     const text = document.getElementById('tl1-kit-text')?.textContent || '';
     try {
       await navigator.clipboard.writeText(text);
-      showToast('Riepilogo copiato — incollalo dove ti serve.', 'success');
+      showToast(tCh('summaryCopied', __uiLang), 'success');
       const kit = document.getElementById('tl1-kit');
       if (kit && !motionIsReduced()) {
         kit.classList.remove('tl1-kit-copied'); void kit.offsetWidth; kit.classList.add('tl1-kit-copied');
       }
     } catch (_) {
-      showToast('Non riesco a copiare automaticamente: selezionalo e copialo a mano.', 'error');
+      showToast(tCh('copyAutoFailed', __uiLang), 'error');
     }
   });
   tl1InitChecklist('tl1-check-libero');
@@ -7728,7 +7728,7 @@ window.openTaxRegimePicker = () => {
   window.openModal(`
     <div class="tax-workspace-step tax-regime-choice p-1">
       <h3 class="text-lg font-black mb-1">Regime fiscale</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)] mb-4">Scegli il tuo: cambia come calcolo imposta e contributi. Puoi modificarlo quando vuoi.</p>
+      <p class="text-xs text-[var(--on-surface-secondary)] mb-4">${tCh('regimeChooseYours', __uiLang)}</p>
       <div class="space-y-2">
         ${Object.entries(REGIMI).map(([k, v]) => `
           <button onclick="window.setTaxRegime('${k}'); window.closeModal();" class="btn-action w-full justify-between ${k === cur ? 'border-[var(--primary)]' : ''}">
@@ -7736,7 +7736,7 @@ window.openTaxRegimePicker = () => {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0"><path d="M9 18l6-6-6-6"/></svg>
           </button>`).join('')}
       </div>
-      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">Chiudi</button>
+      <button onclick="window.closeModal()" class="btn-action w-full justify-center mt-4 text-[var(--on-surface-secondary)]">${tCh('close', __uiLang)}</button>
     </div>`);
 };
 
@@ -7842,7 +7842,7 @@ window.markTransmitted = (number, year) => {
   VaultDAO.state.invoices = (VaultDAO.state.invoices || []).map(i =>
     (i.number === number && i.year === year && i.isElectronic) ? { ...i, sdiTransmitted: true } : i);
   VaultDAO.save();
-  showToast(`Fattura n.${number}/${year} segnata come trasmessa. ✓`, 'success');
+  showToast(tCh('invoiceMarkedSent', __uiLang, number, year), 'success');
   renderAnalysis();
 };
 
@@ -7870,18 +7870,18 @@ window.openSepaTransfer = (d = {}) => {
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div><h3 class="text-base font-black">${esc(title)}</h3><p class="card-sub !mb-0">${esc(sub)}</p></div>
-      ${!validIban ? `<div class="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-[12px] px-3 py-2.5">Manca un IBAN valido: aggiungilo nei tuoi dati fiscali per generare il bonifico.</div>` : ''}
+      ${!validIban ? `<div class="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-[12px] px-3 py-2.5">${tCh('sepaMissingIban', __uiLang)}</div>` : ''}
       ${qr ? `<div class="mx-auto rounded-2xl bg-white p-2.5" style="width:min(240px,72vw)">${qr}</div>
-              <p class="text-[10px] text-center text-[var(--on-surface-secondary)]">QR standard SEPA (EPC). Se la tua app non lo legge, usa i dati qui sotto — funzionano con ogni banca.</p>` : ''}
+              <p class="text-[10px] text-center text-[var(--on-surface-secondary)]">${tCh('sepaQrNote', __uiLang)}</p>` : ''}
       <div class="rounded-xl border border-[var(--glass-border)] bg-black/20 p-3 text-[12px] font-mono whitespace-pre-line select-all">${esc(fallback)}</div>
-      <button id="sepa-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Copia i dati del bonifico</button>
+      <button id="sepa-copy" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${tCh('sepaCopy', __uiLang)}</button>
       <div class="grid grid-cols-4 gap-2">
         <button id="sepa-wa" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-emerald-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.6 4.7-1.2A10 10 0 1 0 12 2zm0 2a8 8 0 0 1 0 16 8 8 0 0 1-4.1-1.1l-.3-.2-2.4.6.6-2.3-.2-.3A8 8 0 0 1 12 4zm-2.6 3.4c-.2 0-.5 0-.7.4-.2.4-.9.9-.9 2.1s.9 2.5 1 2.6c.1.2 1.7 2.8 4.3 3.8 2.1.8 2.6.7 3 .6.5-.1 1.4-.6 1.6-1.1.2-.6.2-1 .1-1.1 0-.1-.3-.2-.6-.4-.3-.1-1.4-.7-1.6-.8-.2-.1-.4-.1-.5.1-.2.3-.6.8-.7.9-.1.2-.3.2-.5.1-.3-.1-1-.4-2-1.2-.7-.7-1.2-1.5-1.4-1.7-.1-.3 0-.4.1-.5l.4-.5c.1-.1.2-.3.2-.4.1-.2 0-.3 0-.4 0-.1-.5-1.3-.7-1.7-.2-.4-.4-.4-.5-.4z"/></svg>WhatsApp</button>
         <button id="sepa-email" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Email</button>
         <button id="sepa-share" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Altro…</button>
         <button id="sepa-copy-iban" class="flex flex-col items-center gap-1 py-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20 text-[10px] font-bold"><svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>IBAN</button>
       </div>
-      <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">Momentum non invia bonifici né accede al conto: prepara il messaggio e i dati, l'invio e il movimento li fai tu (con la tua autenticazione).</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">${tCh('sepaNoSend', __uiLang)}</p>
     </div>`);
   // Messaggio pronto (per richiesta pagamento: intro gentile + dati; per bonifico proprio: i dati)
   // Firma sobria Momentum solo per la richiesta TRA AMICI (d.brand), non per le
@@ -7893,14 +7893,14 @@ window.openSepaTransfer = (d = {}) => {
     ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!${brandLine}`
     : fallback;
   const subject = isRequest ? `Pagamento${remittance ? ` — ${remittance}` : ''}` : 'Dati bonifico';
-  $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast('Dati del bonifico copiati.', 'success'); });
+  $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast(tCh('sepaCopied', __uiLang), 'success'); });
   $('#sepa-copy-iban')?.addEventListener('click', () => { navigator.clipboard?.writeText(iban); showToast('IBAN copiato.', 'success'); });
   $('#sepa-wa')?.addEventListener('click', () => { window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener'); });
   $('#sepa-email')?.addEventListener('click', () => { window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`; });
   $('#sepa-share')?.addEventListener('click', async () => {
     try {
       if (navigator.share) await navigator.share({ title, text: message });
-      else { navigator.clipboard?.writeText(message); showToast('Messaggio copiato (condivisione non disponibile qui).', 'info'); }
+      else { navigator.clipboard?.writeText(message); showToast(tCh('messageCopiedNoShare', __uiLang), 'info'); }
     } catch (e) { /* utente ha annullato */ }
   });
 };
@@ -8341,15 +8341,15 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
   // dove sarai a fine finestra, e QUANDO passi dal punto più basso (la valle,
   // quasi sempre il giorno prima dell'accredito) — è quello il momento stretto.
   const testa = !f.relative && f.riskDay
-    ? `<span class="text-amber-300 font-bold">Attenzione al ${dayName(f.riskDay.date)}</span> <span class="text-[var(--on-surface-secondary)]">· nello scenario prudente lì tocchi il fondo</span>`
+    ? `<span class="text-amber-300 font-bold">${tCh('fcWatchDay', __uiLang, dayName(f.riskDay.date))}</span> <span class="text-[var(--on-surface-secondary)]">${tCh('fcPrudentBottom', __uiLang)}</span>`
     : f.relative
       ? `<span class="${f.end.p50 >= 0 ? 'text-emerald-400' : 'text-amber-300'} font-bold">${f.end.p50 >= 0 ? '+' : ''}${eur(f.end.p50)}</span> <span class="text-[var(--on-surface-secondary)]">rispetto a oggi entro il ${dayName(f.end.date)}${valle ? ` · il momento più stretto è il ${dayName(valle.date)}` : ''}</span>`
-      : `<span class="text-emerald-400 font-bold">Nessun giorno critico</span> <span class="text-[var(--on-surface-secondary)]">fino al ${dayName(f.end.date)}</span>`;
+      : `<span class="text-emerald-400 font-bold">${tCh('fcNoCriticalDay', __uiLang)}</span> <span class="text-[var(--on-surface-secondary)]">${tCh('fcUntil', __uiLang, dayName(f.end.date))}</span>`;
 
   // La fiducia si dice solo se bassa: sopra il 70% è rumore, sotto è l'unica
   // cosa onesta da dire ("sto ancora imparando le tue abitudini").
   const lowConfidence = (f.confidence || 0) < 0.7
-    ? `<p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">Sto ancora imparando le tue abitudini: più giorni importi, più questa stima diventa precisa.</p>` : '';
+    ? `<p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">${tCh('fcStillLearning', __uiLang)}</p>` : '';
 
   const riskAttribute = !f.relative && f.riskDay ? ' data-cash-risk="true"' : '';
   const wrapOpen = standalone ? `<div class="cash-observatory"${riskAttribute}>` : `<div class="cash-observatory"${riskAttribute}>`;
@@ -8384,14 +8384,14 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
         </svg>
         <!-- etichette-pillola posizionate SULLA curva, non in una riga a parte:
              si legge dove succede la cosa, non un legenda da decifrare. -->
-        <span class="absolute -bottom-1 text-[8.5px] font-bold text-[var(--on-surface-secondary)] opacity-70" style="left:${xPct(0)}%">oggi</span>
+        <span class="absolute -bottom-1 text-[8.5px] font-bold text-[var(--on-surface-secondary)] opacity-70" style="left:${xPct(0)}%">${tCh('today', __uiLang)}</span>
         <span class="absolute -bottom-1 -translate-x-full text-[8.5px] font-bold text-[var(--on-surface-secondary)] opacity-70" style="left:${xPct(pts.length - 1)}%">${dayName(f.end.date)}</span>
         ${paydayIdx > 0 ? `<span class="absolute -translate-x-1/2 text-[8.5px] font-bold text-emerald-400 bg-emerald-500/15 px-1.5 py-0.5 rounded-full whitespace-nowrap" style="left:${xPct(paydayIdx)}%; top:${Math.max(0, yPct(paydayIdx) - 22)}%">stipendio</span>` : ''}
         ${valleIdx > 0 ? `<span class="absolute -translate-x-1/2 text-[8.5px] font-bold text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded-full whitespace-nowrap" style="left:${xPct(valleIdx)}%; top:${Math.min(78, yPct(valleIdx) + 8)}%">più stretto</span>` : ''}
         </div>
       </div>
       ${lever ? `<p class="text-[10.5px] mt-2 text-[var(--primary)]">${ICON_IDEA}${lever.label}${lever.daysGained > 0 ? `: guadagni <b>${lever.daysGained} giorn${lever.daysGained === 1 ? 'o' : 'i'}</b> di respiro` : lever.note ? ` — ${lever.note}` : ''}.</p>` : ''}
-      ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">Se saldi subito i ${eur(f.withSplit.owed)} delle divisioni, chiudi a ${eur(f.withSplit.endP50)}.</p>` : ''}
+      ${f.withSplit ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${tCh('fcSettleSplit', __uiLang, eur(f.withSplit.owed), eur(f.withSplit.endP50))}</p>` : ''}
       ${splitLiability && !splitLiability.complete ? `<p class="text-[10px] text-[var(--on-surface-secondary)] mt-1">${escapeHtml(splitLiabilityNotice(__uiLang))}</p>` : ''}
       <div class="cash-explorer" data-cash-points="${escapeHtml(JSON.stringify(pts.map(p => ({date:dayName(p.date),mid:eur(p.p50),low:eur(p.p10),high:eur(p.p90)}))))}">
         <div class="cash-reading"><span data-cash-date>${dayName(pts[0].date)}</span><strong data-cash-value>${eur(pts[0].p50)}</strong></div>
@@ -8401,8 +8401,8 @@ function cashCurveHtml(commitments, salary, { standalone = true, tone = ['#818cf
       </div>
       ${lowConfidence}
       <details class="ghost-details mt-1">
-        <summary class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">Cosa vuol dire il tratteggio?</summary>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">La linea piena è lo scenario più probabile. Le due guide tratteggiate sopra e sotto vanno da prudente (<b>${eur(f.end.p10)}</b>) a fortunato (<b>${eur(f.end.p90)}</b>) al ${dayName(f.end.date)}: sono i due estremi ragionevoli, non un errore.</p>
+        <summary class="text-[11px] text-[var(--on-surface-secondary)] opacity-70 cursor-pointer list-none min-h-[24px] inline-block">${tCh('fcDashedWhat', __uiLang)}</summary>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-80 mt-1">${tCh('fcDashedBody', __uiLang, eur(f.end.p10), eur(f.end.p90), dayName(f.end.date))}</p>
       </details>
     </div>`;
 }
@@ -9710,7 +9710,7 @@ window.showAssetComps = async (symbol) => {
   if (!box) return;
   const apiKey = VaultDAO.state.liveDataKeys?.alphavantage;
   if (!apiKey) {
-    box.innerHTML = `<p class="text-[10px] text-rose-300">Il confronto con i pari usa i bilanci reali di Alpha Vantage: serve la tua chiave personale gratuita (pochi secondi, nessuna carta). <button id="comps-add-key-${symbol}" class="underline font-bold">Aggiungila →</button></p>`;
+    box.innerHTML = `<p class="text-[10px] text-rose-300">${tCh('compsNeedKey', __uiLang)} <button id="comps-add-key-${symbol}" class="underline font-bold">${tCh('addIt', __uiLang)} →</button></p>`;
     document.getElementById(`comps-add-key-${symbol}`)?.addEventListener('click', () => {
       document.querySelector('[data-view="settings"]')?.click(); // Momentum Vault
       setTimeout(() => window.openApiKeyGuide?.('alphavantage'), 250);
@@ -9731,7 +9731,7 @@ window.showAssetComps = async (symbol) => {
       )
     );
     const [targetOv, ...peerOvs] = overviews;
-    if (!targetOv) { box.innerHTML = `<p class="text-[10px] text-rose-300">Non riesco a scaricare i dati di mercato di ${symbol}.</p>`; return; }
+    if (!targetOv) { box.innerHTML = `<p class="text-[10px] text-rose-300">${tCh('compsDataFailed', __uiLang, symbol)}</p>`; return; }
     const target = { symbol, name: targetOv.name, evToEbitda: targetOv.evToEbitda, evToRevenue: targetOv.evToRevenue, ebitda: targetOv.ebitda, revenueTTM: targetOv.revenueTTM };
     const peers = comp.comparabili.map((c, i) => peerOvs[i] ? { symbol: c.ticker, name: peerOvs[i].name, evToEbitda: peerOvs[i].evToEbitda, evToRevenue: peerOvs[i].evToRevenue } : null).filter(Boolean);
     const r = analizzaComps(target, peers);
@@ -9745,7 +9745,7 @@ window.showAssetComps = async (symbol) => {
       ? `<div class="p-2 rounded-lg border border-indigo-500/25 bg-indigo-950/10 text-indigo-200 text-[10px] leading-snug">${escapeHtml(testo)}${exportBtn}</div>`
       : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(testo)}</p>`;
   } catch (e) {
-    box.innerHTML = `<p class="text-[10px] text-rose-300">Confronto non riuscito: ${escapeHtml(e.message || 'errore sconosciuto')}.</p>`;
+    box.innerHTML = `<p class="text-[10px] text-rose-300">${tCh('compsFailed', __uiLang, escapeHtml(e.message || tCh('unknownError', __uiLang)))}</p>`;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -9878,7 +9878,7 @@ window.showCryptoPosizionamento = async (symbol) => {
       ? `<div class="p-2 rounded-lg border ${r.affollamentoConfermato ? 'border-amber-500/25 bg-amber-950/10 text-amber-200' : 'border-violet-500/25 bg-violet-950/10 text-violet-200'} text-[10px] leading-snug">${escapeHtml(r.testo)}</div>`
       : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${escapeHtml(r.motivo)}</p>`;
   } catch (e) {
-    box.innerHTML = `<p class="text-[10px] text-rose-300">Posizionamento non disponibile: ${escapeHtml(e.message || 'errore sconosciuto')}.</p>`;
+    box.innerHTML = `<p class="text-[10px] text-rose-300">${tCh('positioningFailed', __uiLang, escapeHtml(e.message || tCh('unknownError', __uiLang)))}</p>`;
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -9889,7 +9889,7 @@ window.addToWatchlist = (symbol, kind, id, name) => {
   if (list.some(w => w.symbol === symbol)) { showToast(`${symbol} è già tra i seguiti.`, 'info'); return; }
   VaultDAO.state.watchlist = [...list, { symbol, kind, id, name }];
   VaultDAO.save();
-  showToast(`${symbol} seguito: il prezzo si aggiorna da solo, non serve rifare la ricerca.`, 'success');
+  showToast(tCh('assetFollowed', __uiLang, symbol), 'success');
   renderWatchlist();
 };
 function formatTrackedQuote(amount, kind) {
@@ -10134,7 +10134,7 @@ window.enableTaxNotifications = async () => {
     try { await Notification.requestPermission(); } catch (_) {}
   }
   if (!('Notification' in window) || Notification.permission !== 'granted') {
-    showToast('Permesso non concesso: puoi attivarlo dalle impostazioni del browser quando vuoi.', 'info');
+    showToast(tCh('notifyPermissionDenied', __uiLang), 'info');
     return;
   }
   VaultDAO.state.taxNotifyOptIn = true;
@@ -10183,7 +10183,7 @@ window.addPriceAlert = async (symbol, kind) => {
         }
       }
     } catch (_) {}
-    showToast(`Ti avviserò quando ${symbol} ${direction === 'above' ? 'supera' : 'scende sotto'} ${formatTrackedQuote(threshold, kind)}.`, 'success');
+    showToast(tCh('alertSet', __uiLang, symbol, direction === 'above', formatTrackedQuote(threshold, kind)), 'success');
     renderPriceAlerts();
   } catch (e) {
     showToast(e.message, 'error');
@@ -10233,19 +10233,19 @@ window.openBnplManager = (onDone = null) => {
     });
     const rows = exp.plans.map(p => {
       const badge = p.anticipated
-        ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">previsto</span>`
+        ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/25">${tCh('bnplExpected', __uiLang)}</span>`
         : p.confidence === 'pattern'
-          ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25">non verificato</span>`
+          ? `<span class="text-[11px] px-1.5 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25">${tCh('bnplUnverified', __uiLang)}</span>`
           : '';
       const next = p.upcoming[0];
       return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
         <div class="min-w-0 flex-1">
           <span class="font-bold text-[13px] flex items-center gap-1.5 flex-wrap"><span class="truncate">${esc(p.providerLabel)}</span>${badge}</span>
-          <span class="text-[10.5px] text-[var(--on-surface-secondary)]">${p.remainingCount} rate residue${next ? ` · prossima il ${dayName(next.date)}` : ''}</span>
+          <span class="text-[10.5px] text-[var(--on-surface-secondary)]">${tCh('bnplRemaining', __uiLang, p.remainingCount, next ? dayName(next.date) : null)}</span>
         </div>
         <span class="flex items-center gap-2 shrink-0">
           <span class="font-mono font-black text-[13px] text-amber-300">${eur(p.remainingTotal)}</span>
-          <button data-dismiss="${p.id}" title="Non è un piano a rate" class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 underline whitespace-nowrap">non è un piano</button>
+          <button data-dismiss="${p.id}" title="${tCh('bnplNotPlanTitle', __uiLang)}" class="text-[10px] text-[var(--on-surface-secondary)] opacity-70 underline whitespace-nowrap">${tCh('bnplNotPlan', __uiLang)}</button>
         </span>
       </div>`;
     }).join('');
@@ -10253,16 +10253,16 @@ window.openBnplManager = (onDone = null) => {
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
         <div>
-          <p class="eyebrow !mb-0 text-[var(--primary)]">Piani a rate</p>
-          <h3 class="text-base font-black">Klarna, PayPal, Scalapay e altri</h3>
-          <p class="card-sub !mb-0">Vedo tutti i piani insieme, indipendentemente dal provider — nessuna delle loro app lo fa. Se ne riconosco uno per sbaglio, correggimi qui sotto.</p>
+          <p class="eyebrow !mb-0 text-[var(--primary)]">${tCh('bnplEyebrow', __uiLang)}</p>
+          <h3 class="text-base font-black">${tCh('bnplTitle', __uiLang)}</h3>
+          <p class="card-sub !mb-0">${tCh('bnplIntro', __uiLang)}</p>
         </div>
         ${exp.count > 0 ? `<div class="card p-3 flex items-center justify-between">
-          <span class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">Totale ancora da pagare</span>
+          <span class="text-[11px] font-bold text-[var(--on-surface-secondary)] uppercase tracking-wide">${tCh('bnplTotalLeft', __uiLang)}</span>
           <span class="font-mono font-black text-[15px] text-amber-300">${eur(exp.totalRemaining)}</span>
         </div>` : ''}
-        ${rows || '<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun piano a rate rilevato per ora.</p>'}
-        ${dismissed().length ? `<button id="bnpl-restore" class="text-[10.5px] text-[var(--primary)] underline self-start">Ripristina i piani corretti (${dismissed().length})</button>` : ''}
+        ${rows || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('bnplNone', __uiLang)}</p>`}
+        ${dismissed().length ? `<button id="bnpl-restore" class="text-[10.5px] text-[var(--primary)] underline self-start">${tCh('bnplRestore', __uiLang, dismissed().length)}</button>` : ''}
       </div>`);
 
     // BUG TROVATO verificando dal vivo: il dismiss salvava correttamente nel
@@ -10276,7 +10276,7 @@ window.openBnplManager = (onDone = null) => {
       const ml = VaultDAO.state.mlData;
       ml.bnplDismissed = [...dismissed(), b.dataset.dismiss];
       VaultDAO.save();
-      showToast('Ok, non lo conto più come piano a rate.', 'info');
+      showToast(tCh('bnplDismissed', __uiLang), 'info');
       render();
       refreshUnderlying();
     }));
@@ -10925,10 +10925,10 @@ async function checkIosHandoffIfEmpty() {
   if (!snapshot || typeof snapshot !== 'object') return;
   const n = Object.values(snapshot.transactions || {}).reduce((s, arr) => s + (arr?.length || 0), 0);
   if (!n) return; // un'istantanea vuota non vale la pena di proporla
-  if (!confirm(`Ho trovato ${n} transazioni salvate da quando usavi Momentum nel browser. Vuoi importarle qui? (Puoi anche importarle dopo dal pulsante in Dashboard)`)) return;
+  if (!confirm(tCh('safariImportConfirm', __uiLang, n))) return;
   VaultDAO.state = { ...VaultDAO.state, ...snapshot, currentDate: new Date() };
   VaultDAO.save();
-  showToast('Dati importati da Safari. Ricarico…', 'success');
+  showToast(tCh('safariImported', __uiLang), 'success');
   setTimeout(() => window.location.reload(), 1000);
 }
 
@@ -11066,7 +11066,7 @@ window.openSplitGroup = (openId = null) => {
       } catch (_) { unread = 0; }
       const badge = unread > 0 ? `<span class="unread-badge-pop shrink-0 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--gold)] text-[10px] font-black text-black">${unread > 9 ? '9+' : unread}</span>` : '';
       return `<button data-open="${g.id}" class="split-row w-full flex items-center justify-between gap-2 p-3 rounded-xl border border-[var(--outline)] bg-[var(--surface-elevated)] text-left">
-        <span class="min-w-0 inline-flex items-center gap-2"><span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${g.members.length} persone · ${(g.expenses || []).length} spese</span></span>${badge}</span>
+        <span class="min-w-0 inline-flex items-center gap-2"><span class="min-w-0"><span class="font-bold text-sm block truncate">${esc(g.name)}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('groupCounts', __uiLang, g.members.length, (g.expenses || []).length)}</span></span>${badge}</span>
         <span class="font-mono font-black text-sm shrink-0">${esc(formatSplitMoney(total, g, __uiLocale))}</span></button>`;
     }).join('');
     openModal(`
@@ -11149,7 +11149,7 @@ window.openSplitGroup = (openId = null) => {
         <span class="min-w-0"><b>${esc(names[e.payer] || '?')}</b> ha pagato <b>${eur(e.amount)}</b>${e.description ? ` · <span class="text-[var(--on-surface-secondary)]">${esc(e.description)}</span>` : ''}${disputed ? ' <span class="text-[10px] font-bold text-amber-400">· in discussione</span>' : ''}${valutaNota}</span>
         <span class="shrink-0 inline-flex items-center gap-2">
           <button data-chat="${e.id}" aria-label="${esc(tSplit('message',__uiLang))}: ${esc(e.description || names[e.payer])}" class="text-[11px] font-bold ${nMsg ? 'text-[var(--gold)]' : 'text-[var(--on-surface-secondary)]'} inline-flex items-center gap-1"><svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${nMsg || ''}</button>
-          <button data-delexp="${e.id}" class="text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">elimina</button>
+          <button data-delexp="${e.id}" class="text-[11px] text-[var(--red)] opacity-70 hover:opacity-100">${tCh('deleteLower', __uiLang)}</button>
         </span>
       </div>`;
     }).join('');
@@ -11258,9 +11258,9 @@ window.openSplitGroup = (openId = null) => {
                gruppo richiede mai un account, vedi
                claimMember/unclaimedMembers). -->
           <button id="sg-export" title="${tCh('splitExportCsv', __uiLang)}" aria-label="${tCh('splitExportCsv', __uiLang)}" class="px-4 py-3 font-bold rounded-xl border border-[var(--outline)] text-[var(--on-surface-secondary)] inline-flex items-center justify-center"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></svg></button>
-          <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">Elimina</button>
+          <button id="sg-del" class="px-4 py-3 font-bold rounded-xl border border-[color-mix(in_srgb,var(--red)_30%,transparent)] text-[var(--red)] text-sm">${tCh('deleteCap', __uiLang)}</button>
         </div>
-        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">N persone, nessun limite. Condividi il gruppo con chi vuoi (anche lontano): le spese si uniscono senza server. I rimborsi li fate voi.</p>
+        <p class="text-[11px] text-[var(--on-surface-secondary)] opacity-90">${tCh('groupNoLimit', __uiLang)}</p>
         <button onclick="window.inviteToMomentum()" class="text-[11px] text-[var(--on-surface-secondary)] underline self-start">${tCh('inviteFromGroupCta', __uiLang)}</button>
         ${VaultDAO.state.activatedLite ? `<button id="sg-discover" class="split-payout-entry">${tCh('joinDiscover', __uiLang)}</button>` : ''}
       </div>`);
@@ -11390,17 +11390,17 @@ window.openSplitGroup = (openId = null) => {
         const oggiIso = new Date().toISOString().slice(0, 10);
         const rate = await fetchHistoricalRate(form.currency, baseCurrency, oggiIso);
         btn.disabled = false; btn.textContent = testoOriginale;
-        if (!rate) { showToast(`Non riesco a recuperare il tasso ${form.currency}→${baseCurrency} in questo momento. Riprova.`, 'error'); return; }
+        if (!rate) { showToast(tCh('fxRateUnavailable', __uiLang, form.currency, baseCurrency), 'error'); return; }
         try {
           const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito * rate, description: form.desc, shares, originalAmount: amtInserito, originalCurrency: form.currency, exchangeRate: rate });
           persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.custom = false; form.customShares = {}; form.showCurrency = false; form.currency = null; render();
-        } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
+        } catch (err) { showToast(tCh('expenseAddFailed', __uiLang, err.message), 'error'); }
         return;
       }
       try {
         const ng = addSharedExpense(g, { payer: form.payer, amount: amtInserito, description: form.desc, shares });
         persist(ng); form.amount = ''; form.desc = ''; form.involved = null; form.custom = false; form.customShares = {}; render();
-      } catch (err) { showToast('Non ho potuto aggiungere la spesa: ' + err.message, 'error'); }
+      } catch (err) { showToast(tCh('expenseAddFailed', __uiLang, err.message), 'error'); }
     });
     document.querySelectorAll('[data-delexp]').forEach(b => b.addEventListener('click', () => { const ng = { ...g, expenses: g.expenses.filter(e => e.id !== b.dataset.delexp) }; persist(ng); render(); }));
     document.querySelectorAll('[data-chat]').forEach(b => b.addEventListener('click', () => window.openExpenseChat(g.id, b.dataset.chat)));
@@ -11474,7 +11474,7 @@ window.openExpenseChat = (groupId, expenseId) => {
           <span class="font-bold">${esc(m.autore)}</span>${m.tipo === 'contestazione' ? '<span class="text-[10px] font-bold text-amber-400 ml-1.5">ha contestato</span>' : m.tipo === 'risolto' ? '<span class="text-[10px] font-bold text-emerald-400 ml-1.5">ha risolto</span>' : ''}
           <div class="text-[var(--on-surface-secondary)]">${esc(m.testo)}</div>
         </div>
-      </div>`).join('') || `<p class="text-[12px] text-[var(--on-surface-secondary)]">Nessun messaggio ancora su questa spesa.</p>`;
+      </div>`).join('') || `<p class="text-[12px] text-[var(--on-surface-secondary)]">${tCh('expenseNoMessages', __uiLang)}</p>`;
 
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
@@ -11482,7 +11482,7 @@ window.openExpenseChat = (groupId, expenseId) => {
           <button id="ec-back" class="shrink-0 w-8 h-8 rounded-lg border border-[var(--outline)] bg-[var(--surface-elevated)] inline-flex items-center justify-center">‹</button>
           <div class="min-w-0"><span class="font-black text-sm block truncate">${esc(exp.description || 'Spesa')}</span><span class="text-[11px] text-[var(--on-surface-secondary)]">${esc(names[exp.payer] || '?')} ha pagato ${eur(exp.amount)}</span></div>
         </div>
-        ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">In discussione: questa spesa resta fuori dai saldi finché non è risolta.</span></div>` : ''}
+        ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${tCh('expenseDisputed', __uiLang)}</span></div>` : ''}
         ${nonAncoraEntrati.length ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
           <svg class="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M17 8v6M14 11h6"/></svg>
           <span class="text-[12px] flex-1 min-w-0"><b>${esc(nonAncoraEntrati.map(m => names[m.id]).join(', '))}</b> non ${nonAncoraEntrati.length > 1 ? 'hanno' : 'ha'} ancora ricevuto questa conversazione.</span>
@@ -11490,7 +11490,7 @@ window.openExpenseChat = (groupId, expenseId) => {
         </div>` : ''}
         <div class="card p-3">${msgRows}</div>
         <div class="flex gap-2">
-          <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder='es. "il conto era 120 non 100"' name="ec-text" />
+          <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${escapeHtml(tCh('expenseCommentPh', __uiLang))}" name="ec-text" />
           <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">Invia</button>
         </div>
         <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? 'Segna come risolto' : 'Contesta questa spesa'}</button>
