@@ -25675,7 +25675,8 @@ const startMomentum = () => {
   Promise.allSettled([VaultDAO.initDurable({ requestPin: chiediPinAvvio }), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
     document.querySelectorAll('a[data-legal]').forEach((a) => {
-      a.href = a.dataset.legal === 'privacy' ? (__uiLang === 'it' ? '/privacy.html' : '/privacy-en.html') : (__uiLang === 'it' ? '/termini.html' : '/terms-en.html');
+      const suffisso = { it: '', en: '-en', de: '-de', fr: '-fr', es: '-es', nl: '-nl', pt: '-pt' }[__uiLang] ?? '-en';
+      a.href = a.dataset.legal === 'privacy' ? `/privacy${suffisso}.html` : (suffisso ? `/terms${suffisso}.html` : '/termini.html');
     });
     if (VaultDAO.locked) avvisaVaultBloccato();
     renderVaultLockCard().catch(() => {});

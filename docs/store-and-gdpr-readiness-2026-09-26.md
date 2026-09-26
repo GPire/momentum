@@ -6,11 +6,11 @@ riviste nello stesso commit.
 
 ## Fatto in questo lavoro
 
-- **Informativa privacy** riscritta (IT + EN): basi giuridiche per ogni
+- **Informativa privacy** riscritta in 7 lingue (IT, EN, DE, FR, ES, NL, PT): basi giuridiche per ogni
   trattamento, conservazione, destinatari e trasferimenti, minori, decisioni
   automatizzate, sicurezza, diritti e reclamo al Garante. `public/privacy.html`,
   `public/privacy-en.html`.
-- **Termini** riscritti (IT + EN): piani e prezzi IVA inclusa, rinnovo,
+- **Termini** riscritti in 7 lingue: piani e prezzi IVA inclusa, rinnovo,
   disdetta, recesso di 14 giorni con rimborso completo, licenza per
   dispositivo, regali, acquisti negli store, foro del consumatore.
 - **Conservazione limitata** (GDPR art. 5.1.e): gli identificativi della

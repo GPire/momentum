@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Politique de confidentialité — Momentum</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; background: #fff; }
+  @media (prefers-color-scheme: dark) { body { color: #eee; background: #111; } a { color: #7db8ff; } }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; border-top: 1px solid #8883; padding-top: 1em; }
+  .aggiornato { color: #888; font-size: 0.85rem; margin-bottom: 2em; }
+  .box { background: #80808014; border-radius: 12px; padding: 14px 18px; margin: 1em 0; font-size: 0.92rem; }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  a { color: #0b5fff; }
+  code { background: #80808022; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+  .lingue { font-size: .85rem; line-height: 1.8; }
+</style>
+</head>
+<body>
+<p class="lingue"><a href="/privacy.html" hreflang="it">Italiano</a> · <a href="/privacy-en.html" hreflang="en">English</a> · <a href="/privacy-de.html" hreflang="de">Deutsch</a> · <strong>Français</strong> · <a href="/privacy-es.html" hreflang="es">Español</a> · <a href="/privacy-nl.html" hreflang="nl">Nederlands</a> · <a href="/privacy-pt.html" hreflang="pt">Português</a></p>
+<h1>Politique de confidentialité de Momentum</h1>
+<p class="aggiornato">Dernière mise à jour : 26 septembre 2026</p>
+<p>Cette information (articles 13 et 14 du règlement (UE) 2016/679, « RGPD ») décrit ce que fait réellement le code de Momentum avec vos données. <strong>Responsable du traitement</strong> : Giorgio Piredda, <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>. En cas de doute, la version italienne prévaut.</p>
+<div class="box"><strong>En bref.</strong> Mouvements, soldes, factures, objectifs et réglages restent uniquement sur votre appareil, <strong>chiffrés</strong>. Aucun serveur de Momentum ne les reçoit. Il n'existe pas de comptes. Les rares exceptions sont listées ci-dessous, avec base juridique et durée de conservation.</div>
+
+<h2>1. Données financières et personnelles sur l'appareil</h2>
+<p>Ce que vous saisissez (mouvements, catégories, factures, données fiscales, objectifs, préférences) est enregistré uniquement dans la mémoire de votre navigateur ou de l'app, chiffré avec XChaCha20-Poly1305. La clé est conservée par l'appareil sous forme non exportable ; si vous activez un code, elle ne s'ouvre qu'avec le code ou avec le code de récupération que vous seul possédez. Momentum n'a aucune copie de ces données et ne peut pas les lire.</p><p><strong>Face ID et empreinte</strong> (app iPhone et Android) : la reconnaissance est effectuée par le système d'exploitation. Momentum ne reçoit jamais d'images du visage ni d'empreintes ; il obtient seulement l'autorisation d'ouvrir la clé conservée dans le Keychain ou le Keystore du téléphone.</p>
+
+<h2>2. Synchronisation entre vos appareils</h2>
+<p>Si vous reliez plusieurs de vos appareils, les données circulent directement d'un appareil à l'autre (WebRTC, chiffré). Pour ouvrir la connexion, les appareils utilisent des serveurs STUN publics (Google, Cloudflare), qui ne voient que l'adresse IP. Base juridique : exécution du service que vous avez demandé (art. 6.1.b). Un mode facultatif utilise une configuration Firebase fournie par vous.</p>
+
+<h2>3. Statistiques d'utilisation (télémétrie)</h2>
+<p>Momentum envoie un identifiant aléatoire généré sur l'appareil, non lié au nom, à l'e-mail ou aux données financières, avec des événements d'une liste fermée : installation, activité du mois et du jour, plateforme générique (ex. « iOS »), provenance (invitation ou directe), fonctions utilisées, diagnostic technique sans contenu. Jamais de montants, de mouvements ni de texte écrit par vous.</p><ul><li>Base juridique : intérêt légitime à mesurer l'usage et la fiabilité (art. 6.1.f). Vous pouvez vous y opposer à tout moment en la désactivant dans le Vault ; l'envoi s'arrête immédiatement.</li><li>Conservation : 13 mois pour les données avec l'identifiant aléatoire, 90 jours pour le diagnostic anonyme, 10 minutes pour la présence en temps réel.</li><li>Fournisseur : Cloudflare, Inc. (hébergement du service).</li></ul>
+
+<h2>4. Abonnements et licences</h2>
+<p>Si vous achetez un plan sur le site, le paiement a lieu sur la page de <strong>Stripe</strong> : les données de carte et l'e-mail de facturation sont traités par Stripe, pas par Momentum. Le service de licences de Momentum reçoit et conserve seulement : code de l'appareil, plan, identifiant d'abonnement Stripe et identifiant de licence.</p><ul><li>Base juridique : exécution du contrat (art. 6.1.b) et obligations fiscales (art. 6.1.c).</li><li>Conservation : les liens abonnement-appareil expirent 13 mois après la dernière période payée ; reçus et factures restent chez Stripe pour la durée légale (10 ans en Italie). La liste des licences révoquées ne contient que des identifiants aléatoires.</li><li>Dans les apps iPhone et Android, les achats passent par Apple et Google selon leurs propres politiques.</li></ul>
+
+<h2>5. Retours</h2>
+<p>Si vous envoyez un retour depuis l'app, le texte que vous écrivez est transmis via Formspree à la boîte du responsable. Base juridique : votre demande (art. 6.1.b). Conservé le temps nécessaire pour répondre et améliorer le service, au maximum 24 mois.</p>
+
+<h2>6. Données de marché et assistant</h2>
+<p>Lorsque vous ouvrez un titre, Momentum interroge des sources publiques (via son propre domaine pour les documents SEC, les actualités et les communiqués des banques centrales, ou directement si vous ajoutez votre propre clé de fournisseur). Sont envoyés le symbole recherché et, comme pour toute requête web, l'adresse IP ; jamais les mouvements, soldes ou portefeuille. Le widget TradingView, lorsqu'il est affiché, est un contenu externe qui reçoit le symbole, l'IP et l'adresse de la page.</p><p>« Demande à Momentum » et les résumés d'actualités avec un modèle de langage externe sont désactivés tant que vous n'entrez pas votre propre clé : les requêtes vont de votre appareil au fournisseur choisi (Gemini, Groq, DeepSeek, OpenAI ou Anthropic), responsable autonome. Un résumé financier agrégé n'est inclus que si vous activez l'option prévue.</p>
+
+<h2>6 bis. Voix</h2>
+<p>Lorsque vous dictez une dépense, Momentum demande au navigateur de transcrire <strong>sur l'appareil</strong> (en téléchargeant le pack de langue si nécessaire) : dans ce cas ni l'audio ni le texte ne quittent le téléphone. Si le navigateur ne le permet pas, vous êtes informé avant d'utiliser le micro que la transcription serait faite par le service du navigateur (par exemple Google ou Apple), responsable autonome. Vous choisissez de continuer ou d'écrire. Momentum ne reçoit ni ne conserve jamais l'audio.</p>
+
+<h2>7. Service pour les entreprises</h2>
+<p>Si votre entreprise utilise le service partagé de Momentum pour les déplacements et les remboursements, les rapports que vous envoyez sont traités pour le compte de l'entreprise, qui est responsable ; Momentum agit comme sous-traitant (art. 28) selon l'accord avec l'entreprise.</p>
+
+<h2>8. Destinataires et transferts hors de l'UE</h2>
+<p>Fournisseurs concernés : Cloudflare (hébergement, télémétrie, licences), Stripe (paiements), Formspree (retours), Google et Cloudflare (STUN). Certains sont établis aux États-Unis : les transferts reposent sur la décision d'adéquation UE-États-Unis du 10 juillet 2023 (Data Privacy Framework) pour les fournisseurs certifiés, sinon sur les clauses contractuelles types de la Commission européenne.</p>
+
+<h2>9. Mineurs</h2>
+<p>En Italie, le consentement aux services de la société de l'information peut être donné dès 14 ans ; dans les autres pays, l'âge minimum local s'applique (en France, 15 ans ; 16 ans au plus ailleurs). En dessous, Momentum doit être utilisé avec un parent. L'app propose un profil simplifié à toute personne déclarant moins de 18 ans et ne suggère jamais de plans payants aux mineurs.</p>
+
+<h2>10. Décisions automatisées</h2>
+<p>Catégories, prévisions et suggestions sont calculées sur votre appareil comme aide : aucune décision ne produit d'effets juridiques ou similaires à votre égard (art. 22).</p>
+
+<h2>11. Sécurité</h2>
+<p>Chiffrement de toutes les données personnelles enregistrées, code facultatif avec code de récupération et biométrie, verrouillage après inactivité, connexions chiffrées, licences signées et vérifiées sur l'appareil, aucune donnée financière sur les serveurs.</p>
+
+<h2>12. Vos droits</h2>
+<p>Vous disposez des droits d'accès, de rectification, d'effacement, de limitation, de portabilité et d'opposition (art. 15 à 22), et pouvez retirer un consentement sans remettre en cause le passé. Pour les données sur l'appareil, vous les exercez directement dans l'app : exporter vos données (accès et portabilité) ou tout supprimer dans le Vault (effacement, qui détruit aussi la clé). Pour la télémétrie, les licences et les retours, écrivez à <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a> : nous répondons sous un mois. Vous pouvez introduire une réclamation auprès de l'autorité italienne de protection des données (<a href="https://www.garanteprivacy.it">garanteprivacy.it</a>) ou de l'autorité de votre pays (en France, la CNIL).</p>
+
+<h2>13. Modifications</h2>
+<p>Si cette information change de manière substantielle, la date en haut est mise à jour et l'app le signale dans les nouveautés.</p>
+</body>
+</html>
