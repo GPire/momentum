@@ -9477,7 +9477,7 @@ window.selectAsset = async (idx) => {
       // prova visibile che le letture precedenti non si perdono, si sommano.
       const pastCount = (VaultDAO.state.newsInsightsHistory || []).filter(h => h.symbol === asset.symbol).length;
       const aiSummaryBtn = hasCloudKey
-        ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">Riassumi con la tua AI →</button>${pastCount > 0 ? `<span class="text-[10px] text-[var(--on-surface-secondary)] ml-2">${pastCount} lettura/e precedente/i salvata/e</span>` : ''}`
+        ? `<button onclick="window.summarizeNewsWithAI('${asset.symbol}')" id="news-ai-summary-btn-${asset.symbol}" class="text-[10px] font-bold text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1.5 rounded-lg transition-colors mt-1.5">${tCh('newsSummarizeAi', __uiLang)} →</button>${pastCount > 0 ? `<span class="text-[10px] text-[var(--on-surface-secondary)] ml-2">${tCh('newsPastReadings', __uiLang, pastCount)}</span>` : ''}`
         : '';
       html = `<div class="mt-2">${stale ? `<p class="text-[11px] text-amber-300">${tCh('assetNewsCached', __uiLang)}</p>` : ''}${window.buildNewsItemsHtml(items)}${aiSummaryBtn}<div id="news-ai-summary-${asset.symbol}" class="mt-1.5"></div></div>`;
     }
@@ -22773,7 +22773,7 @@ const initApp = () => {
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
         <h4 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_CLOUD}</span> ${label}</h4>
-        <span class="text-[11px] text-violet-400/70">non è Momentum</span>
+        <span class="text-[11px] text-violet-400/70">${tCh('qaExternalAiNote', __uiLang)}</span>
       </div>
       <div class="space-y-1.5">${formatCloudAnswer(answer)}</div>`;
     replayQaAnimation();
@@ -23034,12 +23034,13 @@ const initApp = () => {
       const { askCloudFallbackChain } = await import('./ai/chat-fallback.js');
       const keys = VaultDAO.state.liveDataKeys || {};
       const elenco = items.slice(0, 8).map((n, i) => `${i + 1}. ${n.title}${n.summary ? ` — ${n.summary}` : ''} (fonte: ${n.source || 'sconosciuta'})`).join('\n');
-      const question = `Riassumi in italiano, in 3-4 frasi semplici, cosa dicono in sintesi queste notizie su ${symbol}. Non dare consigli di investimento, solo un riassunto onesto dei fatti riportati.\n\n${elenco}`;
+      const lingua = { it: 'Italian', en: 'English', de: 'German', fr: 'French', es: 'Spanish', nl: 'Dutch', pt: 'Portuguese' }[__uiLang] || 'English';
+      const question = `Summarize in ${lingua}, in 3-4 simple sentences, what these news items say about ${symbol}. Give no investment advice, only an honest summary of the reported facts.\n\n${elenco}`;
       const { answer, provider } = await askCloudFallbackChain(question, { keys, fetchImpl: fetch.bind(window) });
       target.innerHTML = `<div class="mt-1 pt-1.5 border-t border-sky-500/10">
         <div class="flex items-center justify-between mb-1">
           <h5 class="text-[10px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} ${provider}</h5>
-          <span class="text-[10px] text-violet-400/70">non è Momentum</span>
+          <span class="text-[10px] text-violet-400/70">${tCh('qaExternalAiNote', __uiLang)}</span>
         </div>
         ${formatCloudAnswer(answer, 'text-violet-300')}
       </div>`;
@@ -23101,8 +23102,8 @@ const initApp = () => {
     const groundedHtml = groundedNewsNote ? `
       <div class="mt-2 pt-2 border-t border-sky-500/10">
         <div class="flex items-center justify-between mb-1">
-          <h5 class="text-[11px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} Gemini · ricerca web</h5>
-          <span class="text-[11px] text-violet-400/70">non è Momentum</span>
+          <h5 class="text-[11px] font-bold text-violet-400 uppercase tracking-widest flex items-center gap-1">${ICON_QA_CLOUD} Gemini · ${tCh('qaWebSearch', __uiLang)}</h5>
+          <span class="text-[11px] text-violet-400/70">${tCh('qaExternalAiNote', __uiLang)}</span>
         </div>
         ${formatCloudAnswer(groundedNewsNote, 'text-violet-300')}
       </div>` : '';
@@ -23110,8 +23111,8 @@ const initApp = () => {
     const stockKeyCta = asset.kind === 'stock' && nessunaChiavePrezzi && !historyChart ? buildStockKeyCta(asset) : '';
     qaAnswer.innerHTML = `
       <div class="flex items-center justify-between mb-2">
-        <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · dati reali</h4>
-        <span class="text-[11px] text-sky-400/70">${stale ? 'ultime salvate' : 'CoinGecko/Alpha Vantage'}</span>
+        <h4 class="text-[10px] font-bold text-sky-400 uppercase tracking-widest flex items-center gap-1"><span class="qa-arrive-icon qa-icon-glow">${ICON_QA_MOMENTUM}</span> ${asset.symbol} · ${tCh('qaRealData', __uiLang)}</h4>
+        <span class="text-[11px] text-sky-400/70">${stale ? tCh('qaLastSaved', __uiLang) : 'CoinGecko/Alpha Vantage'}</span>
       </div>
       <div class="space-y-1.5">${yoyHtml}${multiYearHtml}</div>${newsBlockHtml}${historyChart || ''}${trackRecordHtml || ''}${divergenceHtml || ''}${groundedHtml}${stockKeyCta}`;
     document.getElementById('qa-add-stock-key')?.addEventListener('click', () => {
@@ -25495,11 +25496,22 @@ function chiediPinAvvio(record, { retry = false } = {}) {
   });
 }
 
+// Una scelta di privacy si revoca con la stessa facilità con cui si è data.
+window.revokeVoiceCloud = () => {
+  delete VaultDAO.state.voiceCloudOk;
+  VaultDAO.save();
+  showToast(tCh('voiceCloudRevoked', __uiLang), 'success');
+  renderVaultLockCard();
+};
+
 async function renderVaultLockCard() {
   const status = document.getElementById('vault-lock-status');
   const actions = document.getElementById('vault-lock-actions');
   if (!status || !actions) return;
   const r = await loadVaultKey();
+  const rigaVoce = VaultDAO.state.voiceCloudOk === true
+    ? `<div class="flex items-center justify-between gap-3 mt-2 pt-3 border-t border-[var(--glass-border)]"><p class="text-xs text-[var(--on-surface-secondary)]">${tCh('voiceCloudAllowedNote', __uiLang)}</p><button type="button" onclick="window.revokeVoiceCloud()" class="shrink-0 text-xs font-bold underline">${tCh('voiceCloudRevoke', __uiLang)}</button></div>`
+    : '';
   const bottone = (key, mode, primario) => `<button type="button" onclick="window.openVaultPin('${mode}')" class="${primario ? 'btn-action w-full font-bold text-sm' : 'w-full text-sm font-bold py-2.5 rounded-xl border border-[var(--glass-border)]'}">${tCh(key, __uiLang)}</button>`;
   if (r.status === 'ready') {
     status.textContent = tCh('vaultLockStatusDevice', __uiLang);
@@ -25518,6 +25530,7 @@ async function renderVaultLockCard() {
     status.textContent = tCh('vaultLockStatusOff', __uiLang);
     actions.innerHTML = '';
   }
+  actions.insertAdjacentHTML('beforeend', rigaVoce);
 }
 
 window.openVaultPin = (mode) => {
