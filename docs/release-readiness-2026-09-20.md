@@ -1169,3 +1169,28 @@ applicato dal runtime, quindi non viene dichiarato testato.
 Resta da misurare il tempo al primo risultato su rete mobile reale; il
 bundle iniziale resta circa 3,47 MB minificati / 1,17 MB gzip. Nessun dato
 di prezzo esterno non licenziato alimenta portafoglio, modelli o segnali.
+### Gate PRO: prima prova dal vivo + prezzo sbagliato sui gate Investor — 26 settembre 2026
+
+Prima verifica in Chrome reale (dev server locale, utente nuovo dopo
+onboarding, piano FREE). `openRiskParityGate` e `openSwissSimulator`
+aprono l'avviso e ritornano false: il blocco funziona.
+
+**Bug reale trovato solo dal vivo**: `requireProFeature` mostrava lo stesso
+avviso "piano PRO — €3,99/mese" anche per le funzioni solo PRO_INVESTOR
+(`risk_parity_rebalancing`, `comps_multipli`,
+`posizionamento_derivati_crypto`, `analisi_causale_titolo`). Chi avesse
+pagato PRO le avrebbe trovate ancora bloccate. PRO Investor non ha un prezzo
+deciso (`pricing-decision-2026-09-21.md` fissa solo PRO): l'avviso Investor
+ora nomina il piano giusto SENZA un prezzo inventato. Nuova funzione pura
+`requiredTier` (subscription.js, 2 test, incluso uno di coerenza con
+`hasFeature` su ogni chiave). Nota del 21/09 non riscritta (regola delle
+novità): aggiunta la release di correzione `2026-09-26`.
+
+Stessa sessione: etichetta onboarding "Domanda 4 di 4 — l'ultima" seguita da
+altre domande (entrate, poi Partita IVA/Paese) → ora "Domanda 4 di 4";
+`riskParityLockedBody` mostrava l'identificativo interno "PRO_INVESTOR".
+
+Verifica: suite 5508/5508 su Node 20, build riuscita, due gate verificati
+dal vivo. **Decisione aperta per l'utente**: prezzo di PRO Investor — senza,
+le 4 funzioni Investor sono bloccate per tutti e non acquistabili.
+Gli altri gate restano verificati solo staticamente.

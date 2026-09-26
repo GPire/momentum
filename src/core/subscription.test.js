@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './subscription.js';
+import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, requiredTier, TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR, FEATURES_PER_PIANO, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './subscription.js';
 
 test('prezzi: il piano annuale costa meno di 12 mesi al prezzo mensile, mai un finto sconto', () => {
   assert.ok(PRICE_PRO_YEARLY_EUR < PRICE_PRO_MONTHLY_EUR * 12);
@@ -88,4 +88,24 @@ test('deactivateLicense: rimuove la licenza dallo stato, il dispositivo torna FR
   deactivateLicense(state);
   assert.equal(state.license, undefined);
   assert.equal(currentTier(state), TIER_FREE);
+});
+
+test('requiredTier: il piano minimo richiesto è quello vero, mai PRO per una funzione solo PRO_INVESTOR', () => {
+  assert.equal(requiredTier('budget_oggi'), TIER_FREE);
+  assert.equal(requiredTier('fisco_italia'), TIER_PRO);
+  assert.equal(requiredTier('risk_parity_rebalancing'), TIER_PRO_INVESTOR);
+  assert.equal(requiredTier('comps_multipli'), TIER_PRO_INVESTOR);
+  assert.equal(requiredTier('chiave_inesistente'), null);
+});
+
+test('requiredTier: coerente con hasFeature per ogni chiave di ogni piano', () => {
+  const ordine = [TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR];
+  for (const key of FEATURES_PER_PIANO[TIER_PRO_INVESTOR]) {
+    const minimo = requiredTier(key);
+    for (const tier of ordine) {
+      const license = tier === TIER_FREE ? undefined : { tier, exp: null };
+      const atteso = ordine.indexOf(tier) >= ordine.indexOf(minimo);
+      assert.equal(hasFeature({ license }, key), atteso, `${key} su ${tier}`);
+    }
+  }
 });

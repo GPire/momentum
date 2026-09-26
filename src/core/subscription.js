@@ -99,6 +99,15 @@ export function hasFeature(state, featureKey) {
   return FEATURES_PER_PIANO[piano].includes(featureKey);
 }
 
+// Il piano più basso che sblocca la funzione: un avviso che proponesse PRO
+// per una funzione solo PRO_INVESTOR farebbe pagare qualcosa che non la sblocca.
+export function requiredTier(featureKey) {
+  for (const tier of [TIER_FREE, TIER_PRO, TIER_PRO_INVESTOR]) {
+    if (FEATURES_PER_PIANO[tier].includes(featureKey)) return tier;
+  }
+  return null;
+}
+
 // Attiva una licenza: verifica la firma (license.js, mai una chiamata di
 // rete) e SOLO se valida scrive `state.license` — chi chiama (main.js)
 // resta responsabile di salvare lo stato dopo (VaultDAO.save()), stessa

@@ -696,6 +696,10 @@ RELEASES.push({
   versione: '2026-09-25f',
   voci: [{ colore: 'gold', icona: '<path d="M3 18 8 12l4 3 5-9 4 3"/><path d="M3 21h18"/>', titolo: 'Storici più lunghi, con limiti visibili', testo: 'Le cripto cercano più anni di prezzi reali; azioni ed ETF scelgono la serie più estesa e recente fra le fonti collegate. Il grafico usa date vere e lascia visibili i vuoti. Puoi consultare separatamente il grafico esterno del titolo.', titoloKey: 'assetHistoryReleaseTitle', testoKey: 'assetHistoryReleaseBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-26',
+  voci: [{ colore: 'gold', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>', titolo: 'Correzione: quale piano sblocca cosa', testo: 'Confronto con i concorrenti, derivati crypto, analisi causale di un titolo e parità di rischio fanno parte di PRO Investor, non di PRO: la nota del 21 settembre li elencava per errore a €3,99. Ora l\'avviso indica sempre il piano giusto.', titoloKey: 'whatsNewPlanFixTitle', testoKey: 'whatsNewPlanFixBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

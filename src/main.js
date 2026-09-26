@@ -318,7 +318,7 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
-import { currentTier, hasFeature, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './core/subscription.js';
+import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './core/subscription.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
@@ -19671,11 +19671,13 @@ window.openTrustCenter = () => {
 // piano scritta qui.
 function requireProFeature(featureKey) {
   if (hasFeature(VaultDAO.state, featureKey)) return true;
+  // PRO_INVESTOR non ha ancora un prezzo deciso: mai mostrare quello di PRO.
+  const investor = requiredTier(featureKey) === TIER_PRO_INVESTOR;
   window.openModal(`
     <div class="p-5 space-y-4 text-center">
-      <h3 class="text-lg font-bold">${tCh('featureGateTitle', __uiLang)}</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">${tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','))}</p>
-      <button onclick="window.closeModal(); document.getElementById('pro-license-card')?.scrollIntoView({behavior:'smooth',block:'start'});" class="btn-action w-full py-3 font-bold rounded-xl">${tCh('featureGateCta', __uiLang)}</button>
+      <h3 class="text-lg font-bold">${tCh(investor ? 'featureGateInvestorTitle' : 'featureGateTitle', __uiLang)}</h3>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${investor ? tCh('featureGateInvestorBody', __uiLang) : tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','))}</p>
+      <button onclick="window.closeModal(); document.getElementById('pro-license-card')?.scrollIntoView({behavior:'smooth',block:'start'});" class="btn-action w-full py-3 font-bold rounded-xl">${tCh(investor ? 'featureGateInvestorCta' : 'featureGateCta', __uiLang)}</button>
       <button onclick="window.closeModal()" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">${tCh('featureGateDismiss', __uiLang)}</button>
     </div>`);
   return false;
