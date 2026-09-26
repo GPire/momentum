@@ -6,7 +6,7 @@ import { findItalianUiStrings } from '../../scripts/italian-ui-strings.mjs';
 // Testi visibili scritti in italiano direttamente nel codice. Il tetto può solo
 // scendere: ogni testo nuovo passa dalle traduzioni nelle 7 lingue.
 // Per vedere l'elenco: VERBOSE=1 node scripts/italian-ui-strings.mjs src/main.js
-const TETTO = { 'src/main.js': 139, 'index.html': 32 };
+const TETTO = { 'src/main.js': 85, 'index.html': 32 };
 
 for (const [file, tetto] of Object.entries(TETTO)) {
   test(`${file}: nessun nuovo testo solo in italiano (tetto ${tetto})`, () => {

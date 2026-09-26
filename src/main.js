@@ -16384,7 +16384,7 @@ function renderPortfolioNews() {
   const byTicker = window.__portfolioNews || {};
   const tickers = Object.keys(byTicker);
   if (!tickers.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">Notizie sui tuoi investimenti</p>` +
+  el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('invNewsTitle', __uiLang)}</p>` +
     tickers.map(t => `
       <div class="mb-2">
         <p class="text-[10px] font-bold text-[var(--gold)] mb-1">${t}</p>
@@ -16434,7 +16434,7 @@ function renderPortfolioQuality() {
     // anche potendolo fare non avrebbe senso "aggiornare ogni minuto" un
     // dato che la fonte stessa aggiorna a trimestre. Onestà invece di una
     // finta continuità: si dichiara la DATA del pannello, mai nascosta.
-    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">I tuoi investimenti nel loro settore</p>` +
+    el.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)] mb-2">${tCh('invSectorTitle', __uiLang)}</p>` +
       tickers.map(t => {
         const { percentile, qualita } = insights[t];
         const righe = [];
@@ -16466,7 +16466,7 @@ function renderPortfolioQuality() {
         ${righe.map(r => `<p class="text-[10px] text-[var(--on-surface-secondary)] leading-snug">${escapeHtml(r)}</p>`).join('')}
       </div>`;
       }).join('') +
-      `<p class="text-[9px] text-[var(--on-surface-secondary)] opacity-60 mt-1">Bilanci SEC del ${escapeHtml(SEC_PANEL_SCARICATO_IL)} (le aziende depositano un nuovo bilancio poche volte l'anno, non ogni giorno — il prezzo sopra invece è live).</p>`;
+      `<p class="text-[9px] text-[var(--on-surface-secondary)] opacity-60 mt-1">${tCh('secFilingsNote', __uiLang, escapeHtml(SEC_PANEL_SCARICATO_IL))}</p>`;
   }).catch(() => {});
 }
 
@@ -16744,7 +16744,7 @@ function renderPeriodCompare(mode = __periodCompareMode) {
   document.getElementById('period-compare-card')?.classList.toggle('hidden', periodEmpty);
   setActivityLocked('period', periodEmpty, tCh('alphaPeriodCompareTitle', __uiLang));
   if (periodEmpty) {
-    bodyEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">Non ho ancora ${isYear ? 'due anni' : 'due mesi'} completi di storia da confrontare.</p>`;
+    bodyEl.innerHTML = `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('cmpNotEnough', __uiLang, isYear)}</p>`;
     return;
   }
   const periodLabel = isYear ? 'quest\'anno (12 mesi) vs anno scorso' : 'mese scorso vs il precedente';
@@ -16785,7 +16785,7 @@ function renderPeriodCompare(mode = __periodCompareMode) {
         </div>
       </div>`;
     }).join('')}</div>
-    <p class="text-[10px] text-slate-600 mt-2">Barra grigia = prima, colorata = ora — stessa scala per categoria</p>`;
+    <p class="text-[10px] text-slate-600 mt-2">${tCh('cmpGreyBar', __uiLang)}</p>`;
 }
 
 // Grafo causale visivo — ora dietro `analyzeCausalStructure`
@@ -16954,7 +16954,7 @@ async function renderCausalGraphViz() {
     ? `<div class="mt-1.5 flex flex-col gap-1">${avvisiGravi.map((a) => `<p class="text-[10px] text-amber-300/90">⚠ ${escapeHtml(a.dettaglio || '')}</p>`).join('')}</div>`
     : '';
   const nonLinHtml = (analisi.nonLineari || []).length
-    ? `<p class="text-[10px] text-[var(--primary)]/90 mt-1">+ ${analisi.nonLineari.length} legame${analisi.nonLineari.length === 1 ? '' : 'i'} nascost${analisi.nonLineari.length === 1 ? 'o' : 'i'}: c'è una relazione ma non è una linea retta (spesso una soglia).</p>`
+    ? `<p class="text-[10px] text-[var(--primary)]/90 mt-1">${tCh('graphHidden', __uiLang, analisi.nonLineari.length)}</p>`
     : '';
 
   // Chiude il cerchio tra "trovato un legame" e "verificalo davvero"
@@ -16996,7 +16996,7 @@ async function renderCausalGraphViz() {
       <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2 4"/>
       ${arcs}${nodes}${labels}
     </svg>
-    <p class="text-[11px] text-slate-500 mt-1.5">Verde = si muovono insieme, rosso = in direzione opposta. Spessore = quanto è forte il legame. Tocca un punto o una linea per i dettagli.</p>
+    <p class="text-[11px] text-slate-500 mt-1.5">${tCh('graphLegend', __uiLang)}</p>
     <p class="text-[10px] text-slate-600 mt-1">${escapeHtml(motoreTxt)}</p>
     ${avvisiHtml}${nonLinHtml}
     <div class="flex flex-wrap gap-1.5 mt-2">${espChips}</div>`;
@@ -17023,14 +17023,14 @@ window.openExperimentPanel = (category) => {
   if (!stato) {
     openModal(`
       <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 text-center items-center">
-        <h3 class="text-base font-black">Prova a cambiare ${escapeHtml(nome)}</h3>
-        <p class="card-sub !mb-0">Fotografiamo le ultime settimane come riferimento. Poi, quando vuoi — anche ogni giorno — ti dico se è cambiato davvero, non solo se sembra.</p>
-        <button id="exp-start-go" class="btn-action btn-primary w-full py-3 font-bold rounded-2xl">Comincia adesso</button>
+        <h3 class="text-base font-black">${tCh('expTry', __uiLang, escapeHtml(nome))}</h3>
+        <p class="card-sub !mb-0">${tCh('expIntro', __uiLang)}</p>
+        <button id="exp-start-go" class="btn-action btn-primary w-full py-3 font-bold rounded-2xl">${tCh('expStart', __uiLang)}</button>
       </div>`);
     document.getElementById('exp-start-go').addEventListener('click', () => {
       VaultDAO.state.experiments = startCategoryExperiment(VaultDAO.state.experiments, category, allTx, { now: new Date() });
       VaultDAO.save();
-      showToast('Esperimento avviato. Torna quando vuoi.', 'success');
+      showToast(tCh('expStarted', __uiLang), 'success');
       closeModal();
       renderCausalGraphViz();
     });
@@ -17038,16 +17038,16 @@ window.openExperimentPanel = (category) => {
   }
 
   const dots = stato.puoiFermarti === false
-    ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">Settimana ${stato.settimanePassate} di almeno ${stato.periodiMinimi || 4}.</p>`
+    ? `<p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('expWeek', __uiLang, stato.settimanePassate, stato.periodiMinimi || 4)}</p>`
     : '';
   const verdettoColore = stato.conclusione === 'cambiato' ? 'text-emerald-300' : stato.conclusione === 'nessun-cambiamento' ? 'text-[var(--on-surface-secondary)]' : 'text-amber-300';
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0 text-center items-center">
       <h3 class="text-base font-black">${escapeHtml(nome)}</h3>
-      <p class="text-[11px] text-[var(--on-surface-secondary)]">Prima: ${formatMoney(stato.mediaBaseline)}/settimana in media.</p>
+      <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('expBefore', __uiLang, formatMoney(stato.mediaBaseline))}</p>
       <p class="text-[13px] font-bold ${verdettoColore}">${escapeHtml(stato.messaggio)}</p>
       ${dots}
-      <button id="exp-stop-go" class="text-[11px] text-[var(--on-surface-secondary)] underline">Ferma questo esperimento</button>
+      <button id="exp-stop-go" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('expStop', __uiLang)}</button>
     </div>`);
   document.getElementById('exp-stop-go').addEventListener('click', () => {
     VaultDAO.state.experiments = stopCategoryExperiment(VaultDAO.state.experiments, category);
@@ -17084,8 +17084,8 @@ const renderSubscriptions = () => {
   const warnIco = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0 mt-0.5"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>`;
   const anticipatedHtml = anticipated.map(a => {
     const body = a.type === 'upcoming-rise'
-      ? `<b>${a.name}</b> tra ${a.daysToNext} giorn${a.daysToNext === 1 ? 'o' : 'i'} potrebbe passare da ${formatMoney(a.current)} a ~${formatMoney(a.predictedNext)} (stima dal trend). Sono <b>+${formatMoney(a.annualImpact)}/anno</b>.`
-      : `<b>${a.name}</b> è salito da ${formatMoney(a.baseline)} a ${formatMoney(a.current)} (+${a.totalPct}%) un po' alla volta: <b>+${formatMoney(a.annualImpact)}/anno</b> senza che si notasse.`;
+      ? tCh('creepForecast', __uiLang, a.name, a.daysToNext, formatMoney(a.current), formatMoney(a.predictedNext), formatMoney(a.annualImpact))
+      : tCh('creepRose', __uiLang, a.name, formatMoney(a.baseline), formatMoney(a.current), a.totalPct, formatMoney(a.annualImpact));
     return `<div class="flex items-start gap-2 p-2.5 rounded-xl border border-amber-500/25 bg-amber-950/10 text-amber-200 text-[11px] leading-snug">${warnIco}<span>${body}</span></div>`;
   }).join('');
   // "Abbonamenti dimenticati" (2026-08-30): Momentum vede l'estratto conto,
@@ -17186,10 +17186,10 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
             const suspect = a.tx.suspect;
             const feedback = unknownIds.has(a.tx.id) && !suspect
               ? `<div class="flex gap-2 mt-1">
-                   <button onclick="window.confirmAnomalyMine('${a.tx.id}')" class="text-[10px] font-bold text-emerald-400 underline">È mia</button>
-                   <button onclick="window.flagAnomalySuspect('${a.tx.id}')" class="text-[10px] font-bold text-rose-400 underline">Non la riconosco</button>
+                   <button onclick="window.confirmAnomalyMine('${a.tx.id}')" class="text-[10px] font-bold text-emerald-400 underline">${tCh('anomalyMine', __uiLang)}</button>
+                   <button onclick="window.flagAnomalySuspect('${a.tx.id}')" class="text-[10px] font-bold text-rose-400 underline">${tCh('anomalyNotMine', __uiLang)}</button>
                  </div>`
-              : suspect ? `<div class="inline-flex items-center gap-1 text-[10px] text-rose-400 font-bold mt-0.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>segnata come sospetta</div>` : '';
+              : suspect ? `<div class="inline-flex items-center gap-1 text-[10px] text-rose-400 font-bold mt-0.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3 h-3"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>${tCh('anomalyFlagged', __uiLang)}</div>` : '';
             return `<div>${a.tx.description} (+${a.zScore.toFixed(1)}σ) → <b>${formatMoney(a.tx.amount)}</b>${feedback}</div>`;
           }).join('')}
         </div>
@@ -17430,18 +17430,18 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   if (recap) {
     const deltaTxt = recap.deltaPct !== null
       ? (recap.deltaPct <= 0
-          ? `<b class="text-emerald-400">${Math.abs(recap.deltaPct)}% in meno</b> della settimana prima`
-          : `<b class="text-amber-400">${recap.deltaPct}% in più</b> della settimana prima`)
+          ? tCh('weekLess', __uiLang, Math.abs(recap.deltaPct))
+          : tCh('weekMore', __uiLang, recap.deltaPct))
       : '';
     const savedTxt = recap.saved > 0
-      ? `<div class="mt-1">Hai messo da parte <b class="text-emerald-400">${formatMoney(recap.saved)}</b>. Continua così.</div>`
+      ? `<div class="mt-1">${tCh('weekSaved', __uiLang, formatMoney(recap.saved))}</div>`
       : '';
     alertsBox.innerHTML += `
       <div class="card p-4 border border-indigo-500/20 bg-indigo-950/5">
-        ${insightCardHeader(SEVERITY_STYLE.recap, 'La tua settimana scorsa')}
+        ${insightCardHeader(SEVERITY_STYLE.recap, tCh('weekRecapTitle', __uiLang))}
         <div class="text-xs text-[var(--on-surface-secondary)] space-y-0.5">
-          <div>Hai speso <b>${formatMoney(recap.totalSpent)}</b>${deltaTxt ? `, ${deltaTxt}` : ''}.</div>
-          ${recap.topCategory ? `<div>Quasi tutto in <b>${getCatById(recap.topCategory.id).name}</b> (${formatMoney(recap.topCategory.amount)}).</div>` : ''}
+          <div>${tCh('weekSpent', __uiLang, formatMoney(recap.totalSpent), deltaTxt)}</div>
+          ${recap.topCategory ? `<div>${tCh('weekTopCat', __uiLang, getCatById(recap.topCategory.id).name, formatMoney(recap.topCategory.amount))}</div>` : ''}
           ${savedTxt}
         </div>
       </div>
@@ -17460,12 +17460,12 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   if (proposals.length) {
     const rows = proposals.map(p =>
       `<div class="flex items-center justify-between gap-2 py-1">
-        <span class="min-w-0 truncate">${p.description} · <b>${formatMoney(p.amount)}</b>/mese</span>
-        <button onclick='window.registerDetectedSubscription(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="text-[11px] font-bold text-emerald-400 underline shrink-0">registra</button>
+        <span class="min-w-0 truncate">${p.description} · <b>${formatMoney(p.amount)}</b>${tCh('perMonthSlash', __uiLang)}</span>
+        <button onclick='window.registerDetectedSubscription(${JSON.stringify(p).replace(/'/g, "&#39;")})' class="text-[11px] font-bold text-emerald-400 underline shrink-0">${tCh('registerLower', __uiLang)}</button>
       </div>`).join('');
     alertsBox.innerHTML += `
       <div class="card p-4 border border-emerald-500/20 bg-emerald-950/5">
-        <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">${proposals.length === 1 ? 'Abbonamento trovato' : `${proposals.length} abbonamenti trovati`}</h4>
+        <h4 class="text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-2">${tCh('subsFound', __uiLang, proposals.length)}</h4>
         <div class="text-xs text-[var(--on-surface-secondary)] divide-y divide-emerald-500/10">${rows}</div>
       </div>
     `;
@@ -17515,14 +17515,14 @@ window.restoreEncryptedBackup = async (file) => {
     } else if (letto.serve === 'pezzi') {
       // Questo file vuole i pezzi del kit, che hanno una schermata dedicata:
       // mandarci l'utente e' meglio che chiedergli di incollarli in un prompt.
-      showToast('Questo e un kit di recupero: aprilo da "Kit di recupero", servono 2 pezzi su 3.', 'error');
+      showToast(tCh('rkWrongOpen', __uiLang), 'error');
       return;
     } else {
       restored = letto.state;
     }
   } catch (e) { showToast(e.message, 'error'); return; }
 
-  if (!restored) { showToast('Il file non contiene dati da ripristinare.', 'error'); return; }
+  if (!restored) { showToast(tCh('restoreEmpty', __uiLang), 'error'); return; }
 
   window.reviewBackupRestore(restored, !!letto.parziale);
 };
@@ -17619,7 +17619,7 @@ function fontiDatiEffettive() {
 async function runAutoUpdateCycle({ manuale = false } = {}) {
   const urls = fontiDatiEffettive();
   if (!urls.taxRules && !urls.fatturaPaFormat && !urls.netReturnRates) {
-    if (manuale) showToast('Nessuna fonte dati configurata: aggiungine una nelle impostazioni avanzate.', 'error');
+    if (manuale) showToast(tCh('dsuNoneToast', __uiLang), 'error');
     return null;
   }
   const overrides = VaultDAO.state.dataOverrides || {};
@@ -17718,21 +17718,21 @@ window.renderDataFreshnessCard = () => {
         const nota = ov?.fetchedAt ? escapeHtml(stalenessNote(ov.fetchedAt, { now: Date.now(), maxAgeDays: k === 'taxRules' ? 180 : 365, label }) || `${label}: aggiornata l'ultima volta il ${new Date(ov.fetchedAt).toLocaleDateString('it-IT')}.`) : `${label}: non ancora controllata.`;
         return `<p class="text-[10px] text-[var(--on-surface-secondary)]">${nota}</p>`;
       }).join('')
-    : `<p class="text-[10px] text-[var(--on-surface-secondary)]">Nessuna fonte configurata: i dati inclusi nell'app restano quelli con cui è stata installata. Aggiungi una fonte fidata qui sotto per farli aggiornare da soli, anche senza una nuova versione di Momentum.</p>`;
+    : `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('dsuNone', __uiLang)}</p>`;
 
   el.innerHTML = `
     <div class="border-t border-[var(--outline)] pt-3 mt-3">
-      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">Dati che si aggiornano da soli:</p>
+      <p class="text-[10px] text-[var(--on-surface-secondary)] mb-1.5">${tCh('dsuAuto', __uiLang)}</p>
       ${fontiHtml}
       <details class="mt-2">
-        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Configura una fonte (avanzato)</summary>
+        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">${tCh('dsuConfigure', __uiLang)}</summary>
         <div class="mt-2 space-y-1.5">
-          <input id="dsu-tax" type="url" placeholder="URL regole fiscali (opzionale)" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-tax" aria-label="URL regole fiscali (opzionale)">
-          <input id="dsu-format" type="url" placeholder="URL tracciato fattura (opzionale)" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-format" aria-label="URL tracciato fattura (opzionale)">
-          <p class="text-[9px] text-[var(--on-surface-secondary)]">Il payload viene comunque verificato (struttura + valori plausibili) prima di essere usato: una fonte configurata male o malevola viene scartata, mai adottata.</p>
+          <input id="dsu-tax" type="url" placeholder="${escapeHtml(tCh('dsuTaxUrl', __uiLang))}" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-tax" aria-label="URL regole fiscali (opzionale)">
+          <input id="dsu-format" type="url" placeholder="${escapeHtml(tCh('dsuFormatUrl', __uiLang))}" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-format" aria-label="${escapeHtml(tCh('dsuFormatUrl', __uiLang))}">
+          <p class="text-[9px] text-[var(--on-surface-secondary)]">${tCh('dsuVerified', __uiLang)}</p>
           <div class="flex gap-1.5">
-            <button id="dsu-save" class="btn-action flex-1 text-[10px] py-1.5">Salva</button>
-            <button id="dsu-check" class="btn-action flex-1 text-[10px] py-1.5">Controlla ora</button>
+            <button id="dsu-save" class="btn-action flex-1 text-[10px] py-1.5">${tCh('save', __uiLang)}</button>
+            <button id="dsu-check" class="btn-action flex-1 text-[10px] py-1.5">${tCh('checkNow', __uiLang)}</button>
           </div>
         </div>
       </details>
@@ -17842,7 +17842,7 @@ window.renderBackupHealthCard = () => {
   const r = backupRisk(VaultDAO.state, { now: new Date() });
   const q = placementQuality(recoveryKitState());
   if (r.level === 'ok' && !q.ok && !VaultDAO.state.recoveryKit) {
-    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">Copia di sicurezza: tre fogli in tre posti diversi, nessuna password da ricordare.</p>`;
+    box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('rkShort', __uiLang)}</p>`;
     return;
   }
   const tono = r.level === 'urgente' ? 'border-amber-500/50 bg-amber-500/10 text-amber-300'
@@ -17898,18 +17898,18 @@ function rkRender() {
           <svg class="w-8 h-8 text-[var(--primary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         </div>
         <div>
-          <h3 class="text-lg font-black leading-tight">Se perdi il telefono,<br>non perdi niente</h3>
-          <p class="card-sub !mb-0 mt-1.5">Facciamo tre fogli e li mettiamo in tre posti diversi. Con due qualsiasi torni esattamente dov'eri.</p>
+          <h3 class="text-lg font-black leading-tight">${tCh('rkTitle', __uiLang)}</h3>
+          <p class="card-sub !mb-0 mt-1.5">${tCh('rkIntro', __uiLang)}</p>
         </div>
         <div class="w-full rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-left">
-          <p class="text-[12px] font-bold flex items-center gap-2"><span class="text-emerald-400">✓</span> Nessuna password da ricordare</p>
-          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> Due minuti, poi non ci pensi più</p>
-          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> Un foglio da solo non apre niente</p>
+          <p class="text-[12px] font-bold flex items-center gap-2"><span class="text-emerald-400">✓</span> ${tCh('rkNoPassword', __uiLang)}</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> ${tCh('rkTwoMinutes', __uiLang)}</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> ${tCh('rkOneOpensNothing', __uiLang)}</p>
         </div>
-        <button id="rk-start" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">Iniziamo</button>
+        <button id="rk-start" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">${tCh('rkStart', __uiLang)}</button>
         <div class="flex flex-col gap-1.5">
-          <button id="rk-uno" class="text-[11px] text-[var(--on-surface-secondary)] underline">Preferisco un foglio solo</button>
-          <button id="rk-later" class="text-[11px] text-[var(--on-surface-secondary)] underline">Lo faccio dopo</button>
+          <button id="rk-uno" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('rkPreferOne', __uiLang)}</button>
+          <button id="rk-later" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('rkLater', __uiLang)}</button>
         </div>
       </div>`;
     document.getElementById('rk-start').addEventListener('click', () => { RK.fase = 'passo'; RK.passo = 1; rkRender(); });
@@ -17924,17 +17924,17 @@ function rkRender() {
     body.innerHTML = `
       <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center">
         <div>
-          <h3 class="text-base font-black">Un foglio solo: come funziona</h3>
-          <p class="card-sub !mb-0 mt-1">È più semplice, ma cambia due cose ed è giusto che tu le sappia adesso.</p>
+          <h3 class="text-base font-black">${tCh('rkOneHow', __uiLang)}</h3>
+          <p class="card-sub !mb-0 mt-1">${tCh('rkOneSimpler', __uiLang)}</p>
         </div>
         <div class="w-full rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3 text-left">
-          <p class="text-[12px] font-bold text-amber-200">Chi lo trova apre tutto</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">Con tre fogli, chi ne trova uno non apre niente.</p>
-          <p class="text-[12px] font-bold text-amber-200 mt-2">Se lo perdi, hai perso tutto</p>
-          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">Con tre fogli puoi perderne uno e rientrare lo stesso.</p>
+          <p class="text-[12px] font-bold text-amber-200">${tCh('rkFinderOpens', __uiLang)}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">${tCh('rkThreeFinder', __uiLang)}</p>
+          <p class="text-[12px] font-bold text-amber-200 mt-2">${tCh('rkLoseAll', __uiLang)}</p>
+          <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">${tCh('rkThreeLose', __uiLang)}</p>
         </div>
-        <button id="rk-uno-ok" class="rk-cta btn-action w-full py-3.5 font-bold rounded-2xl border border-[var(--outline)]">Va bene, un foglio solo</button>
-        <button id="rk-uno-no" class="text-[11px] text-[var(--primary)] font-bold underline">Torna ai tre fogli</button>
+        <button id="rk-uno-ok" class="rk-cta btn-action w-full py-3.5 font-bold rounded-2xl border border-[var(--outline)]">${tCh('rkOneOk', __uiLang)}</button>
+        <button id="rk-uno-no" class="text-[11px] text-[var(--primary)] font-bold underline">${tCh('rkBackThree', __uiLang)}</button>
       </div>`;
     document.getElementById('rk-uno-no').addEventListener('click', () => { RK.fase = 'intro'; rkRender(); });
     document.getElementById('rk-uno-ok').addEventListener('click', async () => {
@@ -17963,11 +17963,11 @@ function rkRender() {
         </div>
         ${rkDots(q.postiDistinti)}
         <div class="w-full rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-left">
-          <p class="text-[11px] text-[var(--on-surface-secondary)]">Il file della copia è già sul telefono. ${RK.kit.shares.length === 1 ? 'Da solo non si apre: serve il tuo foglio.' : 'Da solo non si apre: servono due fogli.'}</p>
-          <a href="${RK.envelopeUrl}" download="momentum-${RK.oggi}.momentum" class="text-[11px] font-bold text-[var(--primary)] underline mt-1 inline-block">Scarica di nuovo il file</a>
+          <p class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('rkFileOnPhone', __uiLang, RK.kit.shares.length === 1)}</p>
+          <a href="${RK.envelopeUrl}" download="momentum-${RK.oggi}.momentum" class="text-[11px] font-bold text-[var(--primary)] underline mt-1 inline-block">${tCh('rkRedownload', __uiLang)}</a>
         </div>
-        <button id="rk-close" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">Ho finito</button>
-        ${q.mancanti.length ? '<button id="rk-more" class="text-[11px] text-[var(--on-surface-secondary)] underline">Metti via anche l\'ultimo foglio</button>' : ''}
+        <button id="rk-close" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">${tCh('rkDone', __uiLang)}</button>
+        ${q.mancanti.length ? `<button id="rk-more" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('rkLastSheet', __uiLang)}</button>` : ''}
       </div>`;
     document.getElementById('rk-close').addEventListener('click', () => closeModal());
     document.getElementById('rk-more')?.addEventListener('click', () => { RK.fase = 'passo'; RK.passo = 3; rkRender(); });
@@ -17989,14 +17989,14 @@ function rkRender() {
         <p class="card-sub !mb-0 mt-1">${escapeHtml(step.sotto)}</p>
       </div>
       <button id="rk-do" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">${escapeHtml(step.azione)}</button>
-      <button id="rk-alt" class="text-[11px] text-[var(--on-surface-secondary)] underline">Preferisco un altro posto</button>
+      <button id="rk-alt" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('rkOtherPlace', __uiLang)}</button>
       <div id="rk-alt-box" class="hidden w-full grid grid-cols-2 sm:grid-cols-4 gap-1.5"></div>
       <details class="w-full text-left">
-        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">Vedi il foglio</summary>
+        <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">${tCh('rkSeeSheet', __uiLang)}</summary>
         <button class="rk-copy w-full text-left text-[10px] font-mono break-all leading-relaxed bg-[var(--surface-solid)] rounded-lg p-2 border border-[var(--outline)] mt-1.5 active:scale-[.99] transition-transform" data-text="${escapeHtml(share.text)}">${escapeHtml(share.text)}</button>
-        <p class="text-[9px] text-[var(--on-surface-secondary)] mt-1">Tocca per copiarlo. Non serve capirlo né trascriverlo a mano.</p>
+        <p class="text-[9px] text-[var(--on-surface-secondary)] mt-1">${tCh('rkTapCopy', __uiLang)}</p>
       </details>
-      ${step.opzionale ? '<button id="rk-skip" class="text-[11px] text-[var(--on-surface-secondary)] underline">Salto questo, sono già al sicuro</button>' : ''}
+      ${step.opzionale ? `<button id="rk-skip" class="text-[11px] text-[var(--on-surface-secondary)] underline">${tCh('rkSkip', __uiLang)}</button>` : ''}
     </div>`;
 
   const avanza = () => {
@@ -18032,8 +18032,8 @@ function rkRender() {
     }
   });
   document.querySelector('.rk-copy')?.addEventListener('click', async (e) => {
-    try { await navigator.clipboard.writeText(e.currentTarget.dataset.text); showToast('Foglio copiato.', 'success'); }
-    catch (_) { showToast('Copia non riuscita: selezionalo a mano.', 'error'); }
+    try { await navigator.clipboard.writeText(e.currentTarget.dataset.text); showToast(tCh('rkCopied', __uiLang), 'success'); }
+    catch (_) { showToast(tCh('copyFailedSelect', __uiLang), 'error'); }
   });
 }
 
@@ -18054,7 +18054,7 @@ async function rkPlace(share, where, label) {
       URL.revokeObjectURL(a.href);
     } else if (where === 'stampato') {
       await navigator.clipboard?.writeText(corpo);
-      showToast('Foglio copiato: incollalo dove vuoi stamparlo.', 'success');
+      showToast(tCh('rkCopiedPrint', __uiLang), 'success');
     }
   } catch (_) { /* il segno resta: è la persona a dire dove l'ha messo */ }
   window.markRecoveryPlacement(share.index, where);
@@ -18092,16 +18092,16 @@ window.openRecoveryRestore = () => {
   openModal(`
     <div class="flex flex-col gap-3 p-3 sm:p-5 lg:p-0">
       <div>
-        <h3 class="text-base font-black">Torna dentro</h3>
-        <p class="card-sub !mb-0">Scegli il file della copia, poi incolla due dei tuoi tre fogli. Non serve nessuna password.</p>
+        <h3 class="text-base font-black">${tCh('rrTitle', __uiLang)}</h3>
+        <p class="card-sub !mb-0">${tCh('rrIntro', __uiLang)}</p>
       </div>
       <label class="btn-action w-full py-3 font-bold rounded-xl text-center border border-[var(--outline)] cursor-pointer">
-        <span id="rr-filename">Scegli il file della copia</span>
+        <span id="rr-filename">${tCh('rrChooseFile', __uiLang)}</span>
         <input id="rr-file" type="file" accept=".momentum,application/json" class="hidden" name="rr-file">
       </label>
-      <textarea id="rr-shares" rows="5" placeholder="Incolla qui il primo foglio, vai a capo, incolla il secondo." class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3" name="rr-shares" aria-label="Incolla qui il primo foglio, vai a capo, incolla il secondo."></textarea>
-      <div id="rr-status" class="text-[11px] text-[var(--on-surface-secondary)]">Ancora nessun foglio.</div>
-      <button id="rr-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">Riporta i miei dati</button>
+      <textarea id="rr-shares" rows="5" placeholder="${escapeHtml(tCh('rrPastePh', __uiLang))}" class="w-full text-[11px] font-mono rounded-xl bg-[var(--surface-elevated)] border border-[var(--outline)] p-3" name="rr-shares" aria-label="Incolla qui il primo foglio, vai a capo, incolla il secondo."></textarea>
+      <div id="rr-status" class="text-[11px] text-[var(--on-surface-secondary)]">${tCh('rrNoSheet', __uiLang)}</div>
+      <button id="rr-go" class="btn-action btn-primary w-full py-3 font-bold rounded-xl">${tCh('rrGo', __uiLang)}</button>
     </div>`);
 
   let envelope = null;
@@ -18112,8 +18112,8 @@ window.openRecoveryRestore = () => {
   const aggiorna = () => {
     const n = pezzi().length;
     const parts = [];
-    parts.push(envelope ? 'File pronto.' : 'Manca il file della copia.');
-    parts.push(n === 0 ? 'Nessun foglio incollato.' : n === 1 ? 'Un foglio: ne serve ancora uno.' : `${n} fogli: bastano.`);
+    parts.push(envelope ? tCh('rrFileReady', __uiLang) : tCh('rrFileMissing', __uiLang));
+    parts.push(tCh('rrSheets', __uiLang, n));
     status.textContent = parts.join(' ');
     status.className = `text-[11px] ${envelope && n >= 2 ? 'text-emerald-400' : 'text-[var(--on-surface-secondary)]'}`;
   };
@@ -18127,13 +18127,13 @@ window.openRecoveryRestore = () => {
       document.getElementById('rr-filename').textContent = f.name;
     } catch (_) {
       envelope = null;
-      showToast('Questo file non sembra una copia di Momentum.', 'error');
+      showToast(tCh('rrNotMomentum', __uiLang), 'error');
     }
     aggiorna();
   });
 
   document.getElementById('rr-go').addEventListener('click', async () => {
-    if (!envelope) { showToast('Scegli prima il file della copia.', 'error'); return; }
+    if (!envelope) { showToast(tCh('rrChooseFirst', __uiLang), 'error'); return; }
     try {
       const restored = await restoreFromShares(envelope, pezzi());
       window.reviewBackupRestore(restored);
