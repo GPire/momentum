@@ -8,7 +8,7 @@ const PAROLE = /\b(il|la|lo|le|gli|dei|delle|della|degli|per|con|non|sono|questo
 
 // Falsi positivi verificati: nomi propri di enti, esempi di dettatura già
 // scritti in ogni lingua, frammenti di formattazione.
-const ECCEZIONI = [/^Agenzia delle Entrate/, /perLingua/, /format\(spent\/budget\)/];
+const ECCEZIONI = [/^Agenzia delle Entrate/, /data-brand-title/, /data-i18n-html=/, /perLingua/, /format\(spent\/budget\)/];
 
 export function findItalianUiStrings(source) {
   const out = [];
@@ -23,7 +23,7 @@ export function findItalianUiStrings(source) {
     if (t.startsWith('//') || t.startsWith('*') || t.startsWith('<!--')) return;
     const found = new Set();
     for (const m of line.matchAll(/<([^<>]*)>([^<>`]{4,})</g)) {
-      if (/data-i18n(-key)?=/.test(m[1])) continue;
+      if (/data-i18n(-key|-html)?=/.test(m[1])) continue;
       const txt = m[2].replace(/\$\{[^}]*\}/g, ' ').trim();
       if (txt.length >= 4 && PAROLE.test(txt) && /[a-zà-ù]{3,}/i.test(txt)) found.add(txt);
     }
@@ -31,10 +31,13 @@ export function findItalianUiStrings(source) {
       if (PAROLE.test(m[2]) && !/tCh\(|tVoice\(|t\(/.test(m[2])) found.add(m[2]);
     }
     for (const m of line.matchAll(/(?:textContent|placeholder|innerText)\s*=\s*(['"`])((?:(?!\1).){4,}?)\1/g)) {
-      if (PAROLE.test(m[2])) found.add(m[2]);
+      if (PAROLE.test(m[2]) && !/data-i18n-(placeholder|key)=/.test(line)) found.add(m[2]);
     }
-    for (const m of line.matchAll(/(?:placeholder|aria-label|title)="([^"$]{3,})"/g)) {
-      if (PAROLE.test(m[1])) found.add(m[1]);
+    for (const m of line.matchAll(/(placeholder|aria-label|title)=(["'])((?:(?!\2)[^$]){3,})\2/g)) {
+      // L'attributo è tradotto all'avvio se sulla riga c'è il data-i18n corrispondente.
+      const tradotto = { placeholder: 'data-i18n-placeholder', 'aria-label': 'data-i18n-aria', title: 'data-i18n-title' }[m[1]];
+      if (line.includes(tradotto + '=')) continue;
+      if (PAROLE.test(m[3])) found.add(m[3]);
     }
     // Testo da solo su una riga dentro un template HTML (nessun codice sulla riga).
     if (t.length > 12 && !/[<>=;{}()\[\]]|^['"`]|['"`],?$/.test(t) && PAROLE.test(t) && /^[A-ZÀ-Ù]/.test(t)) found.add(t);

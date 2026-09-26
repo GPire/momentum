@@ -4603,7 +4603,7 @@
       <p class="text-[var(--on-surface-secondary)] text-sm mt-1 font-mono truncate" id="import-file">—</p>
       <div class="bar"><i id="import-bar-fill"></i></div>
       <p class="text-[var(--on-surface-secondary)] text-xs" id="import-count">0 / 0 file</p>
-      <button id="import-close" class="btn-action w-full mt-4 hidden" onclick="document.getElementById('import-progress').classList.remove('active')">Chiudi</button>
+      <button id="import-close" class="btn-action w-full mt-4 hidden" onclick="document.getElementById('import-progress').classList.remove('active')" data-i18n-key="vaultCloseBtn">Chiudi</button>
     </div>
   </div>
 
@@ -4642,7 +4642,7 @@
     <span class="w-6 h-6 rounded-full bg-[color-mix(in_srgb,var(--primary)_16%,transparent)] flex items-center justify-center shrink-0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[var(--primary)]"><path d="M17.94 17.94A10.94 10.94 0 0112 20c-7 0-11-8-11-8a21.8 21.8 0 015.06-6.06M9.9 4.24A10.94 10.94 0 0112 4c7 0 11 8 11 8a21.75 21.75 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><path d="M1 1l22 22"/></svg>
     </span>
-    <span class="text-[12px] font-bold text-[var(--on-surface)]">Numeri nascosti — tocca per rivederli</span>
+    <span class="text-[12px] font-bold text-[var(--on-surface)]" data-i18n-key="privacyRevealBanner">Numeri nascosti: tocca per rivederli</span>
   </button>
 
   <!-- Onda che si espande dal punto esatto del tocco sull'occhio, invece di
@@ -5086,7 +5086,7 @@
                    <h3 class="eyebrow"><span class="budget-orbit-mark" aria-hidden="true"></span><span data-i18n-key="alphaBudgetTitle">Budget del mese</span></h3>
                    <div class="budget-reading">
                      <div><span class="budget-reading-label" data-i18n-key="analysisSpentThisMonth">Speso questo mese</span><p id="budget-spent">€0</p></div>
-                     <div class="budget-position" id="budget-position"><span id="budget-limit">Nessun limite impostato</span><strong id="budget-remaining" hidden></strong></div>
+                     <div class="budget-position" id="budget-position"><span id="budget-limit" data-i18n-key="alphaBudgetUnset">Nessun limite impostato</span><strong id="budget-remaining" hidden></strong></div>
                    </div>
                    <p id="budget-next-step" class="budget-next-step"></p>
                    <div class="budget-track">
@@ -5190,7 +5190,7 @@
                      <output id="scenario-extra-val" for="scenario-slider" class="simulation-amount">0,00 €</output>
                      <input type="range" id="scenario-slider" aria-labelledby="scenario-label" aria-describedby="scenario-extra-val scenario-future-impact" min="0" max="1000" step="50" value="0" name="scenario-slider">
                      <div class="simulation-presets" id="simulation-presets" role="group" aria-labelledby="scenario-label"></div>
-                     <fieldset class="simulation-horizon"><legend data-i18n-key="simulationHorizon">Per quanti anni?</legend><div id="simulation-years"></div></fieldset><div class="simulation-outcome"><span id="simulation-horizon-label" class="simulation-outcome-label"></span><output id="scenario-future-impact" for="scenario-slider">Scegli un importo per vedere una stima.</output><p data-i18n-key="simulationEstimate">Sono scenari possibili, non promesse.</p></div>
+                     <fieldset class="simulation-horizon"><legend data-i18n-key="simulationHorizon">Per quanti anni?</legend><div id="simulation-years"></div></fieldset><div class="simulation-outcome"><span id="simulation-horizon-label" class="simulation-outcome-label"></span><output id="scenario-future-impact" for="scenario-slider" data-i18n-key="alphaScenario5yZero">Scegli un importo per vedere una stima.</output><p data-i18n-key="simulationEstimate">Sono scenari possibili, non promesse.</p></div>
                      <details class="simulation-comparison"><summary data-i18n-key="simulationCompare">Confronta gli scenari</summary><div id="scenario-strategy-compare" class="mt-3 hidden"></div></details>
                    </div>
                    <div id="simulation-spending" class="simulation-pane" role="tabpanel" aria-labelledby="simulation-spending-tab" hidden>
@@ -5565,8 +5565,8 @@
                 <div class="plan-comparison">
                   <p class="text-[11px] leading-snug"><span class="font-bold text-emerald-300" data-i18n-key="proFreeLabel">Gratis:</span> <span class="text-[var(--on-surface-secondary)]" data-i18n-key="proFreeForeverList">budget, spese, obiettivi, patrimonio netto, dividi le spese con amici.</span></p>
                   <p class="text-[11px] leading-snug"><span class="font-bold text-[var(--gold)]" data-i18n-key="proAddsLabel">PRO aggiunge:</span> <span class="text-[var(--on-surface-secondary)]" data-i18n-key="proAddsList">tasse e fatture per Partita IVA (Italia, Svizzera, Spagna), pannello SEC base, sentiment sul dispositivo, sync fra i tuoi dispositivi.</span></p>
-                  <p class="text-[11px] font-bold text-[var(--gold)] mt-1" id="pro-license-price">€3,99/mese oppure €34,99/anno.</p>
-                  <p class="text-[11px] text-[var(--on-surface-secondary)]" id="pro-investor-price">PRO Investor aggiunge pannello SEC completo, confronto con i concorrenti, derivati crypto, analisi causale di un titolo e parità di rischio: €6,99/mese oppure €59,99/anno.</p>
+                  <p class="text-[11px] font-bold text-[var(--gold)] mt-1" id="pro-license-price"></p>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)]" id="pro-investor-price"></p>
                 </div>
                 <div id="pro-license-status" class="hidden mb-3 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-emerald-200 text-xs"></div>
                 <div id="pro-license-form" class="flex flex-col gap-2">
@@ -5823,7 +5823,7 @@
                 <div>
                   <h3 class="eyebrow"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg><span data-i18n-key="vaultLivePricesTitle">Dati per investire</span></h3>
                   <p class="card-sub" data-i18n-key="vaultLivePricesSubtitle">Puoi analizzare i tuoi investimenti senza configurare nulla. Per cercare altri titoli e vedere quotazioni recenti, collega una fonte esterna solo se ti serve.</p>
-                  <div class="vault-investment-path" aria-label="Dati per investire">
+                  <div class="vault-investment-path" aria-label="Dati per investire" data-i18n-aria="vaultLivePricesTitle">
                     <div><span class="vault-investment-mark" aria-hidden="true">01</span><div><strong data-i18n-key="vaultInvestReady">Già pronto</strong><p data-i18n-key="vaultInvestReadyBody">Portafoglio, scenari e storico già presente. Le cripto possono aggiornarsi senza chiave.</p></div></div>
                     <div><span class="vault-investment-mark" aria-hidden="true">02</span><div><strong data-i18n-key="vaultInvestConnect">Se vuoi quotazioni recenti</strong><p data-i18n-key="vaultInvestConnectBody">Scegli una fonte per azioni ed ETF. Le quote possono essere di fine giornata e hanno i limiti del fornitore.</p></div></div>
                   </div>

@@ -17,7 +17,9 @@ import { showToast } from '../ui/feedback.js';
 import { NeuralNexus } from '../ai/neural-nexus.js';
 import { safeCategorize } from './categorize.js';
 import { ocrLanguagesFor } from './ocr-languages.js';
-import { resolveUiLanguage } from '../i18n/ui-strings.js';
+import { resolveUiLanguage, t as tShot } from '../i18n/ui-strings.js';
+
+const lingua = () => (typeof document !== 'undefined' && document.documentElement?.lang) || resolveUiLanguage();
 
 // Cattura importi con o senza separatore delle migliaia (1.500,00 / 1500,00
 // col separatore assente non è distinguibile in modo affidabile da OCR e
@@ -414,7 +416,7 @@ export async function scanScreenshotMulti(imageFileOrBlob, opts = {}) {
 // centralmente da VaultDAO.addTransaction, non va ripetuta qui).
 export async function handleScreenshotUpload(file) {
   try {
-    showToast('Lettura screenshot in corso...', 'info');
+    showToast(tShot('shotReading', lingua()), 'info');
 
     // Prima si prova la LISTA (più movimenti in una schermata): il caso reale
     // delle app bancarie. Se ne trova ≥1 li inserisce tutti; altrimenti ricade
@@ -431,14 +433,14 @@ export async function handleScreenshotUpload(file) {
         if (!duplicate) added++;
       }
       if (added > 0) { VaultDAO.save(); window.renderAfterImport ? window.renderAfterImport() : (window.renderDashboard?.(), window.renderAnalysis?.()); }
-      showToast(added > 0 ? `${added} movimenti riconosciuti dallo screenshot.` : 'Movimenti già presenti (nessun nuovo).', added > 0 ? 'success' : 'info');
+      showToast(added > 0 ? tShot('shotMultiAdded', lingua(), added) : tShot('shotAlreadyThere', lingua()), added > 0 ? 'success' : 'info');
       return { count: added, transactions: multi.transactions };
     }
 
     // Fallback: singola transazione (scontrino/notifica).
     const parsed = await scanScreenshot(file);
     if (parsed.amount === null) {
-      showToast('Nessun importo riconosciuto nello screenshot.', 'error');
+      showToast(tShot('shotNoAmount', lingua()), 'error');
       return null;
     }
     // `parsed.date` è null quando lo scontrino non riporta una data
@@ -475,14 +477,14 @@ export async function handleScreenshotUpload(file) {
 
     showToast(
       duplicate
-        ? `Screenshot riconosciuto come duplicato di una transazione già presente (unita automaticamente).`
-        : `Transazione riconosciuta: ${parsed.description} ${parsed.amount}€ (confidenza OCR: ${parsed.confidence}).`,
+        ? tShot('shotDuplicate', lingua())
+        : tShot('shotSingleAdded', lingua(), parsed.description, `${parsed.amount} ${parsed.currency || 'EUR'}`, parsed.confidence),
       duplicate ? 'info' : 'success'
     );
     return { ...parsed, date: dataRisolta, duplicate, route };
   } catch (err) {
     console.error('Errore import screenshot:', err);
-    showToast('Errore nella lettura dello screenshot.', 'error');
+    showToast(tShot('shotReadError', lingua()), 'error');
     return null;
   }
 }
