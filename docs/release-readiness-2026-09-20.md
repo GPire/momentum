@@ -1223,3 +1223,11 @@ segreti (`GET /api/license/readiness` lo dice). Corretto un blocco reale di
 produzione: `_routes.json` escludeva `/api/*`, quindi le funzioni di mercato
 (SEC, notizie, trimestrali) non rispondevano. Acquisti negli store nativi non
 ancora costruiti.
+
+### Cifratura a riposo e blocco con PIN — 26 settembre 2026
+
+Dati personali cifrati nello storage del browser (Vault, log, copie di
+sicurezza, originali fatture), PIN facoltativo. Dettagli, prove e limiti in
+[encryption-at-rest-2026-09-26.md](encryption-at-rest-2026-09-26.md).
+Verificato dal vivo con la migrazione di dati reali in chiaro. Restano da
+fare biometria nativa, blocco dopo inattività e avvisi di prezzo in background.

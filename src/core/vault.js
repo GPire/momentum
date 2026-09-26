@@ -13,6 +13,16 @@ import { meseLocale } from './date-utils.js';
 import { observePrivateArchive } from '../mesh/private-archive-sync.js';
 import { reconcileVaultCandidates, manifestMatches, readVaultManifest, VAULT_LEGACY_SHADOW_KEY, VAULT_MAIN_KEY, vaultManifest, writeLocalVaultSnapshot } from './vault-storage.js';
 import { stringifyVault } from './safe-json.js';
+import { seal, open as openSealed, sealValue, openValue, isSealed, vaultKeyActive, setVaultKey, VaultLockedError } from './vault-cipher.js';
+import { loadVaultKey, createVaultKey } from './vault-key.js';
+import { haCompletatoOnboarding } from './onboarding-state.js';
+
+// Segnale NON sensibile per lo script inline di index.html, che non può
+// decifrare il Vault: dice solo "questa persona ha già finito l'onboarding".
+export const ONBOARDED_FLAG_KEY = 'momentum_onboarded';
+// Scritto da "Cancella tutti i dati": i residui cifrati con la chiave distrutta
+// non devono bloccare il nuovo inizio.
+export const VAULT_WIPED_KEY = 'momentum_wiped';
 
 // Chiavi-mese adiacenti ('YYYY-MM') a una data: precedente, corrente, successivo.
 // Serve al dedup cross-mese (una tx a cavallo di due mesi entro la finestra 48h).
@@ -357,6 +367,21 @@ function reconstructMissingFromTxLog(txLogEntries, currentState) {
   return { recovered, addedCount };
 }
 
+// Copie in chiaro lasciate da versioni precedenti alla cifratura: la copia di
+// ripristino e il ponte iOS (un'intera copia del Vault in Cache Storage).
+const RESTORE_CHECKPOINT_ID = 'before-restore-v1';
+async function sealLegacyCopies() {
+  try {
+    const idb = await DurableStore.get('state', RESTORE_CHECKPOINT_ID);
+    if (idb && !isSealed(idb)) await DurableStore.put('state', seal(typeof idb === 'string' ? idb : JSON.stringify(idb)), RESTORE_CHECKPOINT_ID);
+  } catch (e) { console.warn('VaultDAO: copia di ripristino in IndexedDB non ricifrata:', e); }
+  try {
+    const ls = localStorage.getItem(RESTORE_CHECKPOINT_ID);
+    if (ls && !isSealed(ls)) localStorage.setItem(RESTORE_CHECKPOINT_ID, seal(ls));
+  } catch (e) { console.warn('VaultDAO: copia di ripristino locale non ricifrata:', e); }
+  try { if (typeof caches !== 'undefined') await caches.delete(IOS_HANDOFF_CACHE); } catch { /* nessuna cache */ }
+}
+
 // ==========================================
 // VAULTDAO STORAGE LAYER
 // ==========================================
@@ -453,7 +478,15 @@ const VaultDAO = {
   // che càpita. Solo se NESSUNA copia è leggibile si riparte dal default,
   // e anche allora si logga forte (mai un errore ingoiato senza traccia).
   init() {
-    const main = localStorage.getItem(VAULT_MAIN_KEY);
+    // Dati cifrati ma chiave non disponibile: si resta sullo stato di default
+    // in SOLA LETTURA (save() non scrive): mai sovrascrivere l'archivio vero.
+    let main = null;
+    try { main = openSealed(localStorage.getItem(VAULT_MAIN_KEY)); }
+    catch (e) {
+      if (e instanceof VaultLockedError) this.locked = true;
+      else console.error('VaultDAO.init: omega_core_db cifrato non apribile — scartato:', e);
+    }
+    if (this.locked) { this._durableCandidate = null; window.state = this.state; return; }
     const shadow = localStorage.getItem(VAULT_LEGACY_SHADOW_KEY);
     const candidates = [];
     // initDurable() may have retained a better snapshot in IndexedDB while
@@ -488,6 +521,10 @@ const VaultDAO = {
       }
     }
     window.state = this.state;
+    // Aggiornamento da una versione senza cifratura: si riscrive subito cifrato.
+    if (vaultKeyActive() && main && !isSealed(localStorage.getItem(VAULT_MAIN_KEY))) {
+      try { this.save(); } catch (e) { console.error('VaultDAO.init: riscrittura cifrata fallita, riprovo al prossimo salvataggio:', e); }
+    }
   },
   // Riconciliazione con IndexedDB, da chiamare PRIMA di init(): stessa
   // disciplina "mai un checksum cieco" di init() sopra, estesa a una TERZA
@@ -495,11 +532,43 @@ const VaultDAO = {
   // Riscrive lo snapshot principale e il suo manifest dopo avere verificato
   // la copia durevole. La vecchia shadow base64 resta soltanto una sorgente
   // di migrazione: dopo una scrittura verificata viene rimossa.
-  async initDurable() {
+  // Da chiamare prima di leggere qualunque copia. `requestPin(record)` (UI)
+  // ritorna i byte della chiave dopo il PIN giusto, oppure null.
+  async prepareKey({ store, requestPin } = {}) {
+    this.locked = false;
+    const r = await loadVaultKey(store);
+    this.keyStatus = r.status;
+    if (r.status === 'ready') { setVaultKey(r.key); return r; }
+    if (r.status === 'pin') {
+      const key = requestPin ? await requestPin(r.record) : null;
+      if (key) { setVaultKey(key); this.keyStatus = 'ready'; return { ...r, status: 'ready' }; }
+      this.locked = true;
+      return r;
+    }
+    const cancellato = localStorage.getItem(VAULT_WIPED_KEY) === '1';
+    let cifrati = !cancellato && isSealed(localStorage.getItem(VAULT_MAIN_KEY));
+    if (!cifrati && !cancellato) { try { cifrati = isSealed(await DurableStore.get('state', 'main')); } catch { /* IndexedDB assente */ } }
+    if (cifrati) { this.locked = true; return r; }
+    if (r.status === 'none') {
+      try {
+        setVaultKey(await createVaultKey(store)); this.keyStatus = 'ready';
+        if (cancellato) localStorage.removeItem(VAULT_WIPED_KEY);
+      }
+      catch (e) { console.warn('VaultDAO.prepareKey: chiave non conservabile, i dati restano non cifrati su questo browser:', e); }
+    }
+    return r;
+  },
+  async initDurable(opts = {}) {
     this._durableCandidate = null;
+    try { await this.prepareKey(opts); }
+    catch (e) { console.error('VaultDAO.prepareKey fallita:', e); if (isSealed(localStorage.getItem(VAULT_MAIN_KEY))) this.locked = true; }
+    if (this.locked) return;
     try {
-      const idbPayload = await DurableStore.get('state', 'main');
-      const lsMain = localStorage.getItem(VAULT_MAIN_KEY);
+      const idbRaw = await DurableStore.get('state', 'main');
+      let idbPayload = null;
+      try { idbPayload = openSealed(idbRaw); } catch (e) { console.error('VaultDAO.initDurable: copia IndexedDB cifrata non apribile — scartata:', e); }
+      let lsMain = null;
+      try { lsMain = openSealed(localStorage.getItem(VAULT_MAIN_KEY)); } catch (e) { console.error('VaultDAO.initDurable: copia locale cifrata non apribile — scartata:', e); }
       const lsShadow = localStorage.getItem(VAULT_LEGACY_SHADOW_KEY);
       const candidates = [];
       const tryParse = (raw, source, decode) => {
@@ -517,12 +586,16 @@ const VaultDAO = {
       this._durableCandidate = best;
       // A one-time, separate checkpoint preserves every readable source before
       // this release reconciles them, including learning not present in the winner.
-      if (!await DurableStore.get('state', 'upgrade-2026-09-11')) {
+      const checkpointEsistente = await DurableStore.get('state', 'upgrade-2026-09-11');
+      if (checkpointEsistente && vaultKeyActive() && !isSealed(checkpointEsistente)) {
+        // Copia di sicurezza scritta in chiaro prima della cifratura: si riscrive cifrata.
+        try { await DurableStore.put('state', seal(JSON.stringify(checkpointEsistente)), 'upgrade-2026-09-11'); } catch (e) { console.warn('VaultDAO.initDurable: copia di sicurezza non ricifrata:', e); }
+      }
+      if (vaultKeyActive()) await sealLegacyCopies();
+      if (!checkpointEsistente) {
         try {
-          await DurableStore.put('state', {
-            format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(),
-            sources: candidates,
-          }, 'upgrade-2026-09-11');
+          const checkpoint = { format: 'momentum-upgrade-checkpoint-v1', createdAt: new Date().toISOString(), sources: candidates };
+          await DurableStore.put('state', vaultKeyActive() ? seal(JSON.stringify(checkpoint)) : checkpoint, 'upgrade-2026-09-11');
         } catch (error) {
           console.warn('VaultDAO.initDurable: spazio insufficiente per la copia di sicurezza; non sovrascrivo le copie esistenti.', error);
           return;
@@ -533,11 +606,17 @@ const VaultDAO = {
         console.warn(`VaultDAO.initDurable: copie salvate non allineate (${riepilogo}) — ricostruisco da "${best.source}" dopo confronto di movimenti, revisioni e cancellazioni.`);
       }
       const bestPayload = JSON.stringify(best.state);
-      if (idbPayload !== bestPayload) await DurableStore.put('state', bestPayload, 'main');
-      const retained = idbPayload === bestPayload ? idbPayload : await DurableStore.get('state', 'main');
+      // Con la chiave attiva ogni copia ancora in chiaro viene riscritta cifrata.
+      const daRiscrivere = idbPayload !== bestPayload || (vaultKeyActive() && !isSealed(idbRaw));
+      const storedIdb = daRiscrivere ? seal(bestPayload) : idbRaw;
+      if (daRiscrivere) await DurableStore.put('state', storedIdb, 'main');
+      const retainedRaw = daRiscrivere ? await DurableStore.get('state', 'main') : idbRaw;
+      let retained = null;
+      try { retained = openSealed(retainedRaw); } catch { retained = null; }
       if (retained !== bestPayload) throw new Error('IndexedDB non ha confermato lo snapshot riconciliato');
       this._durableCandidate = { source: 'indexedDB', state: best.state };
-      try { writeLocalVaultSnapshot(localStorage, bestPayload, best.state, { durableSafe: true }); }
+      const localeInChiaro = vaultKeyActive() && !isSealed(localStorage.getItem(VAULT_MAIN_KEY));
+      try { writeLocalVaultSnapshot(localStorage, lsMain === bestPayload && !localeInChiaro ? localStorage.getItem(VAULT_MAIN_KEY) : seal(bestPayload), best.state, { durableSafe: true }); }
       catch (e) { console.warn('localStorage pieno: apro la copia verificata in IndexedDB senza sovrascrivere i dati precedenti.', e); }
     } catch (e) {
       console.warn('IndexedDB non disponibile, continuo con localStorage:', e);
@@ -556,14 +635,24 @@ const VaultDAO = {
     // tentativo rifaceva lo stesso identico crash. Stesso principio già
     // applicato sotto a saveIosHandoff: un'osservazione collaterale non deve
     // mai poter bloccare il salvataggio reale dei dati dell'utente.
+    if (this.locked) return false;
     try { observePrivateArchive(this.state); } catch (e) { console.error('VaultDAO.save: observePrivateArchive fallita, salvataggio continua comunque:', e); }
+    try { if (haCompletatoOnboarding(this.state)) localStorage.setItem(ONBOARDED_FLAG_KEY, '1'); } catch { /* segnale facoltativo */ }
     const serializable = revision => ({ ...this.state, storageRevision: revision, currentDate: this.state.currentDate.toISOString() });
     const currentRevision = Number(this.state.storageRevision) || 0;
     const unchangedPayload = stringifyVault(serializable(currentRevision));
-    const currentManifest = readVaultManifest(localStorage);
-    if (localStorage.getItem(VAULT_MAIN_KEY) === unchangedPayload && manifestMatches(unchangedPayload, currentManifest)) return false;
+    const cifrato = vaultKeyActive();
+    if (cifrato) {
+      // Il testo cifrato cambia a ogni salvataggio (nonce casuale): il
+      // confronto "nulla è cambiato" si fa sull'ultimo contenuto scritto.
+      if (this._lastPlain === unchangedPayload && isSealed(localStorage.getItem(VAULT_MAIN_KEY))) return false;
+    } else {
+      const currentManifest = readVaultManifest(localStorage);
+      if (localStorage.getItem(VAULT_MAIN_KEY) === unchangedPayload && manifestMatches(unchangedPayload, currentManifest)) return false;
+    }
     this.state.storageRevision = currentRevision + 1;
-    const payload = stringifyVault(serializable(this.state.storageRevision));
+    const plain = stringifyVault(serializable(this.state.storageRevision));
+    const payload = seal(plain);
     const manifest = vaultManifest(payload, this.state);
     let localRetained = false;
     try {
@@ -573,12 +662,15 @@ const VaultDAO = {
       console.error('VaultDAO.save: scrittura di omega_core_db fallita (localStorage pieno?):', e);
       try { localRetained = localStorage.getItem(VAULT_MAIN_KEY) === payload; } catch {}
     }
+    this._lastPlain = plain;
     queueDurableVault(payload, manifest, localRetained);
     // Ponte iOS best-effort (2026-08-28) — vedi IOS_HANDOFF sotto: scrive un
     // istantanea in Cache Storage, MAI l'unica via di ripristino (quella
     // resta il backup file, sempre affidabile). Fire-and-forget, mai un
     // errore qui deve interrompere il salvataggio vero.
-    try { saveIosHandoff(payload); } catch (_) {}
+    // Il ponte iOS scrive in Cache Storage leggibile da un'altra istanza, che
+    // non ha la chiave: con la cifratura attiva resta il backup file cifrato.
+    if (!cifrato) { try { saveIosHandoff(payload); } catch (_) {} }
     return true;
   },
   flushDurable() { return durableVaultDrain; },
@@ -678,7 +770,7 @@ const VaultDAO = {
     if (!opts.bulk) {
       this.save();
       // log append-only: base per il sync federato differenziale (mai riscritto)
-      DurableStore.append('tx_log', { month, tx, ts: Date.now() }).catch(() => {});
+      DurableStore.append('tx_log', sealValue({ month, tx, ts: Date.now() })).catch(() => {});
     }
     return { duplicate: false, route };
   },
@@ -782,7 +874,7 @@ const VaultDAO = {
   // silenzioso — vedi reconstructMissingFromTxLog sopra per i limiti onesti.
   async checkTxLogRecovery() {
     try {
-      const entries = await DurableStore.getAll('tx_log');
+      const entries = (await DurableStore.getAll('tx_log')).flatMap((e) => { try { return [openValue(e)]; } catch { return []; } });
       if (!entries.length) return { recovered: {}, addedCount: 0 };
       return reconstructMissingFromTxLog(entries, this.state);
     } catch (e) {

@@ -67,6 +67,7 @@
     "vite-plugin-singlefile": "^2.0.2"
   },
   "dependencies": {
-    "@huggingface/transformers": "^4.2.0"
+    "@huggingface/transformers": "^4.2.0",
+    "@noble/ciphers": "2.4.0"
   }
 }

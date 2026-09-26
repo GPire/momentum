@@ -93,7 +93,7 @@ import { giornoLocale, meseLocale } from './core/date-utils.js';
 import { raggruppaPerValuta, notaValuteEstranee } from './core/currency-convert.js';
 import { haptic } from './core/utils.js';
 import { AudioSynth } from './core/audio.js';
-import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff } from './core/vault.js';
+import { getCatById, getCatsByType, VaultDAO, DurableStore, tryReadIosHandoff, VAULT_WIPED_KEY } from './core/vault.js';
 import { bindVaultDurability } from './core/storage-resilience.js';
 import { mergeCategoryLists, touchCategory } from './core/custom-categories-merge.js';
 import { mergeList as mergeUserList, mergeScalar, chiaveAbbonamento, touch as touchUserData } from './core/user-data-merge.js';
@@ -319,6 +319,8 @@ import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, ch
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
 import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, verifyStoredLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR, PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR } from './core/subscription.js';
+import { openValue } from './core/vault-cipher.js';
+import { destroyVaultKey, enablePin, disablePin, unlockWithPin, loadVaultKey, PIN_MIN_LENGTH } from './core/vault-key.js';
 import { deviceLicenseCode, verifyRevocationList } from './core/license.js';
 import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations } from './core/license-client.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
@@ -18252,7 +18254,7 @@ window.connectWebRTCPeer = () => document.getElementById('backup-restore-input')
 // file, riapribile da restoreBackupFile, e il nome del file avvisa da solo.
 window.exportPreUpdateBackup = async () => {
   try {
-    const checkpoint = await DurableStore.get('state', 'upgrade-2026-09-11');
+    const checkpoint = openValue(await DurableStore.get('state', 'upgrade-2026-09-11'));
     if (!checkpoint?.sources?.length) { showToast(tIntegration('checkpointMissing', __uiLang)); return; }
     const best = checkpoint.sources.reduce((a, b) => VaultDAO._countTx(b.state) > VaultDAO._countTx(a.state) ? b : a);
     const envelope = exportPlain({ ...best.state, upgradeRecoveryCopies: checkpoint.sources });
@@ -18409,11 +18411,15 @@ window.revealVaultData = kind => {
 window.nukeVault = async () => {
   if (confirm("Distruggere l'intero database locale? Questa azione è irreversibile.")) {
     localStorage.clear();
+    try { localStorage.setItem(VAULT_WIPED_KEY, '1'); } catch (_) {}
     // Bug reale corretto il 2026-08-29: prima si cancellava solo
     // localStorage, mai IndexedDB — al riavvio i dati "cancellati"
     // tornavano indietro da lì (vedi DurableStore.deleteAll in vault.js).
     // "Cancella tutti i dati" deve significare davvero tutto, ovunque sia.
     try { await DurableStore.deleteAll(); } catch (_) {}
+    // Senza la chiave, eventuali residui cifrati (es. un'altra scheda ha
+    // bloccato la cancellazione di IndexedDB) restano illeggibili per sempre.
+    await destroyVaultKey().catch(() => {});
     location.reload();
   }
 };
@@ -20285,7 +20291,7 @@ function initCalmWorkspace(view) {
           ? 'workspacePlans' : 'workspacePatterns';
     } else {
       if (card.classList.contains('vault-data-portal')) { primary.push(card); continue; }
-      group = has('vaultSyncTitle') || ['install-guide-card','quickadd-guide-card'].includes(card.id)
+      group = has('vaultSyncTitle') || ['install-guide-card','quickadd-guide-card','vault-lock-card'].includes(card.id)
         ? 'workspaceDevices' : card.id === 'tax-settings-card' || has('vaultPayrollTitle') || has('vaultRemindersTitle')
           ? 'workspacePayments' : card.classList.contains('advanced-card') || ['semantic-qa-card','pro-license-card','momentum-traguardi-card'].includes(card.id)
             ? 'workspaceMore' : 'workspacePreferences';
@@ -25347,6 +25353,114 @@ async function initMomentumRealAI() {
   }
 }
 
+// ── Blocco con PIN (src/core/vault-key.js) ─────────────────────────────
+// La schermata di sblocco è statica in index.html: compare prima che il
+// Vault venga letto, perché senza PIN non c'è nulla da leggere.
+function chiediPinAvvio(record) {
+  return new Promise((resolve) => {
+    const box = document.getElementById('vault-unlock');
+    const form = document.getElementById('vault-unlock-form');
+    const input = document.getElementById('vault-unlock-pin');
+    const btn = document.getElementById('vault-unlock-btn');
+    const err = document.getElementById('vault-unlock-error');
+    if (!box || !form || !input || !btn || !err) { resolve(null); return; }
+    box.querySelectorAll('[data-i18n-key]').forEach((el) => { el.textContent = tCh(el.dataset.i18nKey, __uiLang); });
+    box.classList.remove('hidden');
+    box.style.display = 'flex';
+    input.focus();
+    let errori = 0;
+    let attendiFino = 0;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (Date.now() < attendiFino) { err.textContent = tCh('vaultUnlockWait', __uiLang, Math.ceil((attendiFino - Date.now()) / 1000)); return; }
+      btn.disabled = true;
+      btn.textContent = tCh('vaultPinWorking', __uiLang);
+      err.textContent = '';
+      const key = await unlockWithPin(record, input.value);
+      btn.disabled = false;
+      btn.textContent = tCh('vaultUnlockBtn', __uiLang);
+      input.value = '';
+      if (key) { box.style.display = 'none'; box.classList.add('hidden'); resolve(key); return; }
+      errori++;
+      input.focus();
+      // Rallenta chi prova a indovinare davanti allo schermo: 30 s, poi raddoppia fino a 5 minuti.
+      if (errori >= 5) {
+        attendiFino = Date.now() + Math.min(300, 30 * 2 ** (errori - 5)) * 1000;
+        err.textContent = tCh('vaultUnlockWait', __uiLang, Math.ceil((attendiFino - Date.now()) / 1000));
+      } else err.textContent = tCh('vaultUnlockWrong', __uiLang);
+    });
+    document.getElementById('vault-unlock-wipe')?.addEventListener('click', () => window.nukeVault());
+  });
+}
+
+async function renderVaultLockCard() {
+  const status = document.getElementById('vault-lock-status');
+  const actions = document.getElementById('vault-lock-actions');
+  if (!status || !actions) return;
+  const r = await loadVaultKey();
+  const bottone = (key, mode, primario) => `<button type="button" onclick="window.openVaultPin('${mode}')" class="${primario ? 'btn-action w-full font-bold text-sm' : 'w-full text-sm font-bold py-2.5 rounded-xl border border-[var(--glass-border)]'}">${tCh(key, __uiLang)}</button>`;
+  if (r.status === 'ready') {
+    status.textContent = tCh('vaultLockStatusDevice', __uiLang);
+    actions.innerHTML = bottone('vaultLockEnable', 'enable', true);
+  } else if (r.status === 'pin') {
+    status.textContent = tCh('vaultLockStatusPin', __uiLang);
+    actions.innerHTML = bottone('vaultLockChange', 'change', false) + bottone('vaultLockDisable', 'disable', false);
+  } else {
+    status.textContent = tCh('vaultLockStatusOff', __uiLang);
+    actions.innerHTML = '';
+  }
+}
+
+window.openVaultPin = (mode) => {
+  const campo = (id, key, ac) => `<label class="block text-xs font-bold text-left">${tCh(key, __uiLang)}<input id="${id}" type="password" autocomplete="${ac}" class="modal-input !mb-0 mt-1"></label>`;
+  const titolo = { enable: 'vaultLockEnable', change: 'vaultLockChange', disable: 'vaultLockDisable' }[mode];
+  window.openModal(`<form id="vp-form" class="p-5 space-y-3" autocomplete="off">
+    <h3 class="text-lg font-bold">${tCh(titolo, __uiLang)}</h3>
+    ${mode === 'enable' ? `<p class="text-xs text-amber-300">${tCh('vaultPinWarn', __uiLang)}</p>` : ''}
+    ${mode !== 'enable' ? campo('vp-current', 'vaultPinCurrent', 'current-password') : ''}
+    ${mode !== 'disable' ? campo('vp-new', 'vaultPinNew', 'new-password') + campo('vp-confirm', 'vaultPinConfirm', 'new-password') : ''}
+    <p id="vp-error" role="alert" class="text-xs text-rose-300 min-h-[1rem]"></p>
+    <button type="submit" class="btn-action w-full font-bold">${tCh('vaultPinSave', __uiLang)}</button>
+  </form>`);
+  const form = document.getElementById('vp-form');
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('vp-error');
+    const btn = form.querySelector('button[type=submit]');
+    const val = (id) => document.getElementById(id)?.value || '';
+    if (mode !== 'disable') {
+      if (val('vp-new').length < PIN_MIN_LENGTH) { err.textContent = tCh('vaultPinShort', __uiLang); return; }
+      if (val('vp-new') !== val('vp-confirm')) { err.textContent = tCh('vaultPinMismatch', __uiLang); return; }
+    }
+    btn.disabled = true;
+    btn.textContent = tCh('vaultPinWorking', __uiLang);
+    const ripristina = (key) => { err.textContent = tCh(key, __uiLang); btn.disabled = false; btn.textContent = tCh('vaultPinSave', __uiLang); };
+    try {
+      const r = await loadVaultKey();
+      const key = mode === 'enable'
+        ? (r.status === 'ready' ? r.key : null)
+        : (r.status === 'pin' ? await unlockWithPin(r.record, val('vp-current')) : null);
+      if (!key) { ripristina(mode === 'enable' ? 'vaultPinError' : 'vaultPinWrongCurrent'); return; }
+      if (mode === 'disable') await disablePin(undefined, key);
+      else await enablePin(undefined, key, val('vp-new'));
+      window.closeModal();
+      showToast(tCh(mode === 'disable' ? 'vaultPinRemoved' : 'vaultPinDone', __uiLang), 'success');
+      renderVaultLockCard();
+    } catch (error) {
+      console.error('PIN Vault:', error);
+      ripristina('vaultPinError');
+    }
+  });
+  document.getElementById(mode === 'enable' ? 'vp-new' : 'vp-current')?.focus();
+};
+
+function avvisaVaultBloccato() {
+  window.openModal(`<div class="p-5 space-y-4 text-center">
+    <p class="text-sm">${tCh('vaultLockedNotice', __uiLang)}</p>
+    <button onclick="location.reload()" class="btn-action w-full py-3 font-bold rounded-xl">${tCh('vaultLockedReload', __uiLang)}</button>
+  </div>`);
+}
+
 const startMomentum = () => {
   // Riconcilia IndexedDB <-> localStorage prima di leggere lo stato;
   // se IndexedDB fallisce si parte comunque (fallback localStorage puro,
@@ -25355,8 +25469,10 @@ const startMomentum = () => {
   // initApp() non parte mai e l'intera app resta sulla schermata iniziale).
   // Il profilo hardware (micro-benchmark ~40ms, poi in cache 24h) decide
   // i budget di calcolo: path Monte Carlo, 3D on/off.
-  Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => {
+  Promise.allSettled([VaultDAO.initDurable({ requestPin: chiediPinAvvio }), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
+    if (VaultDAO.locked) avvisaVaultBloccato();
+    renderVaultLockCard().catch(() => {});
     verificaLicenzaAvvio().catch(() => {});
     bindVaultDurability({
       doc: document, win: window, vault: VaultDAO,

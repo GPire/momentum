@@ -1,5 +1,11 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Cifratura a riposo, 26 settembre 2026:** ogni scrittura di dati personali
+> passa da `seal`/`sealValue` (`src/core/vault-cipher.js`) e ogni lettura da
+> `open`/`openValue`. Chi aggiunge un nuovo store con dati dell'utente DEVE
+> fare lo stesso. Se `VaultDAO.locked` è vero, nessuna scrittura. Leggere
+> [encryption-at-rest-2026-09-26.md](docs/encryption-at-rest-2026-09-26.md).
+
 > **Pagamenti, 26 settembre 2026:** web/PWA con Stripe tramite
 > `server/license/worker.js` (`/api/license/*`), che emette le stesse licenze
 > per dispositivo; rinnovo, revoca e cambio durata. Store nativi: billing di

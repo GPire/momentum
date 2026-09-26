@@ -1,5 +1,6 @@
 import {verifyDocumentArchive} from './document-archive.js';
-import {documentStorageKey} from './document-storage.js';
+import {documentStorageKey,sealArchive} from './document-storage.js';
+import {openValue} from '../core/vault-cipher.js';
 const prefix='invoice-documents:';
 export function splitDocumentBackup(backup){
  const {invoiceDocumentBackup:documents,...state}=backup;return {state,documents};
@@ -27,7 +28,7 @@ export async function includeDocumentBackup(state,durable){
  const db=await durable.open();if(!db)throw Error('Cannot verify document storage');
  const archives=await transaction(db,'readonly',(store,tx,set)=>{
   const found=[];set(found);const r=store.openCursor(IDBKeyRange.bound(prefix,prefix+'\uffff'));
-  r.onsuccess=()=>{const cursor=r.result;if(!cursor)return;const a=cursor.value;
+  r.onsuccess=()=>{const cursor=r.result;if(!cursor)return;let a;try{a=openValue(cursor.value);}catch{tx.abort();return;}
    if(!a||cursor.key!==documentStorageKey(a.country,a.invoiceId)){tx.abort();return;}found.push(a);cursor.continue();};
  });
  const bundle={version:1,archives};await validateDocumentBundle(bundle);
@@ -40,6 +41,6 @@ export async function restoreDocumentBackup(bundle,durable){
  const db=await durable.open();if(!db)throw Error('Document storage unavailable');
  await transaction(db,'readwrite',(store,tx)=>{
   for(const a of archives){const key=documentStorageKey(a.country,a.invoiceId),r=store.get(key);
-   r.onsuccess=()=>{if(r.result!==undefined&&JSON.stringify(r.result)!==JSON.stringify(a)){tx.abort();return;}store.put(a,key);};}
+   r.onsuccess=()=>{let esistente;try{esistente=openValue(r.result);}catch{tx.abort();return;}if(esistente!==undefined&&JSON.stringify(esistente)!==JSON.stringify(a)){tx.abort();return;}store.put(sealArchive(a),key);};}
  });
 }

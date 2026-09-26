@@ -704,6 +704,10 @@ RELEASES.push({
   versione: '2026-09-26b',
   voci: [{ colore: 'purple', icona: '<rect x="6" y="2" width="12" height="20" rx="2.5"/><circle cx="12" cy="11" r="3"/><path d="M12 14v3"/>', titolo: 'Una licenza, un dispositivo', testo: 'In Vault trovi il codice di questo dispositivo: le licenze PRO, anche quelle regalate e a tempo, funzionano solo sul dispositivo per cui sono state create. PRO Investor costa €6,99/mese o €59,99/anno.', titoloKey: 'whatsNewDeviceLicenseTitle', testoKey: 'whatsNewDeviceLicenseBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-26c',
+  voci: [{ colore: 'green', icona: '<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14.5v2.5"/>', titolo: 'I tuoi dati, cifrati sul dispositivo', testo: 'Movimenti, fatture e copie di sicurezza ora sono salvati cifrati: chi leggesse la memoria del browser vedrebbe solo testo illeggibile. In Vault puoi aggiungere un PIN.', titoloKey: 'whatsNewEncryptionTitle', testoKey: 'whatsNewEncryptionBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

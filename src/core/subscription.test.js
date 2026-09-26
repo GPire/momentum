@@ -46,9 +46,9 @@ test('currentTier: licenza PRO_INVESTOR a vita (exp null) -> PRO_INVESTOR', asyn
 });
 
 test('currentTier: licenza che scade durante l\'uso -> retrocede onestamente a FREE', async () => {
-  const state = await statoCon(TIER_PRO, Date.now() + 30);
+  const state = await statoCon(TIER_PRO, Date.now() + 800);
   assert.equal(currentTier(state), TIER_PRO);
-  await new Promise((r) => setTimeout(r, 50));
+  await new Promise((r) => setTimeout(r, 900));
   assert.equal(currentTier(state), TIER_FREE);
 });
 
