@@ -18,6 +18,8 @@
 // Funzioni PURE: nessun DOM, nessuna rete, tempo iniettabile.
 'use strict';
 
+import { t } from '../i18n/ui-strings.js';
+
 // Ogni quanti movimenti non protetti la protezione va sollecitata. Non è un
 // numero arbitrario: è la quantità oltre la quale rifare tutto a mano diventa
 // realisticamente impossibile (una serata di lavoro).
@@ -72,19 +74,19 @@ export function daysUntilAtRisk(state, { now = new Date(), lookbackDays = 28 } =
 }
 
 // Il giudizio, in una frase che si capisce senza sapere cos'è un backup.
-export function backupRisk(state, { now = new Date() } = {}) {
+export function backupRisk(state, { now = new Date(), lang = 'it' } = {}) {
   const v = unprotectedValue(state, { now });
   const previsione = daysUntilAtRisk(state, { now });
 
   if (v.totalTx === 0) {
-    return { level: 'ok', headline: 'Non c\'è ancora niente da proteggere.', detail: '', shouldPrompt: false, ...v, daysUntilAtRisk: previsione };
+    return { level: 'ok', headline: t('bhNothing', lang), detail: '', shouldPrompt: false, ...v, daysUntilAtRisk: previsione };
   }
   if (!v.everProtected) {
     const urgente = v.txCount >= SOGLIA_URGENTE;
     return {
       level: urgente ? 'urgente' : 'attenzione',
-      headline: `${v.txCount} ${v.txCount === 1 ? 'movimento esiste' : 'movimenti esistono'} solo su questo telefono.`,
-      detail: 'Se lo perdi o si rompe, spariscono. Ci vogliono due minuti per metterli al sicuro, e non serve inventare nessuna password.',
+      headline: t('bhOnlyHere', lang, v.txCount),
+      detail: t('bhNeverDetail', lang),
       shouldPrompt: v.txCount >= SOGLIA_ATTENZIONE,
       ...v, daysUntilAtRisk: previsione,
     };
@@ -92,24 +94,24 @@ export function backupRisk(state, { now = new Date() } = {}) {
   if (v.txCount >= SOGLIA_URGENTE) {
     return {
       level: 'urgente',
-      headline: `${v.txCount} movimenti nuovi non sono ancora al sicuro.`,
-      detail: 'Rifarli a mano sarebbe una serata di lavoro. Aggiornare la copia richiede un tocco.',
+      headline: t('bhNewUnsafe', lang, v.txCount),
+      detail: t('bhUrgentDetail', lang),
       shouldPrompt: true, ...v, daysUntilAtRisk: previsione,
     };
   }
   if (v.txCount >= SOGLIA_ATTENZIONE || (v.daysSinceProtected ?? 0) >= GIORNI_ATTENZIONE) {
     return {
       level: 'attenzione',
-      headline: `${v.txCount} movimenti nuovi da quando hai fatto la copia.`,
-      detail: 'Un aggiornamento veloce e torni tranquillo.',
+      headline: t('bhNewSince', lang, v.txCount),
+      detail: t('bhAttentionDetail', lang),
       shouldPrompt: true, ...v, daysUntilAtRisk: previsione,
     };
   }
   return {
     level: 'ok',
-    headline: 'Tutto al sicuro.',
+    headline: t('bhAllSafe', lang),
     detail: previsione !== null && previsione <= 14
-      ? `Fra circa ${previsione} ${previsione === 1 ? 'giorno' : 'giorni'} converrà rifare la copia.`
+      ? t('bhSoon', lang, previsione)
       : '',
     shouldPrompt: false, ...v, daysUntilAtRisk: previsione,
   };
@@ -119,20 +121,20 @@ export function backupRisk(state, { now = new Date() } = {}) {
 // Un pezzo "custodito" è tale solo se sta in un posto che NON sparisce insieme
 // a questo telefono. Tre pezzi nello stesso telefono non sono una divisione.
 const POSTI = {
-  questoDispositivo: { label: 'su questo telefono', indipendente: false },
-  altroDispositivo: { label: 'su un altro tuo dispositivo', indipendente: true },
-  mail: { label: 'nella tua mail', indipendente: true },
-  cloud: { label: 'in un tuo spazio online', indipendente: true },
-  chiavetta: { label: 'su una chiavetta', indipendente: true },
-  personaFidata: { label: 'a una persona di cui ti fidi', indipendente: true },
-  stampato: { label: 'stampato su carta', indipendente: true },
+  questoDispositivo: { label: 'placeThisDevice', indipendente: false },
+  altroDispositivo: { label: 'placeOtherDevice', indipendente: true },
+  mail: { label: 'placeMail', indipendente: true },
+  cloud: { label: 'placeCloud', indipendente: true },
+  chiavetta: { label: 'placeUsb', indipendente: true },
+  personaFidata: { label: 'placePerson', indipendente: true },
+  stampato: { label: 'placePrinted', indipendente: true },
 };
 
-export function placeLabel(where) { return POSTI[where]?.label || 'in un posto che hai scelto tu'; }
+export function placeLabel(where, lang = 'it') { return t(POSTI[where]?.label || 'placeOther', lang); }
 
 // Giudizio onesto sulla custodia: quanti pezzi stanno davvero in posti che
 // sopravvivono alla perdita del telefono, e se bastano a rientrare.
-export function placementQuality(kit) {
+export function placementQuality(kit, { lang = 'it' } = {}) {
   const threshold = kit?.threshold ?? 2;
   const total = kit?.total ?? 3;
   const placements = Array.isArray(kit?.placements) ? kit.placements : [];
@@ -152,23 +154,23 @@ export function placementQuality(kit) {
   if (postiDistinti >= threshold) {
     return {
       ok: true, alSicuro, postiDistinti, mancanti,
-      headline: 'Puoi tornare dentro anche se perdi questo telefono.',
+      headline: t('pqSafeHead', lang),
       detail: threshold === 1
-        ? 'Il tuo foglio è al sicuro fuori da questo telefono. Tienilo dove nessun altro lo legge: da solo apre tutto.'
-        : `Hai ${postiDistinti} ${postiDistinti === 1 ? 'pezzo' : 'pezzi'} in ${postiDistinti === 1 ? 'un posto diverso' : 'posti diversi'} e ne ${threshold === 1 ? 'serve' : 'servono'} ${threshold}.`,
+        ? t('pqSingleSheet', lang)
+        : t('pqPlaces', lang, postiDistinti, threshold),
     };
   }
   if (posti.length >= threshold && postiDistinti < threshold) {
     return {
       ok: false, alSicuro, postiDistinti, mancanti,
-      headline: 'I pezzi sono troppo vicini fra loro.',
-      detail: `Se va perso quel posto, vanno persi insieme. Mettine almeno ${threshold} in posti che non spariscono con questo telefono.`,
+      headline: t('pqTooClose', lang),
+      detail: t('pqTooCloseDetail', lang, threshold),
     };
   }
   return {
     ok: false, alSicuro, postiDistinti, mancanti,
-    headline: `Ancora ${threshold - postiDistinti} ${threshold - postiDistinti === 1 ? 'pezzo' : 'pezzi'} da mettere via.`,
-    detail: 'Finché non sono in posti diversi, la copia non ti salva.',
+    headline: t('pqStillToPlace', lang, threshold - postiDistinti),
+    detail: t('pqNotYet', lang),
   };
 }
 

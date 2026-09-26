@@ -234,6 +234,12 @@ import { cuotaReta, irpfEstatal, RETENCION_IRPF, retaIrpfPeriodo } from './predi
 import { buildSwissQrPayload } from './invoice/swiss-qr-bill.js';
 import { generateQrrReference, formatQrrReference } from './invoice/swiss-qr-reference.js';
 import { t as tCh, resolveUiLanguage, UI_LANGS } from './i18n/ui-strings.js';
+
+// Simboli piccoli come icone SVG della stessa famiglia (regola: mai emoji o
+// simboli di testo come segni di stato).
+const SVG_CHECK = '<svg class="inline w-3.5 h-3.5 align-[-2px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const SVG_X = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+const SVG_WARN = '<svg class="inline w-3 h-3 align-[-2px] mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.01"/></svg>';
 // Lingua UI generale (Dashboard, 2026-08-28) — stesso resolveUiLanguage()
 // già usato per le schermate fiscali CH/ES e per l'onboarding, calcolata
 // una sola volta al carico del modulo (device-only, nessun selettore
@@ -2601,8 +2607,8 @@ async function consumeSharedContent() {
         }
         showToast(
           duplicate
-            ? 'Testo condiviso riconosciuto come duplicato di una transazione già presente.'
-            : `Salvata da sola: ${prefill.description} ${formatMoney(prefill.amount)} — questo canale si è dimostrato affidabile. Puoi sempre correggerla dalla lista.`,
+            ? tCh('sharedDuplicate', __uiLang)
+            : tCh('sharedSavedAuto', __uiLang, prefill.description, formatMoney(prefill.amount)),
           duplicate ? 'info' : 'success'
         );
       } else if (!appVisibile) {
@@ -4815,7 +4821,7 @@ window.renderCalendarEvents = () => {
     const ItalianDate = validDate ? dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
     const timeStr = (ev.hasTime && validDate) ? ' · ' + dt.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
     const border = ev.predicted ? 'border-amber-500/20 bg-amber-950/5' : (ev.completed ? 'border-[color-mix(in_srgb,var(--outline)_50%,transparent)] bg-[color-mix(in_srgb,var(--surface-solid)_40%,transparent)]' : 'border-[var(--outline)] bg-[var(--surface-solid)]');
-    const meta = ev.predicted ? ' · stima dai tuoi abbonamenti' : (ev.kind === 'appointment' ? ' · appuntamento' : '');
+    const meta = ev.predicted ? ` · ${tCh('calPredictedMeta', __uiLang)}` : (ev.kind === 'appointment' ? ` · ${tCh('calAppointment', __uiLang)}` : '');
     // Importo mostrato SOLO se davvero finanziario: un appuntamento non mostra €.
     const money = ev.isFinancial
       ? `<span class="font-mono font-bold text-xs ${ev.predicted ? 'text-amber-400' : 'text-[var(--red)]'}">${ev.predicted ? '~' : '−'}${formatMoney(ev.amount)}</span>`
@@ -4829,7 +4835,7 @@ window.renderCalendarEvents = () => {
         </div>
         <div class="flex items-center gap-3 shrink-0">
           ${money}
-          ${ev.predicted ? '' : `<button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1" aria-label="Rimuovi">✕</button>`}
+          ${ev.predicted ? '' : `<button onclick="window.deleteCalendarEvent(${ev.id})" class="text-[10px] font-bold text-[var(--red)] hover:underline p-1" aria-label="${escapeHtml(tCh('removeAria', __uiLang))}">${SVG_X}</button>`}
         </div>
       </div>
     `;
@@ -5504,8 +5510,8 @@ function renderTaxCashBlocks(proj, regime) {
         urgent = true;
         maybeNotifyTaxUrgency(
           `cashrisk:${scad.id}`,
-          'Un attimo — la cassa ti serve',
-          `Nei prossimi giorni potresti restare senza prima del ${scad.date}, quando servono ${formatMoney(scad.importo)}. Ho già calcolato quanto mettere via a settimana per arrivarci sereno.`,
+          tCh('cashRiskTitle', __uiLang),
+          tCh('cashRiskBody', __uiLang, scad.date, formatMoney(scad.importo)),
         );
       }
     }
@@ -5761,7 +5767,7 @@ window.openRegistraAcquistoIva = () => {
       <div class="w-full flex flex-col gap-2.5 text-left">
         <input id="acq-desc" type="text" placeholder="${tCh('purchaseDescPh', __uiLang)}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-desc" aria-label="${tCh('purchaseDescPh', __uiLang)}" />
         <div class="grid grid-cols-2 gap-2.5">
-          <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="Imponibile €" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="acq-imponibile" aria-label="Imponibile €" />
+          <input id="acq-imponibile" type="number" inputmode="decimal" placeholder="${escapeHtml(tCh('taxableAmountPh', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm font-mono" name="acq-imponibile" aria-label="${escapeHtml(tCh('taxableAmountPh', __uiLang))}" />
           <input id="acq-data" type="date" value="${oggi}" max="${oggi}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3 text-sm" name="acq-data" />
         </div>
         <div>
@@ -5790,7 +5796,7 @@ window.openRegistraAcquistoIva = () => {
             return `<div class="flex items-center justify-between gap-2 text-[11px] text-[var(--on-surface-secondary)] border-b border-[var(--glass-border)] pb-1.5">
               <span class="truncate">${escapeHtml(a.descrizione || 'Acquisto')} · ${escapeHtml(a.data)}</span>
               <span class="shrink-0 flex items-center gap-2"><span class="font-mono">${formatMoney(a.imponibile)}</span>
-              <button type="button" onclick="window.removeAcquistoIva(${idxReale})" class="text-[var(--on-surface-secondary)] hover:text-[var(--red)]" aria-label="Rimuovi">✕</button></span>
+              <button type="button" onclick="window.removeAcquistoIva(${idxReale})" class="text-[var(--on-surface-secondary)] hover:text-[var(--red)]" aria-label="${escapeHtml(tCh('removeAria', __uiLang))}">${SVG_X}</button></span>
             </div>`;
           }).join('')}
         </div>
@@ -5804,7 +5810,7 @@ window.openRegistraAcquistoIva = () => {
     if (!(imponibile > 0)) { showToast('Inserisci l\'imponibile dell\'acquisto.', 'error'); return; }
     VaultDAO.state.acquistiIva = [...(VaultDAO.state.acquistiIva || []), { descrizione, imponibile, data, aliquotaIva }];
     VaultDAO.save();
-    showToast('Acquisto registrato — l\'IVA detraibile è già nel calcolo del periodo.', 'success');
+    showToast(tCh('purchaseVatSaved', __uiLang), 'success');
     window.openRegistraAcquistoIva();
     renderAnalysis();
   });
@@ -7360,9 +7366,9 @@ window.openTaxLevel1Simulate = () => {
       <!-- Stepper +/- disegnato apposta invece delle frecce native del
            browser (grigie, cambiano forma per OS, mai in stile con l'app). -->
       <div class="w-full flex items-center gap-2">
-        <button type="button" id="tl1-step-down" aria-label="Diminuisci" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
-        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="Es. 30000" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="tl1-amount" />
-        <button type="button" id="tl1-step-up" aria-label="Aumenta" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
+        <button type="button" id="tl1-step-down" aria-label="${escapeHtml(tCh('decreaseAria', __uiLang))}" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">−</button>
+        <input id="tl1-amount" type="number" inputmode="decimal" placeholder="${escapeHtml(tCh('egAmountPh', __uiLang))}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-4 py-3.5 text-2xl font-black text-center tracking-tight" name="tl1-amount" />
+        <button type="button" id="tl1-step-up" aria-label="${escapeHtml(tCh('increaseAria', __uiLang))}" class="tl1-step-btn shrink-0 w-11 h-11 rounded-xl border border-[var(--glass-border)] bg-black/30 text-lg font-black flex items-center justify-center">+</button>
       </div>
       <!-- Facoltativo: il coefficiente cambia molto il risultato per chi fa
            commercio invece di consulenza, ma chiederlo come domanda obbligata
@@ -7376,12 +7382,12 @@ window.openTaxLevel1Simulate = () => {
              sempre visibile, mai un'unica fonte di verità nostra. -->
         <p class="text-[10px] text-[var(--on-surface-secondary)] mt-2 mb-1">${tCh('pivaDescribe', __uiLang)}</p>
         <div class="relative">
-          <input id="tl1-ateco-search" type="text" placeholder="Es. faccio consulenza informatica…" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-ateco-search" />
+          <input id="tl1-ateco-search" type="text" placeholder="${escapeHtml(tCh('atecoSearchPh', __uiLang))}" autocomplete="off" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-xl px-3.5 py-2.5 text-sm" name="tl1-ateco-search" />
           <div id="tl1-ateco-hits" class="hidden mt-1.5 rounded-xl border border-[var(--glass-border)] bg-[var(--surface-elevated)] shadow-xl overflow-hidden max-h-56 overflow-y-auto"></div>
         </div>
         <div id="tl1-ateco-picked" class="hidden mt-2 rounded-xl border border-[var(--primary)] bg-[var(--primary)]/10 px-3 py-2 text-[11px] text-[var(--on-surface)] flex items-center justify-between gap-2">
           <span id="tl1-ateco-picked-label"></span>
-          <button type="button" id="tl1-ateco-picked-clear" class="text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)]" aria-label="Rimuovi">✕</button>
+          <button type="button" id="tl1-ateco-picked-clear" class="text-[var(--on-surface-secondary)] hover:text-[var(--on-surface)]" aria-label="${escapeHtml(tCh('removeAria', __uiLang))}">${SVG_X}</button>
         </div>
         <p class="text-[10px] text-[var(--on-surface-secondary)] mt-1.5">${tCh('pivaNotFound', __uiLang)} <a href="${ATECO_UFFICIALE_URL}" target="_blank" rel="noopener" class="underline text-[var(--primary)]">${tCh('pivaOfficialTool', __uiLang)}</a>${tCh('pivaOrCategory', __uiLang)}</p>
         <div class="mt-2">${tl1Select('tl1-ateco',
@@ -7830,7 +7836,7 @@ window.verificaEsclusioneForfettarioSubmit = () => {
 window.setNoPartitaIva = (val) => {
   VaultDAO.state.noPartitaIva = val;
   VaultDAO.save();
-  showToast(val ? 'Va bene — non te lo chiederò più. Puoi sempre riattivarlo da Momentum Vault.' : 'Fatto, te lo mostro di nuovo.', 'info');
+  showToast(val ? tCh('dontAskAgain', __uiLang) : tCh('showAgainOk', __uiLang), 'info');
   renderTaxSettings();
   renderTax(monthKey(new Date()));
   renderDashboard();
@@ -7861,10 +7867,10 @@ window.openSepaTransfer = (d = {}) => {
   const epc = buildEpcPayload({ name, iban, amount, remittance });
   const fallback = sepaFallbackText({ name, iban, amount, remittance });
   const isRequest = d.mode === 'request';
-  const title = d.title || (isRequest ? 'Chiedi il pagamento' : 'Fai il bonifico');
+  const title = d.title || (isRequest ? tCh('payReqTitle', __uiLang) : tCh('payDoTitle', __uiLang));
   const sub = isRequest
-    ? 'Mostralo o invialo al cliente: paga in una scansione con la sua app bancaria.'
-    : 'Apri la tua app della banca e scansiona (o incolla i dati): il bonifico si apre già compilato. Momentum non tocca la banca — confermi tu.';
+    ? tCh('payReqSub', __uiLang)
+    : tCh('payDoSub', __uiLang);
   let qr = '';
   try { if (validIban && epc.ok) qr = qrSvg(epc.payload, { moduleSize: 5, quiet: 4, dark: '#0b0b0d', light: '#ffffff' }); } catch (_) { qr = ''; }
   openModal(`
@@ -7887,10 +7893,10 @@ window.openSepaTransfer = (d = {}) => {
   // Firma sobria Momentum solo per la richiesta TRA AMICI (d.brand), non per le
   // fatture/bonifici professionali (contesto diverso, resta neutro).
   const brandLine = d.brand
-    ? `\n\n— conto diviso con Momentum, giusto per tutti${d.momentumLink ? `\nVedi la tua parte 👉 ${d.momentumLink}` : ''}`
+    ? `\n\n— ${tCh('payBrandLine', __uiLang)}${d.momentumLink ? `\n${tCh('paySeeShare', __uiLang)} ${d.momentumLink}` : ''}`
     : '';
   const message = isRequest
-    ? `Ciao, ecco i dati per il pagamento${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\nGrazie!${brandLine}`
+    ? `${tCh('payHello', __uiLang)}${remittance ? ` (${remittance})` : ''}:\n\n${fallback}\n\n${tCh('payThanks', __uiLang)}${brandLine}`
     : fallback;
   const subject = isRequest ? `Pagamento${remittance ? ` — ${remittance}` : ''}` : 'Dati bonifico';
   $('#sepa-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(fallback); showToast(tCh('sepaCopied', __uiLang), 'success'); });
@@ -8176,7 +8182,7 @@ window.openSplitExpense = (prefill = {}) => {
       // La MIA parte reale (quanto ho consumato) come spesa personale + addestra
       // il Core (categoria). learnFromSplit vive nel modulo split, testato.
       const { category, mine } = learnFromSplit(window.momentumOrchestrator, { description: state.description, myShare: myShareFrom(g), date: new Date() });
-      const desc = state.description ? `${state.description} (la mia parte)` : 'Spesa condivisa (la mia parte)';
+      const desc = state.description ? `${state.description} ${tCh('splitMyShareOf', __uiLang)}` : tCh('splitMyShareGeneric', __uiLang);
       const res = mine > 0 ? VaultDAO.addTransaction(monthKey(new Date()), { id: Date.now(), amount: mine, type: 'uscita', category, description: desc, date: new Date().toISOString() }, { dedupWindowHours: 0.25 }) : { duplicate: true };
       try { if (!res.duplicate && window.momentumOrchestrator) window.momentumOrchestrator.learn(desc, category, mine, new Date()); } catch (_) { }
       VaultDAO.save();
@@ -8618,7 +8624,7 @@ window.openCommitmentsManager = (onDone = null) => {
       const sub = rem !== null ? tCh('fcRowInstallments', __uiLang, c.dayOfMonth, rem, payoffDate(c)) : tCh('fcRowRecurring', __uiLang, c.dayOfMonth);
       return `<div class="flex items-center justify-between gap-2 p-2.5 rounded-xl border border-[var(--glass-border)] bg-black/20">
         <button data-edit="${c.id}" class="min-w-0 text-left flex-1"><span class="font-bold text-[13px] block truncate">${esc(c.name)} <span class="text-[10px] text-[var(--primary)] opacity-80">${tCh('fcEditLabel', __uiLang)}</span></span><span class="text-[10.5px] text-[var(--on-surface-secondary)]">${sub}</span></button>
-        <span class="flex items-center gap-2 shrink-0"><span class="font-mono font-black text-[13px] text-amber-300">${eur(c.amount)}</span><button data-del="${c.id}" class="text-[11px] text-[var(--red)] opacity-70">✕</button></span>
+        <span class="flex items-center gap-2 shrink-0"><span class="font-mono font-black text-[13px] text-amber-300">${eur(c.amount)}</span><button data-del="${c.id}" class="text-[11px] text-[var(--red)] opacity-70">${SVG_X}</button></span>
       </div>`;
     }).join('');
     openModal(`
@@ -9078,7 +9084,7 @@ window.setForceAnimations = (checked) => {
 window.setChatContextOptIn = (checked) => {
   VaultDAO.state.chatContextOptIn = checked;
   VaultDAO.save();
-  showToast(checked ? 'Le domande alla chat generica includeranno un riassunto anonimo (mai transazioni).' : 'Riassunto disattivato: solo il testo che scrivi.', 'success');
+  showToast(checked ? tCh('chatCtxOn', __uiLang) : tCh('chatCtxOff', __uiLang), 'success');
 };
 
 // ── CERCA UN ASSET: prezzo live + notizie/sentiment reali + avvisi ─────────
@@ -10139,7 +10145,7 @@ window.enableTaxNotifications = async () => {
   }
   VaultDAO.state.taxNotifyOptIn = true;
   VaultDAO.save();
-  showToast('Avvisi attivi: ti scrivo solo se c\'è davvero un motivo, mai per abitudine.', 'success');
+  showToast(tCh('alertsOn', __uiLang), 'success');
   renderAnalysis();
 };
 window.disableTaxNotifications = () => {
@@ -11485,7 +11491,7 @@ window.openExpenseChat = (groupId, expenseId) => {
         ${disputed ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/20"><svg class="w-4 h-4 text-amber-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><span class="text-[12px] font-bold text-amber-400">${tCh('expenseDisputed', __uiLang)}</span></div>` : ''}
         ${nonAncoraEntrati.length ? `<div class="flex items-center gap-2 py-2 px-3 rounded-xl bg-sky-500/10 border border-sky-500/20">
           <svg class="w-4 h-4 text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5"/><path d="M17 8v6M14 11h6"/></svg>
-          <span class="text-[12px] flex-1 min-w-0"><b>${esc(nonAncoraEntrati.map(m => names[m.id]).join(', '))}</b> non ${nonAncoraEntrati.length > 1 ? 'hanno' : 'ha'} ancora ricevuto questa conversazione.</span>
+          <span class="text-[12px] flex-1 min-w-0">${tCh('ecNotReceived', __uiLang, esc(nonAncoraEntrati.map(m => names[m.id]).join(', ')), nonAncoraEntrati.length > 1)}</span>
           <button id="ec-invita" class="shrink-0 text-[11px] font-bold text-sky-400 underline">Invita</button>
         </div>` : ''}
         <div class="card p-3">${msgRows}</div>
@@ -11493,7 +11499,7 @@ window.openExpenseChat = (groupId, expenseId) => {
           <input id="ec-text" maxlength="500" class="flex-1 bg-[var(--surface-elevated)] border border-[var(--outline)] rounded-xl px-3 py-2.5 text-sm min-w-0" placeholder="${escapeHtml(tCh('expenseCommentPh', __uiLang))}" name="ec-text" />
           <button id="ec-send" class="btn-action btn-primary px-4 py-2.5 font-bold rounded-xl text-sm">${tCh('send', __uiLang)}</button>
         </div>
-        <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? 'Segna come risolto' : 'Contesta questa spesa'}</button>
+        <button id="ec-toggle" class="w-full py-2.5 font-bold rounded-xl border ${disputed ? 'border-emerald-500/30 text-emerald-400' : 'border-amber-500/30 text-amber-400'} text-[12px]">${disputed ? tCh('ecResolve', __uiLang) : tCh('ecDispute', __uiLang)}</button>
       </div>`);
 
     $('#ec-back')?.addEventListener('click', () => window.openSplitGroup(groupId));
@@ -14934,9 +14940,9 @@ function getInvoiceFormHTML() {
           // un'altra azienda; "vivace" per chi fattura al pubblico/creator,
           // dove farsi riconoscere vale più della formalità.
           const THEMES = [
-            { id: 'minimale', label: 'Minimale', hint: 'Aziende grandi, commercialisti — la sobrietà è credibilità', grad: 'linear-gradient(135deg,#fbfaf7,#e7e2d8)' },
-            { id: 'tecnico', label: 'Tecnico', hint: 'Consulenza IT/dev verso altre aziende', grad: 'linear-gradient(135deg,#0f172a,#1e293b)' },
-            { id: 'vivace', label: 'Vivace', hint: 'Clienti privati, creator, freelance — si fa ricordare', grad: 'linear-gradient(135deg,#e11d48,#7c3aed)' },
+            { id: 'minimale', label: tCh('invThemeMin', __uiLang), hint: tCh('invThemeMinHint', __uiLang), grad: 'linear-gradient(135deg,#fbfaf7,#e7e2d8)' },
+            { id: 'tecnico', label: tCh('invThemeTech', __uiLang), hint: tCh('invThemeTechHint', __uiLang), grad: 'linear-gradient(135deg,#0f172a,#1e293b)' },
+            { id: 'vivace', label: tCh('invThemeVivid', __uiLang), hint: tCh('invThemeVividHint', __uiLang), grad: 'linear-gradient(135deg,#e11d48,#7c3aed)' },
           ];
           // Predittivo: se l'utente non ha MAI scelto un tema (nessun profilo
           // salvato) si parte già dal suggerimento più sensato invece che da
@@ -15144,10 +15150,10 @@ window.openCreateInvoice = (prefillClient) => {
     row.dataset.voceType = 'eur';
     row.innerHTML = `
       <div class="flex gap-2 items-center">
-        <input type="text" class="${voceInputCls} inv-voce-desc flex-1" placeholder="Descrizione voce" aria-label="Descrizione voce" />
+        <input type="text" class="${voceInputCls} inv-voce-desc flex-1" placeholder="${escapeHtml(tCh('lineDescPh', __uiLang))}" aria-label="${escapeHtml(tCh('lineDescPh', __uiLang))}" />
         <input type="number" inputmode="decimal" class="${voceInputCls} font-mono inv-voce-amount w-20 shrink-0" placeholder="€" />
         <button type="button" class="inv-voce-type shrink-0 w-11 h-9 rounded-xl border border-[var(--glass-border)] text-[11px] font-bold text-[var(--on-surface-secondary)]" title="${VOCE_TYPES[0].title}">${VOCE_TYPES[0].label}</button>
-        <button type="button" class="inv-voce-remove shrink-0 w-9 h-9 rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)]" aria-label="Rimuovi voce">✕</button>
+        <button type="button" class="inv-voce-remove shrink-0 w-9 h-9 rounded-xl border border-[var(--glass-border)] text-[var(--on-surface-secondary)]" aria-label="${escapeHtml(tCh('removeLineAria', __uiLang))}">${SVG_X}</button>
       </div>
       <div class="inv-voce-computed hidden text-[10px] text-[var(--on-surface-secondary)] pl-1"></div>`;
     extraVociEl.appendChild(row);
@@ -15283,10 +15289,10 @@ window.openCreateInvoice = (prefillClient) => {
     const g = $('#inv-guidance');
     if (g) g.innerHTML = `<div class="font-bold mb-0.5">${rec.title}</div><div class="text-[var(--on-surface-secondary)]">${rec.reason}</div>`;
     $('#inv-xml')?.classList.toggle('hidden', !rec.needsFatturaPa);
-    if ($('#inv-generate')) $('#inv-generate').textContent = rec.needsFatturaPa ? 'PDF di cortesia' : 'Scarica PDF';
+    if ($('#inv-generate')) $('#inv-generate').textContent = rec.needsFatturaPa ? tCh('invPdfCourtesy', __uiLang) : tCh('invDownloadPdf', __uiLang);
     if ($('#inv-foot')) $('#inv-foot').textContent = rec.needsFatturaPa
-      ? 'La fattura elettronica (XML) è quella ufficiale: la carichi sul portale Fatture e Corrispettivi dell’Agenzia o la giri al commercialista. Il PDF è una copia leggibile di cortesia.'
-      : 'Documento generato on-device, valido dove non c’è obbligo di fattura elettronica.';
+      ? tCh('invFootEinvoice', __uiLang)
+      : tCh('invFootPlain', __uiLang);
     // BUG REALE trovato testando (2026-08-06): il pulsante XML sopra compare
     // solo qui, DOPO l'apertura del modale — cambia l'altezza del piè di
     // pagina fisso, ma lo spazio riservato sotto era stato calcolato una
@@ -15335,7 +15341,7 @@ window.openCreateInvoice = (prefillClient) => {
   // RIGA UNICA (NL) → compila cliente/importo/causale con un tocco (o Invio).
   const fillFromOneLine = () => {
     const parsed = parseInvoiceLine($('#inv-oneline')?.value || '');
-    if (!parsed) { showToast('Scrivi almeno l\'importo, es. "a Rossi 500 per consulenza".', 'error'); return; }
+    if (!parsed) { showToast(tCh('invNeedAmountExample', __uiLang), 'error'); return; }
     if (parsed.client) clientEl.value = parsed.client;
     amountEl.value = String(parsed.amount);
     if (parsed.description) descEl.value = parsed.description;
@@ -15563,14 +15569,14 @@ window.openCreateInvoice = (prefillClient) => {
       $('#inv-iban')?.focus();
       showToast(tCh('invNeedIban', __uiLang), 'error'); return;
     }
-    if (!(imp > 0)) { amountEl.focus(); showToast('Inserisci l\'importo della fattura.', 'error'); return; }
+    if (!(imp > 0)) { amountEl.focus(); showToast(tCh('invNeedAmount', __uiLang), 'error'); return; }
     const inv = computeInvoice({ imponibile: imp, regime: regimeEl.dataset.value, country: ($('#inv-country') && $('#inv-country').value) || 'IT' });
     const year = new Date().getFullYear();
     const number = nextInvoiceNumber(VaultDAO.state.invoices || [], year);
     window.openSepaTransfer({
       mode: 'request', name: emitter, iban: fis.iban, amount: inv.totaleFattura,
       remittance: `Fattura ${number}/${year}${clientEl.value ? ' - ' + clientEl.value : ''}`.slice(0, 140),
-      title: 'Chiedi il pagamento al cliente',
+      title: tCh('invAskClient', __uiLang),
     });
   });
 
@@ -15766,7 +15772,7 @@ window.openCreateInvoice = (prefillClient) => {
 window.learnIncome = (description, kind) => {
   VaultDAO.state.taxLearned = learnIncomeType(VaultDAO.state.taxLearned || {}, description, kind);
   VaultDAO.save();
-  showToast(kind === 'invoice' ? 'Segnata come fattura: la ricorderò.' : 'Segnata come non imponibile.', 'success');
+  showToast(kind === 'invoice' ? tCh('markedInvoice', __uiLang) : tCh('markedNonTaxable', __uiLang), 'success');
   renderAnalysis();
 };
 
@@ -15813,7 +15819,7 @@ function renderInvestments() {
   // dell'avanzo" — vero ma detto male. Qui si sostituisce SOLO la frase,
   // mai il numero (che resta quello reale calcolato sopra).
   noteEl.textContent = (prefs.invests === false && r.reason === 'ok')
-    ? 'Hai detto di non voler investire: qui non ti propongo nulla, il fondo d\'emergenza è già pieno.'
+    ? tCh('noInvestWanted', __uiLang)
     : r.reason === 'insufficient-data' && !(avgExp > 0)
       ? tCh('investNeedExpenses', __uiLang)
       : r.note;
@@ -15934,7 +15940,7 @@ function renderNetWorth() {
           const regge = solide.has(r.label);
           const marchio = vaglio
             ? (regge
-              ? `<span class="text-emerald-400 text-[9px] font-bold" title="${escapeHtml(tCh('nwSolidBadgeTitle', __uiLang))}">${tCh('nwSolidBadge', __uiLang)}</span>`
+              ? `<span class="text-emerald-400 text-[9px] font-bold" title="${escapeHtml(tCh('nwSolidBadgeTitle', __uiLang))}">${SVG_CHECK} ${tCh('nwSolidBadge', __uiLang)}</span>`
               : `<span class="text-amber-400/80 text-[9px] font-bold" title="${escapeHtml(tCh('nwLuckBadgeTitle', __uiLang))}">${tCh('nwLuckBadge', __uiLang)}</span>`)
             : '';
           return `<div class="text-[10px]">
@@ -16449,16 +16455,16 @@ function renderPortfolioQuality() {
           // già trovato e corretto altrove nel progetto per le valute estere.
           const valuta = pos.currency || 'USD';
           const variazione = (prezzoOra / pos.avgPrice - 1) * 100;
-          righe.push(`${variazione >= 0 ? '📈' : '📉'} ${variazione >= 0 ? '+' : ''}${variazione.toFixed(1)}% dal tuo prezzo medio di carico (${formatMoney(prezzoOra, valuta)} ora, ${formatMoney(pos.avgPrice, valuta)} di carico) — questo È live, aggiornato al ciclo prezzi.`);
+          righe.push(tCh('posVsAvg', __uiLang, `${variazione >= 0 ? '+' : ''}${variazione.toFixed(1)}%`, formatMoney(prezzoOra, valuta), formatMoney(pos.avgPrice, valuta)));
         }
         if (percentile) {
-          const voci = Object.entries(percentile.percentili || {}).map(([k, v]) => `${k} al ${v}° percentile`).join(', ');
+          const voci = Object.entries(percentile.percentili || {}).map(([k, v]) => tCh('sectorPercentile', __uiLang, k, v)).join(', ');
           if (voci) {
-            righe.push(`Nel settore ${percentile.settore}: ${voci}.`);
+            righe.push(tCh('inSector', __uiLang, percentile.settore, voci));
             if (!VaultDAO.state.percentileSettoreVisto) { VaultDAO.state.percentileSettoreVisto = true; controllaTraguardi(); }
           }
         }
-        if (qualita) righe.push(`⚠ ${testoQualitaContabile(qualita)}`);
+        if (qualita) righe.push(testoQualitaContabile(qualita));
         if (!righe.length) return '';
         return `
       <div class="mb-2 rounded-lg px-2.5 py-2" style="background:${qualita ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.03)'}">
@@ -16951,7 +16957,7 @@ async function renderCausalGraphViz() {
     : `Controllo di base — ${analisi.motivoMotoreBase || 'serve più storia per quello avanzato'}`;
   const avvisiGravi = (analisi.diagnosi?.avvertimenti || []).filter((a) => a.gravita === 'alta');
   const avvisiHtml = avvisiGravi.length
-    ? `<div class="mt-1.5 flex flex-col gap-1">${avvisiGravi.map((a) => `<p class="text-[10px] text-amber-300/90">⚠ ${escapeHtml(a.dettaglio || '')}</p>`).join('')}</div>`
+    ? `<div class="mt-1.5 flex flex-col gap-1">${avvisiGravi.map((a) => `<p class="text-[10px] text-amber-300/90">${SVG_WARN}${escapeHtml(a.dettaglio || '')}</p>`).join('')}</div>`
     : '';
   const nonLinHtml = (analisi.nonLineari || []).length
     ? `<p class="text-[10px] text-[var(--primary)]/90 mt-1">${tCh('graphHidden', __uiLang, analisi.nonLineari.length)}</p>`
@@ -17180,7 +17186,7 @@ function renderRadarAlerts(k, budgetLimit, hwDailyLevel) {
   if (anomalies.length > 0) {
     alertsBox.innerHTML += `
       <div class="card p-4 border border-rose-500/20 bg-rose-950/5">
-        ${insightCardHeader(SEVERITY_STYLE.danger, 'Spese insolite: le riconosci?')}
+        ${insightCardHeader(SEVERITY_STYLE.danger, tCh('unusualTitle', __uiLang))}
         <div class="space-y-2 text-xs text-[var(--on-surface-secondary)]">
           ${anomalies.map(a => {
             const suspect = a.tx.suspect;
@@ -17727,7 +17733,7 @@ window.renderDataFreshnessCard = () => {
       <details class="mt-2">
         <summary class="text-[10px] text-[var(--on-surface-secondary)] cursor-pointer">${tCh('dsuConfigure', __uiLang)}</summary>
         <div class="mt-2 space-y-1.5">
-          <input id="dsu-tax" type="url" placeholder="${escapeHtml(tCh('dsuTaxUrl', __uiLang))}" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-tax" aria-label="URL regole fiscali (opzionale)">
+          <input id="dsu-tax" type="url" placeholder="${escapeHtml(tCh('dsuTaxUrl', __uiLang))}" value="${escapeHtml(urls.taxRules || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-tax" aria-label="${escapeHtml(tCh('dsuTaxUrl', __uiLang))}">
           <input id="dsu-format" type="url" placeholder="${escapeHtml(tCh('dsuFormatUrl', __uiLang))}" value="${escapeHtml(urls.fatturaPaFormat || '')}" class="w-full bg-black/30 border border-[var(--glass-border)] rounded-lg px-2 py-1.5 text-[10px]" name="dsu-format" aria-label="${escapeHtml(tCh('dsuFormatUrl', __uiLang))}">
           <p class="text-[9px] text-[var(--on-surface-secondary)]">${tCh('dsuVerified', __uiLang)}</p>
           <div class="flex gap-1.5">
@@ -17776,21 +17782,15 @@ const RECOVERY_PLACES = [
 const RECOVERY_STEPS = [
   {
     where: 'mail',
-    titolo: 'Mandiamo il primo foglio alla tua mail',
-    sotto: 'La tua mail c\'è anche se il telefono non c\'è più. È il posto più facile per cominciare.',
-    azione: 'Apri la mail',
+    titolo: 'rkS1T', sotto: 'rkS1S', azione: 'rkS1A',
   },
   {
     where: 'personaFidata',
-    titolo: 'Il secondo a una persona di cui ti fidi',
-    sotto: 'Da solo questo foglio non apre niente e non dice niente di te: non stai dando via i tuoi dati.',
-    azione: 'Manda su WhatsApp',
+    titolo: 'rkS2T', sotto: 'rkS2S', azione: 'rkS2A',
   },
   {
     where: 'chiavetta',
-    titolo: 'Il terzo, se vuoi, tienilo tu',
-    sotto: 'I primi due bastano già. Questo è solo un margine in più, e puoi farlo anche fra un mese.',
-    azione: 'Salva il file',
+    titolo: 'rkS3T', sotto: 'rkS3S', azione: 'rkS3A',
     opzionale: true,
   },
 ];
@@ -17804,12 +17804,12 @@ function recoveryKitState() {
 function renderRecoveryVerdict({ animateIfSafe = false } = {}) {
   const box = document.getElementById('rk-verdict');
   if (!box) return;
-  const q = placementQuality(recoveryKitState());
+  const q = placementQuality(recoveryKitState(), { lang: __uiLang });
   const eraOk = box.dataset.ok === '1';
   box.dataset.ok = q.ok ? '1' : '0';
   box.className = `rounded-2xl border p-3 transition-colors ${q.ok ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10'}`;
   box.innerHTML = `
-    <p class="text-[13px] font-black ${q.ok ? 'text-emerald-300' : 'text-amber-300'}">${q.ok ? '✓ ' : ''}${escapeHtml(q.headline)}</p>
+    <p class="text-[13px] font-black ${q.ok ? 'text-emerald-300' : 'text-amber-300'}">${q.ok ? SVG_CHECK + ' ' : ''}${escapeHtml(q.headline)}</p>
     <p class="text-[11px] text-[var(--on-surface-secondary)] mt-0.5">${escapeHtml(q.detail)}</p>`;
   // Il pulsare arriva SOLO nell'istante in cui si passa da non protetto a
   // protetto: se pulsasse a ogni tocco perderebbe significato in due secondi.
@@ -17825,7 +17825,7 @@ window.markRecoveryPlacement = (index, where) => {
   VaultDAO.save();
   const chip = document.getElementById(`rk-where-${index}`);
   if (chip) {
-    chip.textContent = `Messo ${placeLabel(where)}`;
+    chip.textContent = tCh('rkPlacedAt', __uiLang, placeLabel(where, __uiLang));
     chip.className = 'text-[10px] text-emerald-400 font-bold';
   }
   const card = document.getElementById(`rk-card-${index}`);
@@ -17839,8 +17839,8 @@ window.markRecoveryPlacement = (index, where) => {
 window.renderBackupHealthCard = () => {
   const box = document.getElementById('backup-health-card');
   if (!box) return;
-  const r = backupRisk(VaultDAO.state, { now: new Date() });
-  const q = placementQuality(recoveryKitState());
+  const r = backupRisk(VaultDAO.state, { now: new Date(), lang: __uiLang });
+  const q = placementQuality(recoveryKitState(), { lang: __uiLang });
   if (r.level === 'ok' && !q.ok && !VaultDAO.state.recoveryKit) {
     box.innerHTML = `<p class="text-[10px] text-[var(--on-surface-secondary)]">${tCh('rkShort', __uiLang)}</p>`;
     return;
@@ -17865,10 +17865,11 @@ window.renderBackupHealthCard = () => {
 let RK = null; // stato del flusso in corso (vive solo mentre il modale è aperto)
 
 function rkSteps() {
-  const passi = RECOVERY_STEPS.map((s, i) => ({ ...s, index: i + 1 }));
+  // I testi sono chiavi di traduzione: risolte qui, nella lingua dell'interfaccia.
+  const passi = RECOVERY_STEPS.map((s, i) => ({ ...s, titolo: tCh(s.titolo, __uiLang), sotto: tCh(s.sotto, __uiLang), azione: tCh(s.azione, __uiLang), index: i + 1 }));
   if ((RK?.kit?.shares?.length || 3) === 1) {
     // Foglio unico: un passo solo, e il testo non promette una divisione.
-    return [{ ...passi[0], titolo: 'Mettiamo il foglio nella tua mail', sotto: 'La tua mail c\'e\' anche se il telefono non c\'e\' piu\'. Tienilo dove nessun altro lo legge: questo foglio apre tutto.' }];
+    return [{ ...passi[0], titolo: tCh('rkSingleT', __uiLang), sotto: tCh('rkSingleS', __uiLang) }];
   }
   return passi;
 }
@@ -17887,8 +17888,8 @@ function rkDots(fatti) {
 function rkRender() {
   const body = document.getElementById('modal-body');
   if (!body || !RK) return;
-  const fatti = placementQuality(recoveryKitState()).postiDistinti;
-  const alSicuro = placementQuality(recoveryKitState()).ok;
+  const fatti = placementQuality(recoveryKitState(), { lang: __uiLang }).postiDistinti;
+  const alSicuro = placementQuality(recoveryKitState(), { lang: __uiLang }).ok;
 
   // Schermata di apertura: toglie la paura prima di chiedere qualsiasi cosa.
   if (RK.fase === 'intro') {
@@ -17902,9 +17903,9 @@ function rkRender() {
           <p class="card-sub !mb-0 mt-1.5">${tCh('rkIntro', __uiLang)}</p>
         </div>
         <div class="w-full rounded-2xl border border-[var(--outline)] bg-[var(--surface-elevated)] p-3 text-left">
-          <p class="text-[12px] font-bold flex items-center gap-2"><span class="text-emerald-400">✓</span> ${tCh('rkNoPassword', __uiLang)}</p>
-          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> ${tCh('rkTwoMinutes', __uiLang)}</p>
-          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">✓</span> ${tCh('rkOneOpensNothing', __uiLang)}</p>
+          <p class="text-[12px] font-bold flex items-center gap-2"><span class="text-emerald-400">${SVG_CHECK}</span> ${tCh('rkNoPassword', __uiLang)}</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">${SVG_CHECK}</span> ${tCh('rkTwoMinutes', __uiLang)}</p>
+          <p class="text-[12px] font-bold flex items-center gap-2 mt-1.5"><span class="text-emerald-400">${SVG_CHECK}</span> ${tCh('rkOneOpensNothing', __uiLang)}</p>
         </div>
         <button id="rk-start" class="rk-cta btn-action btn-primary w-full py-3.5 font-bold rounded-2xl">${tCh('rkStart', __uiLang)}</button>
         <div class="flex flex-col gap-1.5">
@@ -17951,7 +17952,7 @@ function rkRender() {
 
   // Schermata finale: chiude il cerchio con una parola sola.
   if (RK.fase === 'fine') {
-    const q = placementQuality(recoveryKitState());
+    const q = placementQuality(recoveryKitState(), { lang: __uiLang });
     body.innerHTML = `
       <div class="rk-screen flex flex-col gap-4 p-4 sm:p-6 lg:p-2 text-center items-center">
         <div class="rk-done w-16 h-16 rounded-full flex items-center justify-center bg-emerald-500/15">
@@ -18001,7 +18002,7 @@ function rkRender() {
 
   const avanza = () => {
     const ultimo = RK.kit.shares.length;
-    if (RK.passo >= ultimo || (RK.passo >= 2 && placementQuality(recoveryKitState()).ok && RK.passo === 2)) {
+    if (RK.passo >= ultimo || (RK.passo >= 2 && placementQuality(recoveryKitState(), { lang: __uiLang }).ok && RK.passo === 2)) {
       // Chiudiamo il cerchio appena la protezione è REALE (due posti diversi):
       // lasciare un terzo passo aperto quando la persona è già salva crea un
       // senso di incompiuto che non corrisponde a niente di vero.
@@ -18193,7 +18194,7 @@ window.applySweep = (sweep) => {
     amount: sweep.amount,
     type: 'invest',
     category: 'risparmio',
-    description: sweep.goalName ? `Risparmio per ${sweep.goalName} (da spostare tu)` : 'Risparmio avanzo (da spostare tu)',
+    description: sweep.goalName ? tCh('sweepFor', __uiLang, sweep.goalName) : tCh('sweepGeneric', __uiLang),
     date: now.toISOString(),
   }, { dedupWindowHours: 0.25 });
   VaultDAO.state.lastSweepWeek = sweep.weekKey; // campo additivo
@@ -19398,13 +19399,13 @@ const INSTALL_ICON_SVG = {
 // un Beta-Bernoulli. Vuoto/nascosto finché nessun canale ha almeno una
 // osservazione: niente righe su qualcosa che l'utente non ha ancora usato.
 const CANALE_LABEL = {
-  notifica: 'Notifiche bancarie', screenshot: 'Screenshot/foto', csv: 'File CSV',
-  pdf: 'PDF banca', 'testo-condiviso': 'Testo condiviso', manuale: 'Inserimento a mano',
+  notifica: 'srcNotif', screenshot: 'srcShot', csv: 'srcCsv',
+  pdf: 'srcPdf', 'testo-condiviso': 'srcShared', manuale: 'srcManual',
 };
 const CANALE_ETICHETTA_TESTO = {
-  bene: { testo: 'Funziona bene — ora si salva da solo', colore: 'text-emerald-400' },
-  'da-confermare': { testo: 'Ti chiedo ancora conferma ogni volta', colore: 'text-[var(--on-surface-secondary)]' },
-  male: { testo: 'Spesso sbaglia — controllalo sempre', colore: 'text-amber-400' },
+  bene: { testo: 'srcGood', colore: 'text-emerald-400' },
+  'da-confermare': { testo: 'srcConfirm', colore: 'text-[var(--on-surface-secondary)]' },
+  male: { testo: 'srcBad', colore: 'text-amber-400' },
 };
 function renderSourceReliabilitySummary() {
   const el = document.getElementById('source-reliability-summary');
@@ -19415,8 +19416,8 @@ function renderSourceReliabilitySummary() {
   el.innerHTML = righe.map((r) => {
     const et = CANALE_ETICHETTA_TESTO[r.etichetta] || CANALE_ETICHETTA_TESTO['da-confermare'];
     return `<div class="flex items-center justify-between text-[11px]">
-      <span class="text-[var(--on-surface-secondary)]">${CANALE_LABEL[r.canale] || r.canale}</span>
-      <span class="font-bold ${et.colore}">${et.testo}</span>
+      <span class="text-[var(--on-surface-secondary)]">${CANALE_LABEL[r.canale] ? tCh(CANALE_LABEL[r.canale], __uiLang) : r.canale}</span>
+      <span class="font-bold ${et.colore}">${tCh(et.testo, __uiLang)}</span>
     </div>`;
   }).join('');
 }
@@ -19926,7 +19927,7 @@ function renderTraguardiCard() {
   if (altri) {
     altri.innerHTML = stato.livelli.filter(l => l.numero !== daMostrare?.numero).map(l => `
       <div class="flex items-center gap-2 text-[11.5px] ${l.completo ? '' : 'text-[var(--on-surface-secondary)] opacity-70'}">
-        <span class="font-bold ${l.completo ? 'text-emerald-400' : ''}">${l.completo ? '✓' : l.numero}</span>
+        <span class="font-bold ${l.completo ? 'text-emerald-400' : ''}">${l.completo ? SVG_CHECK : l.numero}</span>
         <span>${tCh('lvlLabel', __uiLang, l.numero, l.nome)}</span>
       </div>`).join('');
   }
@@ -20970,7 +20971,7 @@ function offerToSendP2PAnswer(answerCode, groupName) {
       </div>
       <button id="p2p-skip" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">${tCh('p2pSkip', __uiLang)}</button>
     </div>`);
-  const msg = `Risposta per collegare Momentum su «${groupName}»:\n${answerCode}`;
+  const msg = tCh('meshAnswerMsg', __uiLang, groupName, answerCode);
   $('#p2p-copy')?.addEventListener('click', () => { navigator.clipboard?.writeText(answerCode); showToast('Risposta copiata.', 'success'); haptic('light'); closeModal(); });
   $('#p2p-wa')?.addEventListener('click', () => window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank', 'noopener'));
   $('#p2p-skip')?.addEventListener('click', () => closeModal());
@@ -21513,7 +21514,7 @@ async function runMeshNetDiagnosis() {
           <p class="text-[11px] font-bold ${S.title} leading-snug">${escapeHtml(advice.headline)}</p>
           ${advice.detail ? `<p class="text-[11px] ${S.body} mt-1 leading-snug">${escapeHtml(advice.detail)}</p>` : ''}
           <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-[10px] text-[var(--on-surface-secondary)] underline mt-1.5">Perché?</button>
-          <p class="hidden text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(nat.reason)}${timeoutMs ? ` Se non parte entro ${Math.round(timeoutMs / 1000)} secondi passiamo al link, senza farti aspettare oltre.` : ''}</p>
+          <p class="hidden text-[10px] text-[var(--on-surface-secondary)] mt-1 leading-snug">${escapeHtml(nat.reason)}${timeoutMs ? tCh('natFallbackIn', __uiLang, Math.round(timeoutMs / 1000)) : ''}</p>
         </div>
       </div>`;
     // Consegna differita: si dice qualcosa SOLO se non funziona. Nel caso
@@ -22199,7 +22200,7 @@ const initApp = () => {
       <div class="flex-1 h-2 rounded-full bg-white/5 overflow-hidden"><div class="h-full rounded-full" style="width:${Math.max(4, (v / max) * 100)}%;background:${color}"></div></div>
       <span class="w-16 text-right font-mono" style="color:${color}">${formatMoney(v)}</span>
     </div>`;
-    return `<div class="space-y-1.5 mt-2">${bar('Entrate', d.inc, '#34d399')}${bar('Uscite', d.out, '#fb7185')}</div>`;
+    return `<div class="space-y-1.5 mt-2">${bar(tCh('chartIncome', __uiLang), d.inc, '#34d399')}${bar(tCh('chartSpending', __uiLang), d.out, '#fb7185')}</div>`;
   }
   // "quanto posso spendere oggi?" / "quanto mi resta?" — stesso motore dati
   // (getDailySafeToSpend) per ENTRAMBI gli intenti: libero da spendere questa
@@ -22208,8 +22209,8 @@ const initApp = () => {
   function buildSafeToSpendChart(sts) {
     if (!sts) return '';
     return buildStackedBar([
-      { label: 'Libero questa settimana', value: +(sts.safeToday * sts.daysLeftInWeek).toFixed(2), color: '#34d399' },
-      { label: 'Impegni in arrivo', value: sts.reservedForCharges, color: '#fbbf24' },
+      { label: tCh('chartFreeWeek', __uiLang), value: +(sts.safeToday * sts.daysLeftInWeek).toFixed(2), color: '#34d399' },
+      { label: tCh('chartUpcoming', __uiLang), value: sts.reservedForCharges, color: '#fbbf24' },
     ]);
   }
   // "come chiudo il mese?" — barra di progresso con marcatore del budget:
@@ -22688,21 +22689,21 @@ const initApp = () => {
   // corretto per `learned:true`).
   const QA_LEARN_TOPICS = [
     { intent: 'portfolioRisk', label: tCh('qaPortfolioRiskTopic', __uiLang) },
-    { intent: 'spent', label: 'Quanto ho speso' },
-    { intent: 'savings', label: 'Quanto ho risparmiato' },
-    { intent: 'subscriptions', label: 'I miei abbonamenti' },
-    { intent: 'budgetLeft', label: 'Quanto mi resta' },
-    { intent: 'netWorth', label: 'Il mio patrimonio' },
-    { intent: 'bnplOwed', label: 'Le mie rate' },
-    { intent: 'invest', label: 'Quanto posso investire' },
-    { intent: 'affordability', label: 'Posso permettermelo?' },
-    { intent: 'safeToSpend', label: 'Quanto posso spendere oggi' },
-    { intent: 'monthEnd', label: 'Come chiudo il mese' },
-    { intent: 'topCategory', label: 'Dove spendo di più' },
-    { intent: 'income', label: 'Quanto ho guadagnato' },
-    { intent: 'goal', label: 'I miei obiettivi di risparmio' },
-    { intent: 'payday', label: 'Quando mi pagano' },
-    { intent: 'causal', label: 'Cosa succede se spendo di più' },
+    { intent: 'spent', label: tCh('qaTopicSpent', __uiLang) },
+    { intent: 'savings', label: tCh('qaTopicSaved', __uiLang) },
+    { intent: 'subscriptions', label: tCh('qaTopicSubs', __uiLang) },
+    { intent: 'budgetLeft', label: tCh('qaTopicLeft', __uiLang) },
+    { intent: 'netWorth', label: tCh('qaTopicNetWorth', __uiLang) },
+    { intent: 'bnplOwed', label: tCh('qaTopicBnpl', __uiLang) },
+    { intent: 'invest', label: tCh('qaTopicInvest', __uiLang) },
+    { intent: 'affordability', label: tCh('qaTopicAfford', __uiLang) },
+    { intent: 'safeToSpend', label: tCh('qaTopicSafe', __uiLang) },
+    { intent: 'monthEnd', label: tCh('qaTopicMonthEnd', __uiLang) },
+    { intent: 'topCategory', label: tCh('qaTopicTopCat', __uiLang) },
+    { intent: 'income', label: tCh('qaTopicIncome', __uiLang) },
+    { intent: 'goal', label: tCh('qaTopicGoal', __uiLang) },
+    { intent: 'payday', label: tCh('qaTopicPayday', __uiLang) },
+    { intent: 'causal', label: tCh('qaTopicCausal', __uiLang) },
   ];
   function recordQaUnknown(question) {
     VaultDAO.state.qaLearning = recordUnknownQuestion(VaultDAO.state.qaLearning, question);
@@ -23994,7 +23995,7 @@ const initApp = () => {
     const bt = res.byType;
     if (elBar) elBar.style.width = '100%';
     if (elSpin) elSpin.style.display = 'none';
-    if (elTitle) elTitle.textContent = res.added > 0 ? `Fatto! ${res.added} movimenti aggiunti` : 'Tutto già presente';
+    if (elTitle) elTitle.textContent = res.added > 0 ? tCh('importAdded', __uiLang, res.added) : tCh('allAlreadyThere', __uiLang);
     if (elFile) elFile.textContent = `${res.files} file · CSV ${bt.csv} · PDF ${bt.pdf} · foto ${bt.image}${res.errors.length ? ` · ${res.errors.length} saltati` : ''}`;
     if (elCount) elCount.textContent = res.learned?.length ? `L'AI sta imparando da ${res.learned.length} operazioni…` : '';
     elClose?.classList.remove('hidden');
