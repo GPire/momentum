@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations, REVOCATIONS_EVERY_MS } from './license-client.js';
+import { paymentsAvailable, startCheckout, openBillingPortal, claimLicense, needsRefresh, refreshLicense, updateRevocations, REVOCATIONS_EVERY_MS } from './license-client.js';
 
 async function firmatore() {
   const pair = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
@@ -62,4 +62,10 @@ test('updateRevocations: accetta un elenco firmato più recente, rifiuta falsi e
   let chiamate = 0;
   await updateRevocations({ ...r1, checkedAt: 1e12 }, { publicKeyB64, now: 1e12 + REVOCATIONS_EVERY_MS - 1, fetchImpl: async () => { chiamate++; return Response.json({}); } });
   assert.equal(chiamate, 0);
+});
+
+test('portale: accetta solo indirizzi del portale Stripe', async () => {
+  assert.equal(await openBillingPortal('a.b', { fetchImpl: async () => Response.json({ url: 'https://billing.stripe.com/p/session/x' }) }), 'https://billing.stripe.com/p/session/x');
+  assert.equal(await openBillingPortal('a.b', { fetchImpl: async () => Response.json({ url: 'https://evil.example/' }) }), null);
+  assert.equal(await openBillingPortal('a.b', { fetchImpl: async () => Response.json({ error: 'no_subscription' }, { status: 404 }) }), null);
 });

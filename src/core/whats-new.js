@@ -708,6 +708,13 @@ RELEASES.push({
   versione: '2026-09-26c',
   voci: [{ colore: 'green', icona: '<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/><path d="M12 14.5v2.5"/>', titolo: 'I tuoi dati, cifrati sul dispositivo', testo: 'Movimenti, fatture e copie di sicurezza ora sono salvati cifrati: chi leggesse la memoria del browser vedrebbe solo testo illeggibile. In Vault puoi aggiungere un PIN.', titoloKey: 'whatsNewEncryptionTitle', testoKey: 'whatsNewEncryptionBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-26d',
+  voci: [
+    { colore: 'purple', icona: '<rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>', titolo: 'Blocco automatico e Face ID', testo: 'Con il PIN attivo, Momentum si blocca da solo dopo qualche minuto senza uso (lo scegli tu) e puoi bloccarlo subito. Nell\'app per iPhone e Android si sblocca con Face ID o impronta.', titoloKey: 'whatsNewAutoLockTitle', testoKey: 'whatsNewAutoLockBody' },
+    { colore: 'primary', icona: '<path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/>', titolo: 'Privacy e termini più chiari', testo: 'Privacy Policy e Termini aggiornati, anche in inglese: cosa resta sul dispositivo, per quanto tempo si conserva ogni dato, come disdire e recesso di 14 giorni.', titoloKey: 'whatsNewLegalTitle', testoKey: 'whatsNewLegalBody' },
+  ],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un

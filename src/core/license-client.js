@@ -18,8 +18,8 @@ export async function paymentsAvailable({ fetchImpl = fetch } = {}) {
   } catch { return false; }
 }
 
-export async function startCheckout({ deviceCode, tier, period }, { fetchImpl = fetch } = {}) {
-  const r = await fetchImpl(`${BASE}/checkout`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode, tier, period }) });
+export async function startCheckout({ deviceCode, tier, period, lang }, { fetchImpl = fetch } = {}) {
+  const r = await fetchImpl(`${BASE}/checkout`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ deviceCode, tier, period, lang }) });
   const body = await json(r);
   if (!r.ok || typeof body.url !== 'string' || !body.url.startsWith('https://checkout.stripe.com/')) throw new Error('checkout_unavailable');
   return body.url;
@@ -64,4 +64,14 @@ export async function updateRevocations(stored, { fetchImpl = fetch, publicKeyB6
     if (v.valid) return { token, issuedAt: v.issuedAt, ids: v.ids, checkedAt: now };
   } catch { /* offline: resta l'elenco già verificato */ }
   return stored || null;
+}
+
+// Portale clienti Stripe (disdetta, carta, fatture). null se la licenza non
+// viene da un abbonamento (regalo, codice manuale) o il servizio non risponde.
+export async function openBillingPortal(licenseKey, { fetchImpl = fetch } = {}) {
+  try {
+    const r = await fetchImpl(`${BASE}/portal`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ license: licenseKey }) });
+    const body = await json(r);
+    return r.ok && typeof body.url === 'string' && body.url.startsWith('https://billing.stripe.com/') ? body.url : null;
+  } catch { return null; }
 }

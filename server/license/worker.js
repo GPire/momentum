@@ -6,6 +6,10 @@
 'use strict';
 
 export const GRACE_MS = 3 * 86_400_000;
+// Conservazione (GDPR art. 5.1.e): i collegamenti abbonamento ↔ dispositivo
+// scadono 13 mesi dopo l'ultimo periodo pagato; le fatture restano su Stripe.
+export const LINK_RETENTION_MS = 395 * 86_400_000;
+const PENDING_TTL_S = 30 * 86_400;
 const TIERS = ['PRO', 'PRO_INVESTOR'];
 const PERIODS = ['month', 'year'];
 const DEVICE_RE = /^[0-9A-HJKMNP-TV-Z]{16}$/;
@@ -103,6 +107,19 @@ const kvPut = (env, key, value, opts) => env.LICENSES.put(key, JSON.stringify(va
 // Segreto testuale (wrangler secret put) oppure variabile JSON già decodificata.
 const signingJwk = (env) => (typeof env.LICENSE_SIGNING_JWK === 'string' ? JSON.parse(env.LICENSE_SIGNING_JWK) : env.LICENSE_SIGNING_JWK);
 
+const scadenza = (paidUntilMs) => ({ expiration: Math.floor((paidUntilMs + LINK_RETENTION_MS) / 1000) });
+
+// Testo sotto il pulsante di pagamento di Stripe, nella lingua dell'app.
+const CHECKOUT_NOTE = {
+  it: 'Rinnovo automatico, disdici quando vuoi. Recesso entro 14 giorni con rimborso completo. La licenza funziona su questo dispositivo.',
+  en: 'Renews automatically, cancel anytime. Withdraw within 14 days for a full refund. The licence works on this device.',
+  de: 'Verlängert sich automatisch, jederzeit kündbar. Widerruf innerhalb von 14 Tagen mit voller Erstattung. Die Lizenz gilt für dieses Gerät.',
+  fr: 'Renouvellement automatique, résiliable à tout moment. Rétractation sous 14 jours avec remboursement intégral. La licence fonctionne sur cet appareil.',
+  es: 'Renovación automática, cancela cuando quieras. Desistimiento en 14 días con reembolso completo. La licencia funciona en este dispositivo.',
+  nl: 'Wordt automatisch verlengd, altijd opzegbaar. Herroeping binnen 14 dagen met volledige terugbetaling. De licentie werkt op dit apparaat.',
+  pt: 'Renovação automática, cancele quando quiser. Livre resolução em 14 dias com reembolso total. A licença funciona neste dispositivo.',
+};
+
 function newId() {
   return b64url(crypto.getRandomValues(new Uint8Array(16)));
 }
@@ -154,7 +171,7 @@ async function handleWebhook(request, env) {
     if (!dev || !tier) return reply({ ignored: 'metadata' });
     await kvPut(env, `session:${obj.id}`, { subscription: obj.subscription }, { expirationTtl: 7 * 86_400 });
     const sub = (await kvGet(env, `sub:${obj.subscription}`)) || {};
-    await kvPut(env, `sub:${obj.subscription}`, { ...sub, dev, tier, status: sub.status || 'pending' });
+    await kvPut(env, `sub:${obj.subscription}`, { ...sub, dev, tier, status: sub.status || 'pending' }, sub.paidUntil ? scadenza(sub.paidUntil) : { expirationTtl: PENDING_TTL_S });
     return reply({ ok: true });
   }
 
@@ -171,15 +188,15 @@ async function handleWebhook(request, env) {
     if (sub.status === 'revoked') return reply({ ignored: 'revoked' });
     if (sub.paidUntil && sub.paidUntil >= end) return reply({ ok: true, duplicate: true });
     const { id, license } = await issueLicense(env, { tier: sub.tier, dev: sub.dev, exp: end + GRACE_MS, now: env.now?.() ?? Date.now() });
-    await kvPut(env, `license:${id}`, { subscription: subId });
-    await kvPut(env, `sub:${subId}`, { ...sub, status: 'active', paidUntil: end, licenseId: id, license });
+    await kvPut(env, `license:${id}`, { subscription: subId }, scadenza(end));
+    await kvPut(env, `sub:${subId}`, { ...sub, status: 'active', paidUntil: end, licenseId: id, license }, scadenza(end));
     return reply({ ok: true });
   }
 
   if (event.type === 'customer.subscription.deleted' && obj.id) {
     const sub = await kvGet(env, `sub:${obj.id}`);
     // La licenza già emessa copre il periodo già pagato; semplicemente non si rinnova.
-    if (sub && sub.status !== 'revoked') await kvPut(env, `sub:${obj.id}`, { ...sub, status: 'canceled' });
+    if (sub && sub.status !== 'revoked') await kvPut(env, `sub:${obj.id}`, { ...sub, status: 'canceled' }, sub.paidUntil ? scadenza(sub.paidUntil) : { expirationTtl: PENDING_TTL_S });
     return reply({ ok: true });
   }
   return reply({ ignored: event.type || 'unknown' });
@@ -227,6 +244,8 @@ export async function handleLicenseRequest(request, env) {
         cancel_url: `${origin}/?license_cancel=1`,
         client_reference_id: dev,
         allow_promotion_codes: 'true',
+        locale: CHECKOUT_NOTE[body.lang] ? body.lang : 'auto',
+        custom_text: { submit: { message: CHECKOUT_NOTE[body.lang] || CHECKOUT_NOTE.en } },
         metadata: { deviceCode: dev, tier },
         subscription_data: { metadata: { deviceCode: dev, tier } },
         ...(env.STRIPE_AUTOMATIC_TAX === 'true' ? { automatic_tax: { enabled: 'true' } } : {}),
@@ -251,6 +270,21 @@ export async function handleLicenseRequest(request, env) {
       const sub = link ? await kvGet(env, `sub:${link.subscription}`) : null;
       if (!sub?.license || sub.status === 'revoked' || sub.dev !== normalizeDevice(payload.dev)) return reply({ status: 'none' });
       return reply(sub.licenseId === payload.id ? { status: 'current' } : { status: 'renewed', license: sub.license });
+    }
+
+    // Portale clienti di Stripe: disdetta, carta, fatture. Serve la licenza
+    // emessa dal server: nessun altro può aprire il portale di quell'abbonamento.
+    if (path === 'portal' && request.method === 'POST') {
+      const body = await readJson(request);
+      const payload = await verifyOwnToken(signingJwk(env), body.license);
+      const link = payload?.id ? await kvGet(env, `license:${payload.id}`) : null;
+      if (!link?.subscription) return reply({ error: 'no_subscription' }, 404);
+      const sub = await stripe(env, 'GET', `subscriptions/${encodeURIComponent(link.subscription)}`);
+      const customer = typeof sub?.customer === 'string' ? sub.customer : sub?.customer?.id;
+      if (!customer) return reply({ error: 'no_subscription' }, 404);
+      const origin = env.APP_ORIGIN || url.origin;
+      const portal = await stripe(env, 'POST', 'billing_portal/sessions', { customer, return_url: `${origin}/` });
+      return reply({ url: portal.url });
     }
 
     if (path === 'revocations' && request.method === 'GET') {

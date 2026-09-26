@@ -12,23 +12,25 @@ async function setup() {
   const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey);
   const publicKeyB64 = Buffer.from(new Uint8Array(await crypto.subtle.exportKey('raw', pair.publicKey))).toString('base64url');
   const store = new Map();
+  const opzioni = new Map();
   const stripeCalls = [];
   const stripeSubs = {};
   const env = {
     STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_WEBHOOK_SECRET: WHSEC, LICENSE_SIGNING_JWK: JSON.stringify(jwk), LICENSE_ADMIN_TOKEN: 'admin-token-lungo',
     STRIPE_PRICE_PRO_MONTH: 'price_pm', STRIPE_PRICE_PRO_YEAR: 'price_py', STRIPE_PRICE_INVESTOR_MONTH: 'price_im', STRIPE_PRICE_INVESTOR_YEAR: 'price_iy',
     APP_ORIGIN: 'https://momentum.example',
-    LICENSES: { get: async (k) => store.get(k) ?? null, put: async (k, v) => { store.set(k, v); } },
+    LICENSES: { get: async (k) => store.get(k) ?? null, put: async (k, v, o) => { store.set(k, v); opzioni.set(k, o); } },
     now: () => NOW,
     fetchImpl: async (url, init) => {
       stripeCalls.push({ url, init });
       if (url.endsWith('/checkout/sessions')) return Response.json({ id: 'cs_test_123456789', url: 'https://checkout.stripe.com/c/pay/cs_test_123456789' });
+      if (url.endsWith('/billing_portal/sessions')) return Response.json({ url: 'https://billing.stripe.com/p/session/test_123' });
       const m = url.match(/subscriptions\/(.+)$/);
       if (m) return Response.json(stripeSubs[decodeURIComponent(m[1])] || {});
       return Response.json({ error: { message: 'unexpected' } }, { status: 400 });
     },
   };
-  return { env, store, stripeCalls, stripeSubs, publicKeyB64 };
+  return { env, store, opzioni, stripeCalls, stripeSubs, publicKeyB64 };
 }
 
 async function signedWebhook(env, event, { t = Math.floor(NOW / 1000), secret = WHSEC } = {}) {
@@ -155,4 +157,37 @@ test('admin revoke su una licenza di abbonamento: niente più claim né rinnovi'
   assert.equal((await post(env, 'refresh', { license: lic }).then((r) => r.json())).status, 'none');
   await signedWebhook(env, paid('sub_1', Math.floor(NOW / 1000) + 60 * 86_400));
   assert.equal((await post(env, 'refresh', { license: lic }).then((r) => r.json())).status, 'none');
+});
+
+test('conservazione: i collegamenti abbonamento-dispositivo scadono 13 mesi dopo il periodo pagato', async () => {
+  const { env, opzioni } = await setup();
+  await signedWebhook(env, completed());
+  assert.equal(opzioni.get('sub:sub_1').expirationTtl, 30 * 86_400);
+  const endSec = Math.floor(NOW / 1000) + 30 * 86_400;
+  await signedWebhook(env, paid('sub_1', endSec));
+  const attesa = Math.floor((endSec * 1000 + 395 * 86_400_000) / 1000);
+  assert.equal(opzioni.get('sub:sub_1').expiration, attesa);
+  const licenza = [...opzioni.keys()].find((k) => k.startsWith('license:'));
+  assert.equal(opzioni.get(licenza).expiration, attesa);
+});
+
+test('checkout: nota su rinnovo, disdetta e recesso nella lingua dell\'app', async () => {
+  const { env, stripeCalls } = await setup();
+  await post(env, 'checkout', { deviceCode: DEV, tier: 'PRO', period: 'year', lang: 'de' });
+  const p = new URLSearchParams(stripeCalls[0].init.body);
+  assert.equal(p.get('locale'), 'de');
+  assert.match(p.get('custom_text[submit][message]'), /Widerruf innerhalb von 14 Tagen/);
+});
+
+test('portale clienti: solo con una licenza emessa dal server per un abbonamento', async () => {
+  const { env, stripeSubs } = await setup();
+  stripeSubs.sub_1 = { customer: 'cus_123' };
+  await signedWebhook(env, completed());
+  await signedWebhook(env, paid());
+  const lic = (await get(env, 'claim?session=cs_test_123456789').then((r) => r.json())).license;
+  const r = await post(env, 'portal', { license: lic }).then((x) => x.json());
+  assert.equal(r.url, 'https://billing.stripe.com/p/session/test_123');
+  const regalo = await post(env, 'admin/issue', { deviceCode: DEV, tier: 'PRO', days: 30 }, { authorization: 'Bearer admin-token-lungo' }).then((x) => x.json());
+  assert.equal((await post(env, 'portal', { license: regalo.license })).status, 404);
+  assert.equal((await post(env, 'portal', { license: 'a.b' })).status, 404);
 });

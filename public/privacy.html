@@ -19,43 +19,63 @@
 </style>
 </head>
 <body>
-
+<p><a href="/privacy-en.html">English version</a></p>
 <h1>Privacy Policy di Momentum</h1>
-<p class="aggiornato">Ultimo aggiornamento: 25 settembre 2026</p>
+<p class="aggiornato">Ultimo aggiornamento: 26 settembre 2026</p>
 
-<p>Questa pagina descrive esattamente cosa fa Momentum con i tuoi dati — non un modello generico, quello che il codice fa davvero. Titolare del trattamento: Giorgio Piredda, contattabile a <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>.</p>
+<p>Questa informativa (artt. 13 e 14 del Regolamento UE 2016/679, "GDPR") descrive cosa fa davvero il codice di Momentum con i tuoi dati. <strong>Titolare del trattamento</strong>: Giorgio Piredda, <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>.</p>
 
-<div class="box"><b>In sintesi:</b> le tue transazioni, saldi e categorie restano SOLO sul tuo dispositivo. Nessun server di Momentum le riceve, le legge o le conserva mai. Tutto il resto di questa pagina spiega le poche eccezioni — sempre esplicite, sempre disattivabili, sempre limitate al minimo indispensabile.</p></div>
+<div class="box"><strong>In sintesi.</strong> Movimenti, saldi, fatture, obiettivi e impostazioni restano solo sul tuo dispositivo, <strong>cifrati</strong>. Nessun server di Momentum li riceve. Non esistono account. Le poche eccezioni sono elencate qui sotto, con base giuridica e durata.</div>
 
-<h2>1. I tuoi dati finanziari</h2>
-<p>Ogni transazione, categoria, saldo, obiettivo di risparmio o impostazione fiscale che inserisci viene salvata esclusivamente sul tuo dispositivo, in tre copie locali ridondanti (per evitare perdite accidentali): due nella memoria del browser e una in un database locale (IndexedDB). Nessuna di queste copie lascia mai il dispositivo verso un server — Momentum non ha un backend che riceve o archivia le tue finanze.</p>
-<p>Non esistono account, login o password: non c'è nulla da creare, e quindi nessuna credenziale da proteggere lato server perché non esiste un "lato server" per i tuoi dati.</p>
+<h2>1. Dati finanziari e personali sul dispositivo</h2>
+<p>Ciò che inserisci (movimenti, categorie, fatture, dati fiscali, obiettivi, preferenze) è salvato solo nella memoria del tuo browser o dell'app, cifrato con XChaCha20-Poly1305. La chiave è conservata dal dispositivo in forma non esportabile; se attivi un PIN, la chiave si apre solo con il PIN. Momentum non ha una copia di questi dati e non può leggerli: non c'è nulla da inviarci né da cancellare sui nostri server.</p>
+<p><strong>Face ID e impronta</strong> (app per iPhone e Android): il riconoscimento è eseguito dal sistema operativo. Momentum non riceve mai immagini del volto né impronte: ottiene solo il permesso di aprire la chiave conservata nel Keychain o nel Keystore del telefono.</p>
 
-<h2>2. Sincronizzazione tra i tuoi dispositivi (Mesh)</h2>
-<p>Se scegli di collegare più dispositivi tuoi, Momentum usa una connessione diretta dispositivo-a-dispositivo (WebRTC), non un server centrale che fa da tramite per i dati. Il primo aggancio avviene tramite un codice o QR che generi e condividi tu stesso.</p>
-<p>Per stabilire la connessione diretta, i due dispositivi devono scambiarsi informazioni tecniche di rete (indirizzo IP) tramite server STUN pubblici e standard (Google, Cloudflare) — lo stesso meccanismo usato da qualunque videochiamata basata su WebRTC. Questi server vedono solo informazioni di connessione, mai i tuoi dati finanziari.</p>
-<p>Esiste una modalità opzionale e disattivata di default per ricollegare da remoto due dispositivi mai stati vicini fisicamente, che richiede una configurazione Firebase fornita da te stesso (non un servizio Momentum) — se non la configuri, questa modalità semplicemente non esiste per il tuo utilizzo.</p>
+<h2>2. Sincronizzazione fra i tuoi dispositivi</h2>
+<p>Se colleghi più dispositivi tuoi, i dati viaggiano direttamente da un dispositivo all'altro (WebRTC, cifrato). Per aprire la connessione i dispositivi usano server STUN pubblici (Google, Cloudflare), che vedono solo l'indirizzo IP. Base giuridica: esecuzione del servizio che hai richiesto (art. 6.1.b). Una modalità facoltativa usa una configurazione Firebase fornita da te.</p>
 
-<h2>3. Conteggio anonimo di utilizzo (telemetria)</h2>
-<p>Momentum invia un identificativo pseudonimo casuale generato sul dispositivo, mai collegato al tuo nome, email o dati finanziari — per sapere quante persone usano l'app. Nello specifico, solo questi eventi: "installato", "attivo questo mese", "attivo oggi", quale sistema operativo/browser stai usando in generale (es. "iOS", non il tuo modello esatto) e se sei arrivato tramite un invito o direttamente. Nessuna transazione, importo, categoria o saldo viene incluso nella telemetria. Il servizio riceve anche i metadati di connessione. Gli eventi comprendono le funzionalità usate, da un elenco chiuso e senza testo libero.</p>
-<p>I dati d’uso sono <b>attivi di default, salvo tua disattivazione</b> e possono essere disattivati in qualsiasi momento nel Momentum Vault. La diagnostica tecnica essenziale per sicurezza, integrità e affidabilità resta attiva e non contiene dati finanziari.</p>
+<h2>3. Statistiche d'uso (telemetria)</h2>
+<p>Momentum invia un identificativo casuale generato sul dispositivo, non collegato a nome, email o dati finanziari, con eventi da un elenco chiuso: installazione, attività nel mese e nel giorno, piattaforma generica (es. "iOS"), provenienza (invito o diretta), funzioni usate, diagnostica tecnica senza contenuti. Mai importi, movimenti o testo scritto da te.</p>
+<ul>
+<li>Base giuridica: legittimo interesse a misurare l'uso e l'affidabilità del servizio (art. 6.1.f). Puoi opporti in qualsiasi momento disattivandola nel Vault: gli invii si fermano subito.</li>
+<li>Conservazione: 13 mesi per i dati con l'identificativo casuale, 90 giorni per la diagnostica anonima, 10 minuti per la presenza in tempo reale.</li>
+<li>Fornitore: Cloudflare, Inc. (hosting del servizio).</li>
+</ul>
 
-<h2>4. Feedback</h2>
-<p>Se scrivi un feedback dall'app, il testo che scrivi tu (e solo quello, mai dati finanziari automaticamente allegati) viene inviato tramite un servizio di terze parti (Formspree) alla mia casella email. Succede solo se tocchi tu stesso "Invia".</p>
+<h2>4. Abbonamenti e licenze</h2>
+<p>Se acquisti un piano dal sito, il pagamento avviene sulla pagina di <strong>Stripe</strong>: i dati della carta e l'email di fatturazione sono trattati da Stripe, non da Momentum. Il servizio licenze di Momentum riceve e conserva solo: codice del dispositivo, piano, identificativo dell'abbonamento Stripe e identificativo della licenza.</p>
+<ul>
+<li>Base giuridica: esecuzione del contratto (art. 6.1.b) e obblighi fiscali (art. 6.1.c).</li>
+<li>Conservazione: i collegamenti abbonamento-dispositivo scadono 13 mesi dopo l'ultimo periodo pagato; ricevute e fatture restano presso Stripe per i termini di legge (in Italia 10 anni). L'elenco delle licenze revocate contiene solo identificativi casuali.</li>
+<li>Nelle app per iPhone e Android gli acquisti passano da Apple e Google, secondo le loro informative.</li>
+</ul>
 
-<h2>5. Chat generica "Chiedi a Momentum" (opzionale, disattivata di default)</h2>
-<p>Questa funzione è spenta finché non la attivi tu e non inserisci una tua chiave API personale di un fornitore a tua scelta (Gemini, Groq, DeepSeek, OpenAI o Anthropic) — Momentum non fornisce una chiave propria, quindi le richieste vanno direttamente dal tuo dispositivo al fornitore che scegli, con la tua chiave.</p>
-<p>Se attiva, viene inviato il testo della tua domanda. Solo se attivi la relativa opzione viene incluso anche un riepilogo finanziario aggregato della tua situazione (es. "oggi puoi spendere 50€") — mai transazioni, esercenti o conti singoli.</p>
+<h2>5. Feedback</h2>
+<p>Se invii un feedback dall'app, il testo che scrivi viene recapitato via Formspree alla casella del titolare. Base giuridica: tua richiesta (art. 6.1.b). Conservato per il tempo necessario a rispondere e migliorare il servizio, al massimo 24 mesi.</p>
 
-<h2>6. Dati di mercato (opzionale)</h2>
-<p>Quando apri la scheda di un titolo, Momentum può interrogare fonti pubbliche per prezzi e notizie. Se non hai configurato una chiave, il riquadro TradingView mostra direttamente quotazioni e, quando necessario, notizie nel suo contenuto esterno: il fornitore riceve il simbolo cercato, l'indirizzo IP e l'URL della pagina, ma non le tue transazioni, il saldo o il portafoglio. I prezzi del riquadro non entrano nei calcoli, negli avvisi o nei modelli Momentum. I listini possono essere ritardati.</p>
-<p>Se aggiungi una tua chiave API di un fornitore di dati finanziari (es. TwelveData, Financial Modeling Prep, Finnhub, NewsAPI), Momentum la usa per scaricare prezzi/notizie pubbliche direttamente dal tuo dispositivo a quel fornitore. Non è un dato su di te: sono prezzi di mercato pubblici.</p>
+<h2>6. Dati di mercato e assistente</h2>
+<p>Aprendo un titolo, Momentum interroga fonti pubbliche (tramite il proprio dominio per SEC, notizie e comunicati delle banche centrali, oppure direttamente se aggiungi una tua chiave di un fornitore). Viene inviato il simbolo cercato e, come in ogni richiesta web, l'indirizzo IP; mai movimenti, saldi o portafoglio. Il riquadro TradingView, se mostrato, è un contenuto esterno che riceve simbolo, IP e indirizzo della pagina.</p>
+<p>"Chiedi a Momentum" e il riassunto delle notizie con un modello linguistico esterno sono spenti finché non inserisci una tua chiave: le richieste vanno dal tuo dispositivo al fornitore che scegli (Gemini, Groq, DeepSeek, OpenAI o Anthropic), che ne è titolare autonomo. Un riepilogo finanziario aggregato viene incluso solo se attivi l'opzione apposita.</p>
 
-<h2>7. I tuoi diritti</h2>
-<p>Poiché i tuoi dati finanziari non sono mai su un server, non c'è nulla da richiedere in cancellazione lato server: cancellarli sul tuo dispositivo (Impostazioni → esportazione/cancellazione dati) è definitivo e completo. Per il conteggio anonimo, disattivarlo in Impostazioni interrompe immediatamente ogni invio futuro. Per qualunque domanda, scrivimi a <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>.</p>
+<h2>7. Servizio per le aziende</h2>
+<p>Se la tua azienda usa il servizio condiviso di Momentum per trasferte e rimborsi, i resoconti che invii sono trattati per conto dell'azienda, che è titolare; Momentum agisce da responsabile (art. 28) secondo l'accordo con l'azienda.</p>
 
-<h2>8. Modifiche</h2>
-<p>Se questa pagina cambia in modo sostanziale, la data in cima verrà aggiornata. Ti consiglio di ricontrollarla ogni tanto se usi Momentum a lungo termine.</p>
+<h2>8. Destinatari e trasferimenti fuori dall'UE</h2>
+<p>Fornitori coinvolti: Cloudflare (hosting, telemetria, licenze), Stripe (pagamenti), Formspree (feedback), Google e Cloudflare (STUN). Alcuni hanno sede negli Stati Uniti: i trasferimenti avvengono sulla base della decisione di adeguatezza UE-USA del 10 luglio 2023 (Data Privacy Framework) per i fornitori certificati, altrimenti delle clausole contrattuali standard della Commissione europea.</p>
 
+<h2>9. Minori</h2>
+<p>In Italia il consenso ai servizi della società dell'informazione può essere dato dai 14 anni (art. 2-quinquies del Codice privacy). Sotto i 14 anni Momentum va usato con un genitore. L'app propone un profilo semplificato a chi dichiara meno di 18 anni e non suggerisce mai piani a pagamento ai minori.</p>
+
+<h2>10. Decisioni automatizzate</h2>
+<p>Categorie, previsioni e suggerimenti sono calcolati sul tuo dispositivo come supporto: nessuna decisione produce effetti giuridici o analoghi su di te (art. 22).</p>
+
+<h2>11. Sicurezza</h2>
+<p>Cifratura a riposo di tutti i dati personali salvati, PIN e biometria facoltativi, blocco dopo inattività, connessioni cifrate, licenze firmate e verificate sul dispositivo, nessun dato finanziario sui server.</p>
+
+<h2>12. I tuoi diritti</h2>
+<p>Hai diritto di accesso, rettifica, cancellazione, limitazione, portabilità e opposizione (artt. 15-22), e di revocare un consenso senza pregiudizio per il passato. Per i dati sul dispositivo li eserciti direttamente nell'app: esporta i dati (accesso e portabilità) oppure cancella tutto dal Vault (cancellazione, che elimina anche la chiave). Per telemetria, licenze e feedback scrivi a <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>: rispondiamo entro un mese. Puoi proporre reclamo al Garante per la protezione dei dati personali (<a href="https://www.garanteprivacy.it">garanteprivacy.it</a>) o all'autorità del Paese in cui vivi.</p>
+
+<h2>13. Modifiche</h2>
+<p>Se questa informativa cambia in modo sostanziale, la data in cima viene aggiornata e l'app lo segnala tra le novità.</p>
 </body>
 </html>

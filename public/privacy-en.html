@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Privacy Policy — Momentum</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 720px; margin: 0 auto; padding: 32px 20px 80px; line-height: 1.6; color: #1a1a1a; background: #fff; }
+  @media (prefers-color-scheme: dark) { body { color: #eee; background: #111; } a { color: #7db8ff; } }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  h2 { font-size: 1.15rem; margin-top: 2.2em; border-top: 1px solid #8883; padding-top: 1em; }
+  .aggiornato { color: #888; font-size: 0.85rem; margin-bottom: 2em; }
+  .box { background: #80808014; border-radius: 12px; padding: 14px 18px; margin: 1em 0; font-size: 0.92rem; }
+  ul { padding-left: 1.3em; }
+  li { margin-bottom: 0.5em; }
+  a { color: #0b5fff; }
+  code { background: #80808022; padding: 1px 5px; border-radius: 4px; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<p><a href="/privacy.html">Versione italiana</a></p>
+<h1>Momentum Privacy Policy</h1>
+<p class="aggiornato">Last updated: 26 September 2026</p>
+
+<p>This notice (Articles 13 and 14 of Regulation (EU) 2016/679, "GDPR") describes what Momentum's code actually does with your data. <strong>Controller</strong>: Giorgio Piredda, <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>. The Italian version prevails in case of doubt.</p>
+
+<div class="box"><strong>In short.</strong> Transactions, balances, invoices, goals and settings stay only on your device, <strong>encrypted</strong>. No Momentum server receives them. There are no accounts. The few exceptions are listed below, with legal basis and retention.</div>
+
+<h2>1. Financial and personal data on the device</h2>
+<p>What you enter (transactions, categories, invoices, tax data, goals, preferences) is stored only in your browser or app storage, encrypted with XChaCha20-Poly1305. The key is kept by the device in non-exportable form; if you enable a PIN, the key opens only with the PIN. Momentum has no copy of this data and cannot read it.</p>
+<p><strong>Face ID and fingerprint</strong> (iPhone and Android apps): recognition is performed by the operating system. Momentum never receives face images or fingerprints; it only gets permission to open the key stored in the phone's Keychain or Keystore.</p>
+
+<h2>2. Sync between your devices</h2>
+<p>If you link several of your devices, data travels directly between them (WebRTC, encrypted). To open the connection, devices use public STUN servers (Google, Cloudflare), which see only the IP address. Legal basis: performance of the service you requested (Art. 6(1)(b)). An optional mode uses a Firebase configuration you provide yourself.</p>
+
+<h2>3. Usage statistics (telemetry)</h2>
+<p>Momentum sends a random identifier generated on the device, not linked to name, email or financial data, with events from a closed list: install, monthly and daily activity, generic platform (e.g. "iOS"), source (invite or direct), features used, technical diagnostics without content. Never amounts, transactions or text you write.</p>
+<ul>
+<li>Legal basis: legitimate interest in measuring use and reliability (Art. 6(1)(f)). You can object at any time by turning it off in the Vault; sending stops immediately.</li>
+<li>Retention: 13 months for data with the random identifier, 90 days for anonymous diagnostics, 10 minutes for real-time presence.</li>
+<li>Provider: Cloudflare, Inc. (service hosting).</li>
+</ul>
+
+<h2>4. Subscriptions and licences</h2>
+<p>If you buy a plan on the website, payment takes place on <strong>Stripe</strong>'s page: card data and billing email are processed by Stripe, not by Momentum. Momentum's licence service receives and keeps only: device code, plan, Stripe subscription identifier and licence identifier.</p>
+<ul>
+<li>Legal basis: performance of the contract (Art. 6(1)(b)) and tax obligations (Art. 6(1)(c)).</li>
+<li>Retention: subscription-device links expire 13 months after the last paid period; receipts and invoices stay with Stripe for the legal period (10 years in Italy). The revoked-licence list contains only random identifiers.</li>
+<li>In the iPhone and Android apps, purchases go through Apple and Google under their own policies.</li>
+</ul>
+
+<h2>5. Feedback</h2>
+<p>If you send feedback from the app, the text you write is delivered via Formspree to the controller's mailbox. Legal basis: your request (Art. 6(1)(b)). Kept as long as needed to reply and improve the service, at most 24 months.</p>
+
+<h2>6. Market data and assistant</h2>
+<p>When you open a security, Momentum queries public sources (through its own domain for SEC filings, news and central bank releases, or directly if you add your own provider key). The searched symbol and, as with any web request, the IP address are sent; never transactions, balances or portfolio. The TradingView widget, when shown, is external content receiving symbol, IP and page address.</p>
+<p>"Ask Momentum" and news summaries with an external language model are off until you enter your own key: requests go from your device to the provider you choose (Gemini, Groq, DeepSeek, OpenAI or Anthropic), which is an independent controller. An aggregate financial summary is included only if you enable that option.</p>
+
+<h2>7. Company service</h2>
+<p>If your employer uses Momentum's shared service for trips and reimbursements, the reports you submit are processed on behalf of the company, which is the controller; Momentum acts as processor (Art. 28) under its agreement with the company.</p>
+
+<h2>8. Recipients and transfers outside the EU</h2>
+<p>Providers involved: Cloudflare (hosting, telemetry, licences), Stripe (payments), Formspree (feedback), Google and Cloudflare (STUN). Some are based in the United States: transfers rely on the EU-US adequacy decision of 10 July 2023 (Data Privacy Framework) for certified providers, otherwise on the European Commission's standard contractual clauses.</p>
+
+<h2>9. Children</h2>
+<p>In Italy, consent to information society services can be given from age 14. Under 14, Momentum should be used with a parent. The app offers a simplified profile to anyone who declares being under 18 and never suggests paid plans to minors.</p>
+
+<h2>10. Automated decisions</h2>
+<p>Categories, forecasts and suggestions are computed on your device as support: no decision produces legal or similarly significant effects on you (Art. 22).</p>
+
+<h2>11. Security</h2>
+<p>Encryption at rest of all stored personal data, optional PIN and biometrics, lock after inactivity, encrypted connections, licences signed and verified on the device, no financial data on servers.</p>
+
+<h2>12. Your rights</h2>
+<p>You have the rights of access, rectification, erasure, restriction, portability and objection (Arts. 15-22), and may withdraw consent without affecting past processing. For data on the device you exercise them directly in the app: export your data (access and portability) or delete everything from the Vault (erasure, which also destroys the key). For telemetry, licences and feedback write to <a href="mailto:giorgiopiredda96@gmail.com">giorgiopiredda96@gmail.com</a>: we reply within one month. You may lodge a complaint with the Italian Data Protection Authority (<a href="https://www.garanteprivacy.it">garanteprivacy.it</a>) or the authority where you live.</p>
+
+<h2>13. Changes</h2>
+<p>If this notice changes substantially, the date at the top is updated and the app mentions it among its release notes.</p>
+</body>
+</html>

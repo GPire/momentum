@@ -1231,3 +1231,12 @@ sicurezza, originali fatture), PIN facoltativo. Dettagli, prove e limiti in
 [encryption-at-rest-2026-09-26.md](encryption-at-rest-2026-09-26.md).
 Verificato dal vivo con la migrazione di dati reali in chiaro. Restano da
 fare biometria nativa, blocco dopo inattività e avvisi di prezzo in background.
+
+### Face ID, blocco dopo inattività, GDPR e requisiti store — 26 settembre 2026
+
+Biometria nelle app native (Keychain/Keystore protetti dalla biometria, PIN
+come riserva), blocco dopo 1/5/15 minuti verificato dal vivo in Chrome,
+informativa e termini riscritti (IT+EN), conservazione della telemetria
+limitata a 13 mesi, portale Stripe per disdire, manifesto privacy iOS. Stato
+e lavoro residuo in [store-and-gdpr-readiness-2026-09-26.md](store-and-gdpr-readiness-2026-09-26.md).
+Face ID e impronta non provati su dispositivi reali.

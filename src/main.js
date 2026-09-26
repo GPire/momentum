@@ -325,7 +325,7 @@ import { biometricAvailability, enableBiometric, unlockWithBiometric, disableBio
 import { createAutoLock, autoLockMinutes, AUTO_LOCK_CHOICES_MIN } from './core/auto-lock.js';
 import { NativeBiometric } from '@capgo/capacitor-native-biometric';
 import { deviceLicenseCode, verifyRevocationList } from './core/license.js';
-import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations } from './core/license-client.js';
+import { paymentsAvailable, startCheckout, claimLicense, needsRefresh, refreshLicense, updateRevocations, openBillingPortal } from './core/license-client.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
@@ -19722,10 +19722,12 @@ function renderProLicenseCard() {
     statusEl.innerHTML = `<p class="font-bold">${tCh('proStatusActive', __uiLang, tier === TIER_PRO_INVESTOR ? 'PRO Investor' : 'PRO')}</p><p class="mt-0.5">${scadenza ? tCh('proStatusUntil', __uiLang, scadenza) : tCh('proStatusLifetime', __uiLang)}</p>`;
     formEl.classList.add('hidden');
     deactivateBtn.classList.remove('hidden');
+    document.getElementById('pro-license-manage-btn')?.classList.toggle('hidden', window.Capacitor?.isNativePlatform?.() === true);
   } else {
     statusEl.classList.add('hidden');
     formEl.classList.remove('hidden');
     deactivateBtn.classList.add('hidden');
+    document.getElementById('pro-license-manage-btn')?.classList.add('hidden');
     // Collegamento onboarding→PRO (richiesto esplicitamente): mai un
     // blocco, solo un suggerimento onesto quando il profilo dichiarato usa
     // davvero i mercati (stesso segnale di shouldShowAnalysisTensor) —
@@ -19808,6 +19810,15 @@ document.getElementById('pro-license-activate-btn')?.addEventListener('click', a
   } finally {
     btn.disabled = false;
   }
+});
+
+document.getElementById('pro-license-manage-btn')?.addEventListener('click', async (e) => {
+  const bottone = e.currentTarget;
+  bottone.disabled = true;
+  const url = VaultDAO.state.license?.key ? await openBillingPortal(VaultDAO.state.license.key) : null;
+  bottone.disabled = false;
+  if (url) location.href = url;
+  else showToast(tCh('proManageUnavailable', __uiLang), 'info');
 });
 
 document.getElementById('pro-license-deactivate-btn')?.addEventListener('click', () => {
@@ -21150,7 +21161,7 @@ async function verificaLicenzaAvvio() {
     const compra = (tier) => async (e) => {
       const bottone = e.currentTarget;
       bottone.disabled = true;
-      try { location.href = await startCheckout({ deviceCode, tier, period: periodo }); }
+      try { location.href = await startCheckout({ deviceCode, tier, period: periodo, lang: __uiLang }); }
       catch { showToast(tCh('proBuyError', __uiLang), 'error'); bottone.disabled = false; }
     };
     document.getElementById('pro-buy-pro').addEventListener('click', compra('PRO'));
@@ -25543,6 +25554,9 @@ const startMomentum = () => {
   // i budget di calcolo: path Monte Carlo, 3D on/off.
   Promise.allSettled([VaultDAO.initDurable({ requestPin: chiediPinAvvio }), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
+    document.querySelectorAll('a[data-legal]').forEach((a) => {
+      a.href = a.dataset.legal === 'privacy' ? (__uiLang === 'it' ? '/privacy.html' : '/privacy-en.html') : (__uiLang === 'it' ? '/termini.html' : '/terms-en.html');
+    });
     if (VaultDAO.locked) avvisaVaultBloccato();
     renderVaultLockCard().catch(() => {});
     if (!VaultDAO.locked) avviaBloccoInattivita().catch(() => {});
