@@ -1,5 +1,12 @@
 # Momentum — contesto per chi subentra (persone e AI)
 
+> **Licenze per dispositivo + PRO Investor €6,99, 26 settembre 2026:** ogni
+> licenza nuova è legata al codice del dispositivo (Vault → Momentum PRO) ed
+> emessa con `bench/issue-license.mjs --device=...`; il piano si legge SOLO da
+> una licenza verificata all'avvio (`verifyStoredLicense`), mai da
+> `state.license.tier`. Verificato dal vivo in Chrome. Dettagli e limiti in
+> [pricing-decision-2026-09-21.md](docs/pricing-decision-2026-09-21.md).
+
 > **Risk-parity + ribilanciamento, 22-23 settembre 2026:** chiusa una vera
 > voce-vetrina — `risk_parity_rebalancing` (PRO_INVESTOR, subscription.js)
 > non aveva ZERO implementazione, contro la regola scritta nello stesso

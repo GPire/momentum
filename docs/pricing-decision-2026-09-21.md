@@ -129,3 +129,26 @@ Nessun sistema di fatturazione (Stripe o equivalente) è collegato: prezzi
 decisi, non ancora applicati a un flusso di pagamento reale. Serve un
 account del sistema di pagamento scelto — decisione/azione dell'utente,
 non di codice.
+
+## PRO Investor e licenze legate al dispositivo — 26 settembre 2026
+
+Decisione dell'utente: **PRO Investor €6,99/mese o €59,99/anno**
+(`PRICE_PRO_INVESTOR_*` in `src/core/subscription.js`). Resta sotto il
+pavimento personale verificato sopra (Monarch Core $8.33/mese) pur includendo
+tutto PRO; sconto annuale ~28%, allineato a PRO (~27%). Nessun sistema di
+pagamento collegato: prezzo deciso, non un flusso d'acquisto reale.
+
+Licenze personali per dispositivo, anche in regalo e a tempo: ogni licenza
+nuova porta `dev`, il codice mostrato in Vault → Momentum PRO (impronta della
+chiave di firma non esportabile del dispositivo). Emissione:
+
+    node bench/issue-license.mjs --tier=PRO --days=30 --device=ABCD-EFGH-JKMN-PQRS
+
+La stessa licenza su un altro Momentum viene rifiutata, anche offline, senza
+server. Il piano si legge solo da una licenza verificata (firma + dispositivo)
+all'avvio: backup ripristinati o stato modificato a mano non sbloccano nulla.
+Limiti dichiarati: cancellare i dati del sito o reinstallare crea un nuovo
+dispositivo e richiede una nuova licenza; in navigazione privata il codice
+cambia a ogni avvio (l'app lo segnala). Licenze emesse prima del 27/09/2026
+senza `dev` restano valide. Non è una protezione contro chi modifica il codice
+dell'app stessa: nessuna verifica solo client lo è.

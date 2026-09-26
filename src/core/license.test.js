@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { verifyLicenseKey } from './license.js';
+import { verifyLicenseKey, deviceLicenseCode, LEGACY_UNBOUND_BEFORE } from './license.js';
+
+const DEV = 'ABCD-EFGH-JKMN-PQRS';
 
 // Genera una coppia di test (mai la chiave reale di produzione, che non
 // deve mai comparire nel codice sorgente) e firma una licenza esattamente
@@ -21,18 +23,19 @@ async function firma(privateKey, payload) {
 
 test('verifyLicenseKey: licenza firmata correttamente, a vita (exp null) -> valida', async () => {
   const { privateKey, publicKeyB64 } = await coppiaDiTest();
-  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null });
-  const r = await verifyLicenseKey(licenza, { publicKeyB64 });
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV });
   assert.equal(r.valid, true);
   assert.equal(r.tier, 'PRO');
   assert.equal(r.exp, null);
+  assert.equal(r.dev, DEV);
 });
 
 test('verifyLicenseKey: licenza firmata correttamente, non ancora scaduta -> valida', async () => {
   const { privateKey, publicKeyB64 } = await coppiaDiTest();
   const tra30giorni = Date.now() + 30 * 86_400_000;
-  const licenza = await firma(privateKey, { tier: 'PRO_INVESTOR', iat: Date.now(), exp: tra30giorni });
-  const r = await verifyLicenseKey(licenza, { publicKeyB64 });
+  const licenza = await firma(privateKey, { tier: 'PRO_INVESTOR', iat: Date.now(), exp: tra30giorni, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV });
   assert.equal(r.valid, true);
   assert.equal(r.tier, 'PRO_INVESTOR');
 });
@@ -40,8 +43,8 @@ test('verifyLicenseKey: licenza firmata correttamente, non ancora scaduta -> val
 test('verifyLicenseKey: licenza scaduta -> non valida, ma tier ed exp comunque dichiarati (onesto sul perché)', async () => {
   const { privateKey, publicKeyB64 } = await coppiaDiTest();
   const ieri = Date.now() - 86_400_000;
-  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now() - 2 * 86_400_000, exp: ieri });
-  const r = await verifyLicenseKey(licenza, { publicKeyB64 });
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now() - 2 * 86_400_000, exp: ieri, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV });
   assert.equal(r.valid, false);
   assert.equal(r.scaduto, true);
   assert.equal(r.tier, 'PRO');
@@ -84,4 +87,52 @@ test('verifyLicenseKey: senza override, usa LICENSE_PUBLIC_KEY_B64 reale del pro
   const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null });
   const r = await verifyLicenseKey(licenza); // nessun publicKeyB64 passato -> usa quella reale incorporata
   assert.equal(r.valid, false);
+});
+
+test('dispositivo: la stessa licenza usata su un ALTRO Momentum è rifiutata', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: 'ZZZZ-ZZZZ-ZZZZ-ZZZZ' });
+  assert.equal(r.valid, false);
+  assert.equal(r.codice, 'altro_dispositivo');
+});
+
+test('dispositivo: senza il codice del dispositivo corrente una licenza legata non si accetta mai "sulla fiducia"', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64 });
+  assert.equal(r.valid, false);
+  assert.equal(r.codice, 'dispositivo_non_verificabile');
+});
+
+test('dispositivo: il confronto ignora maiuscole, spazi e trattini (codice dettato o ricopiato a mano)', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: Date.now(), exp: null, dev: DEV });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: ' abcd efgh-jkmn pqrs ' });
+  assert.equal(r.valid, true);
+});
+
+test('dispositivo: una nuova licenza NON legata a un dispositivo è rifiutata (non si può condividere)', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: LEGACY_UNBOUND_BEFORE, exp: null });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV });
+  assert.equal(r.valid, false);
+  assert.equal(r.codice, 'non_legata');
+});
+
+test('dispositivo: una licenza emessa PRIMA dell\'introduzione del legame resta valida (mai togliere ciò che è già stato dato)', async () => {
+  const { privateKey, publicKeyB64 } = await coppiaDiTest();
+  const licenza = await firma(privateKey, { tier: 'PRO', iat: LEGACY_UNBOUND_BEFORE - 1, exp: null });
+  const r = await verifyLicenseKey(licenza, { publicKeyB64, deviceCode: DEV });
+  assert.equal(r.valid, true);
+  assert.equal(r.dev, null);
+});
+
+test('deviceLicenseCode: deterministico, 16 caratteri leggibili in 4 gruppi, diverso per chiavi diverse', async () => {
+  const a = (await coppiaDiTest()).publicKeyB64;
+  const b = (await coppiaDiTest()).publicKeyB64;
+  const ca = await deviceLicenseCode(a);
+  assert.match(ca, /^[0-9A-HJKMNP-TV-Z]{4}(-[0-9A-HJKMNP-TV-Z]{4}){3}$/);
+  assert.equal(await deviceLicenseCode(a), ca);
+  assert.notEqual(await deviceLicenseCode(b), ca);
 });

@@ -24,6 +24,10 @@ import { verifyLicenseKey } from './license.js';
 // d'acquisto reale.
 export const PRICE_PRO_MONTHLY_EUR = 3.99;
 export const PRICE_PRO_YEARLY_EUR = 34.99;
+// PRO Investor, deciso il 2026-09-26: sotto il pavimento personale verificato
+// (Monarch Core $8.33/mese), sconto annuale allineato a PRO (~27%).
+export const PRICE_PRO_INVESTOR_MONTHLY_EUR = 6.99;
+export const PRICE_PRO_INVESTOR_YEARLY_EUR = 59.99;
 
 export const TIER_FREE = 'FREE';
 export const TIER_PRO = 'PRO';
@@ -87,11 +91,29 @@ export function recommendPlan(state = {}) {
 // "quale piano ha questo dispositivo" è vero. Una licenza scaduta
 // retrocede onestamente a FREE (mai bloccare l'app, mai fingere che sia
 // ancora valida).
+//
+// Il piano viene solo da una licenza la cui firma E il cui dispositivo sono
+// stati verificati in questa sessione (activateLicense/verifyStoredLicense):
+// una `state.license` arrivata da un backup, da un altro dispositivo o
+// modificata a mano non sblocca nulla finché non supera la verifica qui.
+let licenzaVerificata = null;
+
 export function currentTier(state = {}) {
   const lic = state?.license;
-  if (!lic?.tier || !FEATURES_PER_PIANO[lic.tier]) return TIER_FREE;
-  if (Number.isFinite(lic.exp) && Date.now() > lic.exp) return TIER_FREE;
-  return lic.tier;
+  if (!lic?.key || licenzaVerificata?.key !== lic.key) return TIER_FREE;
+  if (!FEATURES_PER_PIANO[licenzaVerificata.tier]) return TIER_FREE;
+  if (Number.isFinite(licenzaVerificata.exp) && Date.now() > licenzaVerificata.exp) return TIER_FREE;
+  return licenzaVerificata.tier;
+}
+
+// Da chiamare all'avvio, prima di mostrare funzioni a pagamento.
+export async function verifyStoredLicense(state, opts = {}) {
+  licenzaVerificata = null;
+  const lic = state?.license;
+  if (!lic?.key) return { valid: false };
+  const r = await verifyLicenseKey(lic.key, opts);
+  if (r.valid) licenzaVerificata = { key: lic.key, tier: r.tier, exp: r.exp };
+  return r;
 }
 
 export function hasFeature(state, featureKey) {
@@ -113,10 +135,12 @@ export function requiredTier(featureKey) {
 // resta responsabile di salvare lo stato dopo (VaultDAO.save()), stessa
 // disciplina di ogni altra mutazione di stato nel progetto: questa
 // funzione non ha side-effect di persistenza propri.
-export async function activateLicense(licenseKey, state) {
-  const r = await verifyLicenseKey(licenseKey);
-  if (!r.valid) return { attivata: false, motivo: r.motivo || (r.scaduto ? 'Codice scaduto.' : 'Codice non valido.') };
-  state.license = { key: licenseKey, tier: r.tier, exp: r.exp, attivataIl: Date.now() };
+export async function activateLicense(licenseKey, state, opts = {}) {
+  const key = String(licenseKey || '').trim();
+  const r = await verifyLicenseKey(key, opts);
+  if (!r.valid) return { attivata: false, codice: r.codice || null, motivo: r.motivo || (r.scaduto ? 'Codice scaduto.' : 'Codice non valido.') };
+  state.license = { key, tier: r.tier, exp: r.exp, dev: r.dev, attivataIl: Date.now() };
+  licenzaVerificata = { key, tier: r.tier, exp: r.exp };
   return { attivata: true, tier: r.tier, exp: r.exp };
 }
 
@@ -124,5 +148,6 @@ export async function activateLicense(licenseKey, state) {
 // dispositivo") — non revoca la licenza altrove, è solo locale: chi ha lo
 // stesso codice può riattivarla su un altro dispositivo o di nuovo qui.
 export function deactivateLicense(state) {
+  if (licenzaVerificata?.key === state?.license?.key) licenzaVerificata = null;
   delete state.license;
 }

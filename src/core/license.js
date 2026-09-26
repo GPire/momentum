@@ -19,8 +19,35 @@
 //
 // Formato della licenza (stringa compatta, incollabile a mano):
 //   base64url(payload JSON).base64url(firma)
-//   payload = { tier: 'PRO'|'PRO_INVESTOR', iat: <ms>, exp: <ms>|null }
+//   payload = { tier: 'PRO'|'PRO_INVESTOR', iat: <ms>, exp: <ms>|null, dev: <codice dispositivo> }
+//
+// Legame al dispositivo (2026-09-26): `dev` è l'impronta della chiave di firma
+// NON esportabile del dispositivo (mesh/device-signing-identity.js). La stessa
+// licenza incollata su un altro Momentum ha un'impronta diversa e viene
+// rifiutata, anche offline, senza nessun server che registri le attivazioni.
 'use strict';
+
+// Licenze emesse prima del legame al dispositivo: restano valide, mai
+// togliere ciò che è già stato dato. Ogni licenza più recente deve avere `dev`.
+export const LEGACY_UNBOUND_BEFORE = Date.UTC(2026, 8, 27);
+
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+export function normalizeDeviceCode(code) {
+  return String(code || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+}
+
+// 80 bit dell'SHA-256 della chiave pubblica, in base32 Crockford (niente
+// I/L/O/U: si detta e si ricopia senza ambiguità).
+export async function deviceLicenseCode(publicKeyB64url) {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', b64urlDecode(publicKeyB64url)));
+  let bits = 0, acc = 0, out = '';
+  for (const byte of hash.subarray(0, 10)) {
+    acc = (acc << 8) | byte; bits += 8;
+    while (bits >= 5) { out += CROCKFORD[(acc >> (bits - 5)) & 31]; bits -= 5; }
+  }
+  return out.match(/.{4}/g).join('-');
+}
 
 // Chiave PUBBLICA reale, generata il 2026-08-30 con
 // bench/generate-license-keypair.mjs (la chiave PRIVATA corrispondente
@@ -43,7 +70,7 @@ async function importPublicKey(b64) {
 // chiama (subscription.js) decide cosa fare col risultato. `publicKeyB64`
 // iniettabile per i test (mai testare contro la chiave reale di
 // produzione, che non deve mai comparire nel codice sorgente dei test).
-export async function verifyLicenseKey(licenseKey, { publicKeyB64 = LICENSE_PUBLIC_KEY_B64, now = Date.now() } = {}) {
+export async function verifyLicenseKey(licenseKey, { publicKeyB64 = LICENSE_PUBLIC_KEY_B64, now = Date.now(), deviceCode = null } = {}) {
   if (!licenseKey || typeof licenseKey !== 'string') return { valid: false, motivo: 'Codice di attivazione mancante.' };
   const parti = licenseKey.trim().split('.');
   if (parti.length !== 2) return { valid: false, motivo: 'Formato del codice non riconosciuto.' };
@@ -76,8 +103,16 @@ export async function verifyLicenseKey(licenseKey, { publicKeyB64 = LICENSE_PUBL
   }
   if (!firmaValida) return { valid: false, motivo: 'Codice non autentico.' };
 
-  if (Number.isFinite(payload.exp) && payload.exp !== null && now > payload.exp) {
-    return { valid: false, motivo: 'Codice scaduto.', tier: payload.tier, exp: payload.exp, scaduto: true };
+  const dev = payload.dev ? normalizeDeviceCode(payload.dev) : null;
+  if (dev) {
+    if (!normalizeDeviceCode(deviceCode)) return { valid: false, codice: 'dispositivo_non_verificabile', motivo: 'Impossibile verificare questo dispositivo.' };
+    if (normalizeDeviceCode(deviceCode) !== dev) return { valid: false, codice: 'altro_dispositivo', motivo: 'Questo codice è legato a un altro dispositivo.' };
+  } else if (!(Number(payload.iat) < LEGACY_UNBOUND_BEFORE)) {
+    return { valid: false, codice: 'non_legata', motivo: 'Codice non legato a nessun dispositivo.' };
   }
-  return { valid: true, tier: payload.tier, exp: payload.exp ?? null, iat: payload.iat ?? null };
+
+  if (Number.isFinite(payload.exp) && payload.exp !== null && now > payload.exp) {
+    return { valid: false, codice: 'scaduto', motivo: 'Codice scaduto.', tier: payload.tier, exp: payload.exp, scaduto: true };
+  }
+  return { valid: true, tier: payload.tier, exp: payload.exp ?? null, iat: payload.iat ?? null, dev: payload.dev ?? null };
 }

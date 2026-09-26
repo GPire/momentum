@@ -318,7 +318,8 @@ import { packShare, unpackShare, extractShareCode, buildInviteUrl } from './spli
 import { addMessage, contestExpense, resolveExpense, isDisputed, messagesFor, chatStatus, groupForSettlement, unreadCount } from './split/group-chat.js';
 import { valutaLivelli } from './ai/progress-milestones.js';
 import { shouldShowWhatsNew, unseenReleases, LATEST_WHATS_NEW_VERSION } from './core/whats-new.js';
-import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR } from './core/subscription.js';
+import { currentTier, hasFeature, requiredTier, activateLicense, deactivateLicense, verifyStoredLicense, recommendPlan, TIER_FREE, TIER_PRO_INVESTOR, PRICE_PRO_MONTHLY_EUR, PRICE_PRO_YEARLY_EUR, PRICE_PRO_INVESTOR_MONTHLY_EUR, PRICE_PRO_INVESTOR_YEARLY_EUR } from './core/subscription.js';
+import { deviceLicenseCode } from './core/license.js';
 import { CANONICAL_APP_ORIGIN, checksCanonicalVersion, claimVersionReload } from './pwa/update-policy.js';
 import { simulaEstinzione, confrontaStrategie, testoConfronto, testoBaseline, stressTestTasso, testoStressTasso, confrontaConsolidamento, testoConsolidamento, promoScadeTraGiorni, impattoFinePromo, testoImpattoFinePromo, testoPromoScadenza, calcolaDTI, capacitaExtraPrestito, testoDTI, testoCapacitaExtra, registraPagamento, confrontaOfferte, testoOfferta, testoMigliorOfferta } from './predict/debt-payoff.js';
 import { bankFeesSummary } from './predict/bank-fees.js';
@@ -19671,12 +19672,12 @@ window.openTrustCenter = () => {
 // piano scritta qui.
 function requireProFeature(featureKey) {
   if (hasFeature(VaultDAO.state, featureKey)) return true;
-  // PRO_INVESTOR non ha ancora un prezzo deciso: mai mostrare quello di PRO.
+  // Mai proporre PRO per una funzione che solo PRO_INVESTOR sblocca.
   const investor = requiredTier(featureKey) === TIER_PRO_INVESTOR;
   window.openModal(`
     <div class="p-5 space-y-4 text-center">
       <h3 class="text-lg font-bold">${tCh(investor ? 'featureGateInvestorTitle' : 'featureGateTitle', __uiLang)}</h3>
-      <p class="text-xs text-[var(--on-surface-secondary)]">${investor ? tCh('featureGateInvestorBody', __uiLang) : tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','))}</p>
+      <p class="text-xs text-[var(--on-surface-secondary)]">${investor ? tCh('featureGateInvestorBody', __uiLang, PRICE_PRO_INVESTOR_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_INVESTOR_YEARLY_EUR.toFixed(2).replace('.', ',')) : tCh('featureGateBody', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','))}</p>
       <button onclick="window.closeModal(); document.getElementById('pro-license-card')?.scrollIntoView({behavior:'smooth',block:'start'});" class="btn-action w-full py-3 font-bold rounded-xl">${tCh(investor ? 'featureGateInvestorCta' : 'featureGateCta', __uiLang)}</button>
       <button onclick="window.closeModal()" class="w-full py-2 text-[11px] text-[var(--on-surface-secondary)]">${tCh('featureGateDismiss', __uiLang)}</button>
     </div>`);
@@ -19699,11 +19700,16 @@ function renderProLicenseCard() {
     priceEl.classList.toggle('hidden', tier !== TIER_FREE);
     priceEl.textContent = tCh('proPriceLine', __uiLang, PRICE_PRO_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_YEARLY_EUR.toFixed(2).replace('.', ','));
   }
+  const investorPriceEl = document.getElementById('pro-investor-price');
+  if (investorPriceEl) {
+    investorPriceEl.classList.toggle('hidden', tier === TIER_PRO_INVESTOR);
+    investorPriceEl.textContent = tCh('proInvestorPriceLine', __uiLang, PRICE_PRO_INVESTOR_MONTHLY_EUR.toFixed(2).replace('.', ','), PRICE_PRO_INVESTOR_YEARLY_EUR.toFixed(2).replace('.', ','));
+  }
   if (tier !== TIER_FREE) {
     const lic = VaultDAO.state.license;
     const scadenza = lic?.exp ? new Date(lic.exp).toLocaleDateString() : null;
     statusEl.classList.remove('hidden');
-    statusEl.innerHTML = `<p class="font-bold">Piano attivo: ${tier === TIER_PRO_INVESTOR ? 'PRO Investor' : 'PRO'}</p><p class="mt-0.5">${scadenza ? `Valido fino al ${scadenza}` : 'Licenza a vita'}</p>`;
+    statusEl.innerHTML = `<p class="font-bold">${tCh('proStatusActive', __uiLang, tier === TIER_PRO_INVESTOR ? 'PRO Investor' : 'PRO')}</p><p class="mt-0.5">${scadenza ? tCh('proStatusUntil', __uiLang, scadenza) : tCh('proStatusLifetime', __uiLang)}</p>`;
     formEl.classList.add('hidden');
     deactivateBtn.classList.remove('hidden');
   } else {
@@ -19775,14 +19781,17 @@ document.getElementById('pro-license-activate-btn')?.addEventListener('click', a
   if (!code) return;
   btn.disabled = true;
   try {
-    const r = await activateLicense(code, VaultDAO.state);
+    let deviceCode = null;
+    try { deviceCode = await codiceDispositivoLicenza(); } catch { deviceCode = null; }
+    const r = await activateLicense(code, VaultDAO.state, { deviceCode });
     if (r.attivata) {
       VaultDAO.save();
       input.value = '';
-      showToast('Momentum PRO attivato — grazie!', 'success');
+      showToast(tCh('proActivatedToast', __uiLang), 'success');
       renderProLicenseCard();
     } else if (errorEl) {
-      errorEl.textContent = r.motivo || 'Codice non valido.';
+      const chiave = { altro_dispositivo: 'licenseErrOtherDevice', non_legata: 'licenseErrUnbound', scaduto: 'licenseErrExpired', dispositivo_non_verificabile: 'licenseErrDevice' }[r.codice] || 'licenseErrInvalid';
+      errorEl.textContent = tCh(chiave, __uiLang);
       errorEl.classList.remove('hidden');
     }
   } finally {
@@ -19793,7 +19802,7 @@ document.getElementById('pro-license-activate-btn')?.addEventListener('click', a
 document.getElementById('pro-license-deactivate-btn')?.addEventListener('click', () => {
   deactivateLicense(VaultDAO.state);
   VaultDAO.save();
-  showToast('Momentum PRO disattivato su questo dispositivo.', 'info');
+  showToast(tCh('proDeactivatedToast', __uiLang), 'info');
   renderProLicenseCard();
 });
 
@@ -21036,6 +21045,36 @@ let __firmaIdentitaPromise = null;
 function identitaFirma() {
   if (!__firmaIdentitaPromise) __firmaIdentitaPromise = loadOrCreateDeviceIdentity();
   return __firmaIdentitaPromise;
+}
+
+// Codice licenza del dispositivo: impronta della stessa chiave di firma non
+// esportabile usata dal mesh, quindi non si trasferisce con backup o sync.
+let __codiceLicenzaPromise = null;
+function codiceDispositivoLicenza() {
+  if (!__codiceLicenzaPromise) {
+    __codiceLicenzaPromise = identitaFirma().then(async (id) => ({ codice: await deviceLicenseCode(id.publicKey), persistente: id.persistente !== false }));
+    __codiceLicenzaPromise.catch(() => { __codiceLicenzaPromise = null; });
+  }
+  return __codiceLicenzaPromise.then((r) => r.codice);
+}
+
+async function verificaLicenzaAvvio() {
+  let info = null;
+  try { await codiceDispositivoLicenza(); info = await __codiceLicenzaPromise; } catch { info = null; }
+  const box = document.getElementById('pro-device-code-box');
+  if (info && box) {
+    document.getElementById('pro-device-code').textContent = info.codice;
+    document.getElementById('pro-device-code-volatile')?.classList.toggle('hidden', info.persistente);
+    box.classList.remove('hidden');
+    document.getElementById('pro-device-code-copy')?.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(info.codice); showToast(tCh('proDeviceCodeCopied', __uiLang), 'success'); } catch { /* il codice resta selezionabile a mano */ }
+    });
+  }
+  if (VaultDAO.state.license) {
+    await verifyStoredLicense(VaultDAO.state, { deviceCode: info?.codice || null });
+    renderProLicenseCard();
+    if (typeof renderDashboard === 'function') renderDashboard();
+  }
 }
 
 // Un aggancio già confermato con le tre parole non deve richiederle di
@@ -25244,6 +25283,7 @@ const startMomentum = () => {
   // i budget di calcolo: path Monte Carlo, 3D on/off.
   Promise.allSettled([VaultDAO.initDurable(), initDeviceProfile()]).finally(() => {
     try { initApp(); } catch (e) { console.error('initApp ha lanciato un errore non gestito, il boot si ferma qui:', e); }
+    verificaLicenzaAvvio().catch(() => {});
     bindVaultDurability({
       doc: document, win: window, vault: VaultDAO,
       storageManager: navigator.storage,

@@ -5513,7 +5513,7 @@
                   <div class="w-11 h-11 rounded-2xl bg-[var(--surface-elevated)] border border-[var(--outline)] text-[var(--primary)] flex items-center justify-center shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5z"/></svg></div>
                   <div>
                     <h3 class="font-bold text-base">Momentum PRO</h3>
-                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" id="pro-license-subtitle">Motore fiscale completo, pannello SEC, sentiment on-device e altro</p>
+                    <p class="text-xs text-[var(--on-surface-secondary)] mt-0.5" id="pro-license-subtitle" data-i18n-key="proLicenseSubtitle">Motore fiscale completo, pannello SEC, sentiment on-device e altro</p>
                   </div>
                 </div>
                 <!-- Spiegazione FREE vs PRO sempre visibile (richiesta
@@ -5529,8 +5529,9 @@
                      mai un impegno per il futuro che non controlliamo. -->
                 <div class="plan-comparison">
                   <p class="text-[11px] leading-snug"><span class="font-bold text-emerald-300" data-i18n-key="proFreeLabel">Gratis:</span> <span class="text-[var(--on-surface-secondary)]" data-i18n-key="proFreeForeverList">budget, spese, obiettivi, patrimonio netto, dividi le spese con amici.</span></p>
-                  <p class="text-[11px] leading-snug"><span class="font-bold text-[var(--gold)]" data-i18n-key="proAddsLabel">PRO aggiunge:</span> <span class="text-[var(--on-surface-secondary)]" data-i18n-key="proAddsList">fisco, pannello SEC completo, rischio di portafoglio, analisi di mercato avanzata.</span></p>
+                  <p class="text-[11px] leading-snug"><span class="font-bold text-[var(--gold)]" data-i18n-key="proAddsLabel">PRO aggiunge:</span> <span class="text-[var(--on-surface-secondary)]" data-i18n-key="proAddsList">tasse e fatture per Partita IVA (Italia, Svizzera, Spagna), pannello SEC base, sentiment sul dispositivo, sync fra i tuoi dispositivi.</span></p>
                   <p class="text-[11px] font-bold text-[var(--gold)] mt-1" id="pro-license-price">€3,99/mese oppure €34,99/anno.</p>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)]" id="pro-investor-price">PRO Investor aggiunge pannello SEC completo, confronto con i concorrenti, derivati crypto, analisi causale di un titolo e parità di rischio: €6,99/mese oppure €59,99/anno.</p>
                 </div>
                 <div id="pro-license-status" class="hidden mb-3 p-3 rounded-xl bg-emerald-950/20 border border-emerald-500/25 text-emerald-200 text-xs"></div>
                 <div id="pro-license-form" class="flex flex-col gap-2">
@@ -5539,11 +5540,20 @@
                        quando il profilo dichiarato usa davvero i mercati —
                        vedi renderProLicenseCard() in main.js. -->
                   <p id="pro-license-profile-hint" class="hidden text-[11px] text-[var(--gold)] mb-1"></p>
-                  <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" name="pro-license-input" aria-label="Incolla il codice di attivazione" />
-                  <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm">Attiva</button>
+                  <input type="text" id="pro-license-input" class="modal-input !mb-0" placeholder="Incolla il codice di attivazione" autocomplete="off" spellcheck="false" name="pro-license-input" aria-label="Incolla il codice di attivazione" data-i18n-placeholder="proLicenseInputPh" data-i18n-aria="proLicenseInputPh" />
+                  <button id="pro-license-activate-btn" class="btn-action w-full font-bold text-sm" data-i18n-key="proLicenseActivate">Attiva</button>
                   <p id="pro-license-error" class="hidden text-xs text-rose-300"></p>
                 </div>
-                <button id="pro-license-deactivate-btn" class="hidden mt-2 text-xs text-[var(--on-surface-secondary)] underline self-start">Disattiva su questo dispositivo</button>
+                <button id="pro-license-deactivate-btn" class="hidden mt-2 text-xs text-[var(--on-surface-secondary)] underline self-start" data-i18n-key="proLicenseDeactivate">Disattiva su questo dispositivo</button>
+                <div id="pro-device-code-box" class="hidden mt-4 p-3 rounded-xl border border-[var(--glass-border)]">
+                  <p class="text-[11px] font-bold" data-i18n-key="proDeviceCodeLabel">Codice di questo dispositivo</p>
+                  <div class="flex items-center gap-3 mt-1">
+                    <code id="pro-device-code" class="font-mono text-sm tracking-wider select-all"></code>
+                    <button id="pro-device-code-copy" class="text-[11px] underline text-[var(--primary)]" data-i18n-key="proDeviceCodeCopy">Copia</button>
+                  </div>
+                  <p class="text-[11px] text-[var(--on-surface-secondary)] mt-1" data-i18n-key="proDeviceCodeHint">Serve per ricevere una licenza, anche in regalo: funzionerà solo su questo dispositivo.</p>
+                  <p id="pro-device-code-volatile" class="hidden text-[11px] text-amber-300 mt-1" data-i18n-key="proDeviceCodeVolatile">In navigazione privata questo codice cambia a ogni avvio: apri Momentum in una finestra normale prima di chiedere una licenza.</p>
+                </div>
               </div>
 
               <!-- Automazione Shortcuts (iOS 17+, trigger "Wallet"/"Transaction"):

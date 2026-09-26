@@ -1194,3 +1194,21 @@ Verifica: suite 5508/5508 su Node 20, build riuscita, due gate verificati
 dal vivo. **Decisione aperta per l'utente**: prezzo di PRO Investor — senza,
 le 4 funzioni Investor sono bloccate per tutti e non acquistabili.
 Gli altri gate restano verificati solo staticamente.
+
+### Licenze legate al dispositivo + prezzo PRO Investor — 26 settembre 2026
+
+Prezzo PRO Investor deciso (€6,99/mese, €59,99/anno) e mostrato in card e
+avviso. Licenze legate al dispositivo: dettagli e limiti in
+[pricing-decision-2026-09-21.md](pricing-decision-2026-09-21.md). Corretto
+anche un problema preesistente: `currentTier` si fidava di `state.license.tier`
+senza riverificare la firma. "PRO aggiunge" elencava funzioni solo Investor
+(pannello SEC completo, analisi avanzata): ora ogni piano elenca ciò che
+sblocca davvero; card tradotta nelle 7 lingue.
+
+Verifica dal vivo in Chrome (localhost), con licenze reali emesse da
+`bench/issue-license.mjs` per 1 giorno: licenza di un altro dispositivo
+rifiutata con messaggio chiaro; licenza corretta attivata, gate risk-parity
+sbloccato, PRO Investor ancora attivo dopo il ricaricamento; eliminata solo
+la chiave del dispositivo (dati e licenza intatti) → nuovo codice, licenza
+non più valida. Bug trovato così e corretto: la verifica d'avvio girava prima
+del caricamento del Vault. Nessuna prova su dispositivi fisici o store.

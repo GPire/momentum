@@ -4,9 +4,12 @@
 // MAI da un server pubblico: non esiste un server di licensing in questo
 // progetto, per scelta (vedi src/core/license.js).
 // ============================================================
-// USO:
-//   node bench/issue-license.mjs --tier=PRO --days=365
-//   node bench/issue-license.mjs --tier=PRO_INVESTOR            (senza --days = a vita)
+// USO (--device obbligatorio: il codice che il destinatario legge in
+// Momentum Vault → Momentum PRO → "Codice di questo dispositivo"):
+//   node bench/issue-license.mjs --tier=PRO --days=365 --device=ABCD-EFGH-JKMN-PQRS
+//   node bench/issue-license.mjs --tier=PRO_INVESTOR --device=...   (senza --days = a vita)
+//   node bench/issue-license.mjs --tier=PRO --days=30 --device=... (regalo a tempo)
+// La licenza funziona solo sul dispositivo indicato: incollata altrove viene rifiutata.
 //
 // Richiede bench/license-signing-key.json (generato una volta con
 // bench/generate-license-keypair.mjs, mai committato).
@@ -31,6 +34,14 @@ if (argv('days') && (!Number.isFinite(giorni) || giorni <= 0)) {
   process.exit(1);
 }
 
+const CROCKFORD = /^[0-9A-HJKMNP-TV-Z]{16}$/;
+const device = String(argv('device') || '').toUpperCase().replace(/[^0-9A-Z]/g, '');
+if (!CROCKFORD.test(device)) {
+  console.error('--device obbligatorio: il codice di 16 caratteri mostrato dal dispositivo del destinatario (es. ABCD-EFGH-JKMN-PQRS).');
+  process.exit(1);
+}
+const deviceCode = device.match(/.{4}/g).join('-');
+
 let keyfile;
 try {
   keyfile = JSON.parse(readFileSync(new URL('./license-signing-key.json', import.meta.url), 'utf8'));
@@ -47,6 +58,7 @@ const payload = {
   tier,
   iat: Date.now(),
   exp: giorni ? Date.now() + giorni * 86_400_000 : null,
+  dev: deviceCode,
 };
 const payloadBytes = Buffer.from(JSON.stringify(payload), 'utf8');
 const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, privateKey, payloadBytes);
@@ -57,4 +69,4 @@ console.log('Licenza generata — incollala nel campo "Codice di attivazione" in
 console.log('');
 console.log(licenseKey);
 console.log('');
-console.log(`Tier: ${payload.tier} · Scadenza: ${payload.exp ? new Date(payload.exp).toISOString().slice(0, 10) : 'nessuna (a vita)'}`);
+console.log(`Tier: ${payload.tier} · Scadenza: ${payload.exp ? new Date(payload.exp).toISOString().slice(0, 10) : 'nessuna (a vita)'} · Dispositivo: ${deviceCode}`);

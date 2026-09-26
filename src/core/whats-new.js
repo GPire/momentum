@@ -700,6 +700,10 @@ RELEASES.push({
   versione: '2026-09-26',
   voci: [{ colore: 'gold', icona: '<path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>', titolo: 'Correzione: quale piano sblocca cosa', testo: 'Confronto con i concorrenti, derivati crypto, analisi causale di un titolo e parità di rischio fanno parte di PRO Investor, non di PRO: la nota del 21 settembre li elencava per errore a €3,99. Ora l\'avviso indica sempre il piano giusto.', titoloKey: 'whatsNewPlanFixTitle', testoKey: 'whatsNewPlanFixBody' }],
 });
+RELEASES.push({
+  versione: '2026-09-26b',
+  voci: [{ colore: 'purple', icona: '<rect x="6" y="2" width="12" height="20" rx="2.5"/><circle cx="12" cy="11" r="3"/><path d="M12 14v3"/>', titolo: 'Una licenza, un dispositivo', testo: 'In Vault trovi il codice di questo dispositivo: le licenze PRO, anche quelle regalate e a tempo, funzionano solo sul dispositivo per cui sono state create. PRO Investor costa €6,99/mese o €59,99/anno.', titoloKey: 'whatsNewDeviceLicenseTitle', testoKey: 'whatsNewDeviceLicenseBody' }],
+});
 export const LATEST_WHATS_NEW_VERSION = RELEASES[RELEASES.length - 1].versione;
 
 // Pura: dato lo stato salvato, dice se mostrare la schermata. Mai per un
